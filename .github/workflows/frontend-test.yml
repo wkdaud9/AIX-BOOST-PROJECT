@@ -1,0 +1,42 @@
+name: Frontend Tests
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-test.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          flutter pub get
+
+      - name: Analyze code
+        run: |
+          cd frontend
+          flutter analyze
+
+      - name: Run tests
+        run: |
+          cd frontend
+          flutter test
+
+      - name: Check formatting
+        run: |
+          cd frontend
+          dart format --set-exit-if-changed .

@@ -1,0 +1,47 @@
+name: aix_boost
+description: 군산대학교 맞춤형 공지 큐레이션 플랫폼
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI
+  cupertino_icons: ^1.0.2
+
+  # State Management
+  provider: ^6.1.1
+
+  # HTTP
+  http: ^1.1.0
+  dio: ^5.4.0
+
+  # Local Storage
+  shared_preferences: ^2.2.2
+
+  # 환경 변수
+  flutter_dotenv: ^5.1.0
+
+  # 캘린더
+  table_calendar: ^3.0.9
+
+  # 푸시 알림
+  firebase_messaging: ^14.7.6
+  firebase_core: ^2.24.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - .env

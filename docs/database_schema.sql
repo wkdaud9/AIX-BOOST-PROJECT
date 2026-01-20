@@ -1,0 +1,157 @@
+-- AIX-Boost Database Schema
+-- Supabase PostgreSQL
+
+-- 사용자 테이블 (Supabase Auth와 연동)
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email TEXT UNIQUE NOT NULL,
+    student_id TEXT UNIQUE NOT NULL,
+    department TEXT NOT NULL,
+    grade INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 사용자 선호도 테이블
+CREATE TABLE IF NOT EXISTS user_preferences (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    categories TEXT[] DEFAULT '{}',
+    keywords TEXT[] DEFAULT '{}',
+    notification_enabled BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id)
+);
+
+-- 공지사항 테이블
+CREATE TABLE IF NOT EXISTS notices (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    category TEXT NOT NULL,
+    source_url TEXT NOT NULL,
+    published_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    crawled_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    ai_summary TEXT,
+    extracted_dates DATE[],
+    is_processed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- AI 분석 결과 테이블
+CREATE TABLE IF NOT EXISTS ai_analysis (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    notice_id UUID NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    relevance_score DECIMAL(3,2) CHECK (relevance_score >= 0 AND relevance_score <= 1),
+    summary TEXT,
+    action_required BOOLEAN DEFAULT FALSE,
+    deadline TIMESTAMP WITH TIME ZONE,
+    analyzed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 추출된 이벤트 테이블
+CREATE TABLE IF NOT EXISTS extracted_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    notice_id UUID NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    event_date DATE,
+    event_time TIME,
+    location TEXT,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 캘린더 이벤트 테이블
+CREATE TABLE IF NOT EXISTS calendar_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    notice_id UUID REFERENCES notices(id) ON DELETE SET NULL,
+    extracted_event_id UUID REFERENCES extracted_events(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    start_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_date TIMESTAMP WITH TIME ZONE,
+    location TEXT,
+    is_synced BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 푸시 알림 로그 테이블
+CREATE TABLE IF NOT EXISTS notification_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    notice_id UUID REFERENCES notices(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    body TEXT,
+    sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 인덱스 생성
+CREATE INDEX idx_notices_category ON notices(category);
+CREATE INDEX idx_notices_published_at ON notices(published_at DESC);
+CREATE INDEX idx_ai_analysis_user_id ON ai_analysis(user_id);
+CREATE INDEX idx_ai_analysis_relevance ON ai_analysis(relevance_score DESC);
+CREATE INDEX idx_calendar_events_user_id ON calendar_events(user_id);
+CREATE INDEX idx_calendar_events_start_date ON calendar_events(start_date);
+CREATE INDEX idx_notification_logs_user_id ON notification_logs(user_id);
+
+-- RLS (Row Level Security) 활성화
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE calendar_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_logs ENABLE ROW LEVEL SECURITY;
+
+-- RLS 정책: 사용자는 자신의 데이터만 조회/수정 가능
+CREATE POLICY "Users can view own data" ON users
+    FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Users can update own data" ON users
+    FOR UPDATE USING (auth.uid() = id);
+
+CREATE POLICY "Users can view own preferences" ON user_preferences
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can manage own preferences" ON user_preferences
+    FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own calendar events" ON calendar_events
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can manage own calendar events" ON calendar_events
+    FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own notifications" ON notification_logs
+    FOR SELECT USING (auth.uid() = user_id);
+
+-- 공지사항은 모든 인증된 사용자가 조회 가능
+CREATE POLICY "Authenticated users can view notices" ON notices
+    FOR SELECT TO authenticated USING (TRUE);
+
+-- 자동 업데이트 트리거 함수
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- updated_at 자동 업데이트 트리거
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_user_preferences_updated_at BEFORE UPDATE ON user_preferences
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_notices_updated_at BEFORE UPDATE ON notices
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_calendar_events_updated_at BEFORE UPDATE ON calendar_events
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
