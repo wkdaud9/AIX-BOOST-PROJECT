@@ -44,9 +44,18 @@ aix-boost-project/
 
 ## 🚀 신규 팀원 빠른 시작
 
-**처음 시작하시나요?** → [QUICKSTART.md](QUICKSTART.md) 먼저 읽어보세요! (5분 소요)
+### 📚 역할별 시작 가이드 (복사-붙여넣기만 하세요!)
 
-**팀 협업 가이드** → [docs/COLLABORATION_GUIDE.md](docs/COLLABORATION_GUIDE.md) 필독
+**본인의 역할을 선택하고 가이드를 따라하세요**:
+
+- 🎨 **Frontend 개발자** → [docs/SETUP_FRONTEND.md](docs/SETUP_FRONTEND.md)
+- 🔧 **Backend API 개발자** → [docs/SETUP_BACKEND_API.md](docs/SETUP_BACKEND_API.md)
+- 🤖 **Backend AI/크롤링 개발자** → [docs/SETUP_BACKEND_AI.md](docs/SETUP_BACKEND_AI.md)
+
+### 📖 추가 문서
+- [QUICKSTART.md](QUICKSTART.md) - 전체 프로젝트 개요
+- [docs/CLAUDE_WORKFLOW.md](docs/CLAUDE_WORKFLOW.md) - Claude 자동화 워크플로우
+- [docs/COLLABORATION_GUIDE.md](docs/COLLABORATION_GUIDE.md) - 상세 협업 가이드
 
 ## 시작하기
 
