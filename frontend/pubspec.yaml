@@ -30,9 +30,9 @@ dependencies:
   # 캘린더
   table_calendar: ^3.0.9
 
-  # 푸시 알림
-  firebase_messaging: ^14.7.6
-  firebase_core: ^2.24.2
+  # 푸시 알림 (Firebase 설정 후 활성화)
+  # firebase_messaging: ^14.7.6
+  # firebase_core: ^2.24.2
 
 dev_dependencies:
   flutter_test:
