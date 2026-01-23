@@ -20,6 +20,10 @@ CORS(app)  # CORS 설정 (Flutter 웹 클라이언트와 통신)
 app.config['JSON_AS_ASCII'] = False  # 한글 JSON 응답 지원
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
 
+# Blueprint 등록 (API 라우트)
+from routes.notices import notices_bp
+app.register_blueprint(notices_bp)
+
 
 @app.route('/')
 def index():
@@ -48,5 +52,6 @@ if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV') == 'development'
 
-    print(f"🚀 AIX-Boost Backend starting on port {port}")
+    print(f"[AIX-Boost] Backend starting on port {port}")
+    print(f"[AIX-Boost] Server running at http://localhost:{port}")
     app.run(host='0.0.0.0', port=port, debug=debug)

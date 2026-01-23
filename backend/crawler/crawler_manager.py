@@ -46,8 +46,8 @@ class CrawlerManager:
         }
 
         print("\n" + "="*60)
-        print("✅ 크롤러 매니저 초기화 완료")
-        print(f"📋 관리 중인 크롤러: {', '.join(self.crawlers.keys())}")
+        print("[OK] 크롤러 매니저 초기화 완료")
+        print(f"[목록] 관리 중인 크롤러: {', '.join(self.crawlers.keys())}")
         print("="*60 + "\n")
 
     def crawl_all(self, max_pages: int = 1) -> Dict[str, List[Dict[str, Any]]]:
@@ -70,9 +70,9 @@ class CrawlerManager:
         print(f"학사/장학: {len(결과['학사/장학'])}개")
         print(f"모집공고: {len(결과['모집공고'])}개")
         """
-        print("\n" + "🚀 " + "="*56 + " 🚀")
+        print("\n" + "[시작] " + "="*54 + " [시작]")
         print("     전체 게시판 크롤링 시작")
-        print("🚀 " + "="*56 + " 🚀\n")
+        print("[시작] " + "="*54 + " [시작]\n")
 
         all_results = {}
         total_count = 0
@@ -81,7 +81,7 @@ class CrawlerManager:
         # 각 크롤러 실행
         for category, crawler in self.crawlers.items():
             print(f"\n{'─'*60}")
-            print(f"🔍 [{category}] 크롤링 시작...")
+            print(f"[검색] [{category}] 크롤링 시작...")
             print(f"{'─'*60}")
 
             try:
@@ -89,10 +89,10 @@ class CrawlerManager:
                 all_results[category] = results
                 total_count += len(results)
 
-                print(f"\n✅ [{category}] 완료: {len(results)}개 수집")
+                print(f"\n[OK] [{category}] 완료: {len(results)}개 수집")
 
             except Exception as e:
-                print(f"\n❌ [{category}] 크롤링 실패: {str(e)}")
+                print(f"\n[ERROR] [{category}] 크롤링 실패: {str(e)}")
                 all_results[category] = []
 
         # 통계 출력
@@ -100,13 +100,13 @@ class CrawlerManager:
         elapsed = (end_time - start_time).total_seconds()
 
         print("\n" + "="*60)
-        print("🎉 전체 크롤링 완료!")
+        print("[완료] 전체 크롤링 완료!")
         print("="*60)
-        print(f"\n📊 크롤링 통계:")
+        print(f"\n[통계] 크롤링 통계:")
         for category, results in all_results.items():
-            print(f"  • {category:15s}: {len(results):4d}개")
-        print(f"\n  🎯 총 합계: {total_count}개")
-        print(f"  ⏱️ 소요 시간: {elapsed:.2f}초")
+            print(f"  - {category:15s}: {len(results):4d}개")
+        print(f"\n  [총계] 총 합계: {total_count}개")
+        print(f"  [시간] 소요 시간: {elapsed:.2f}초")
         print("="*60 + "\n")
 
         return all_results
@@ -134,16 +134,16 @@ class CrawlerManager:
         if category not in self.crawlers:
             available = ', '.join(self.crawlers.keys())
             raise ValueError(
-                f"❌ 잘못된 카테고리: '{category}'\n"
+                f"[ERROR] 잘못된 카테고리: '{category}'\n"
                 f"사용 가능한 카테고리: {available}"
             )
 
-        print(f"\n🔍 [{category}] 크롤링 시작...")
+        print(f"\n[검색] [{category}] 크롤링 시작...")
 
         crawler = self.crawlers[category]
         results = crawler.crawl(max_pages=max_pages)
 
-        print(f"✅ [{category}] 완료: {len(results)}개 수집\n")
+        print(f"[OK] [{category}] 완료: {len(results)}개 수집\n")
 
         return results
 
@@ -306,11 +306,11 @@ if __name__ == "__main__":
         # 4. 통계 확인
         print("\n[4단계] 통계 확인...")
         stats = manager.get_statistics(all_results)
-        print(f"\n📊 통계:")
+        print(f"\n[통계]:")
         print(f"  총 공지: {stats['total_count']}개")
         print(f"  카테고리별:")
         for cat, count in stats['by_category'].items():
-            print(f"    • {cat}: {count}개")
+            print(f"    - {cat}: {count}개")
 
         if stats['latest_update']:
             print(f"  최신 업데이트: {stats['latest_update']}")

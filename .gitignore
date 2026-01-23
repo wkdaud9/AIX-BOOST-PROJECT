@@ -90,3 +90,6 @@ backend/crawler/cache/
 # 테스트 결과
 test-results/
 coverage/
+
+# 작업 인계 문서 (로컬 전용)
+handoff.md

@@ -58,7 +58,7 @@ class BaseCrawler:
             'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
         })
 
-        print(f"✅ {category} 크롤러 초기화 완료")
+        print(f"[OK] {category} 크롤러 초기화 완료")
 
     def fetch_page(self, url: str, params: Optional[Dict] = None) -> Optional[BeautifulSoup]:
         """
@@ -78,7 +78,7 @@ class BaseCrawler:
         제목 = soup.find("h1").text
         """
         try:
-            print(f"📄 페이지 요청 중: {url}")
+            print(f"[페이지] 페이지 요청 중: {url}")
 
             # 웹 페이지 요청
             response = self.session.get(url, params=params, timeout=10)
@@ -96,10 +96,10 @@ class BaseCrawler:
             return soup
 
         except requests.exceptions.Timeout:
-            print(f"⏰ 타임아웃: {url}")
+            print(f"[타임아웃] {url}")
             return None
         except requests.exceptions.RequestException as e:
-            print(f"❌ 페이지 요청 실패: {str(e)}")
+            print(f"[ERROR] 페이지 요청 실패: {str(e)}")
             return None
 
     def parse_date(self, date_str: str) -> Optional[datetime]:
@@ -141,7 +141,7 @@ class BaseCrawler:
             except ValueError:
                 continue
 
-        print(f"⚠️ 날짜 파싱 실패: {date_str}")
+        print(f"[WARNING] 날짜 파싱 실패: {date_str}")
         return None
 
     def clean_text(self, text: str) -> str:
