@@ -45,8 +45,8 @@ class RecruitmentCrawler(NoticeCrawler):
         # 부모 클래스 초기화 (카테고리만 변경)
         BaseCrawler.__init__(self, base_url=self.BASE_URL, category="모집공고")
 
-        print(f"✅ 모집공고 크롤러 초기화 완료")
-        print(f"ℹ️ 게시판 ID: {self.BOARD_PARAMS['boardId']}")
+        print(f"[OK] 모집공고 크롤러 초기화 완료")
+        print(f"[INFO] 게시판 ID: {self.BOARD_PARAMS['boardId']}")
 
 
 # Import를 위해 필요

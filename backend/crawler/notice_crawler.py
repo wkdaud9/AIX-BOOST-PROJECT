@@ -76,7 +76,7 @@ class NoticeCrawler(BaseCrawler):
             print(f"작성일: {notice['published_at']}")
         """
         print(f"\n{'='*50}")
-        print(f"📢 공지사항 크롤링 시작 (최대 {max_pages}페이지)")
+        print(f"[크롤링] 공지사항 크롤링 시작 (최대 {max_pages}페이지)")
         print(f"{'='*50}\n")
 
         all_notices = []
@@ -93,17 +93,17 @@ class NoticeCrawler(BaseCrawler):
             soup = self.fetch_page(self.LIST_URL, params=params)
 
             if not soup:
-                print(f"⚠️ 페이지 {page} 로드 실패")
+                print(f"[WARNING] 페이지 {page} 로드 실패")
                 continue
 
             # 공지사항 목록 추출
             notices = self._extract_notice_list(soup)
 
             if not notices:
-                print(f"ℹ️ 페이지 {page}에서 공지사항을 찾지 못했습니다")
+                print(f"[INFO] 페이지 {page}에서 공지사항을 찾지 못했습니다")
                 break
 
-            print(f"✅ {len(notices)}개 공지사항 발견")
+            print(f"[OK] {len(notices)}개 공지사항 발견")
 
             # 각 공지사항의 상세 정보 가져오기
             for i, notice_preview in enumerate(notices, 1):
@@ -115,10 +115,10 @@ class NoticeCrawler(BaseCrawler):
                 if detail:
                     all_notices.append(detail)
 
-            print(f"✅ 페이지 {page} 크롤링 완료: {len(notices)}개")
+            print(f"[OK] 페이지 {page} 크롤링 완료: {len(notices)}개")
 
         print(f"\n{'='*50}")
-        print(f"✅ 전체 크롤링 완료: 총 {len(all_notices)}개 공지사항")
+        print(f"[완료] 전체 크롤링 완료: 총 {len(all_notices)}개 공지사항")
         print(f"{'='*50}\n")
 
         return all_notices
@@ -188,7 +188,7 @@ class NoticeCrawler(BaseCrawler):
                 })
 
             except Exception as e:
-                print(f"    ⚠️ 목록 항목 파싱 실패: {str(e)}")
+                print(f"    [WARNING] 목록 항목 파싱 실패: {str(e)}")
                 continue
 
         return notices
@@ -287,7 +287,7 @@ class NoticeCrawler(BaseCrawler):
             return notice_data
 
         except Exception as e:
-            print(f"    ❌ 상세 페이지 파싱 실패: {str(e)}")
+            print(f"    [ERROR] 상세 페이지 파싱 실패: {str(e)}")
             return None
 
 
