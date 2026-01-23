@@ -11,6 +11,7 @@ class Notice {
   final List<String> tags;
   final bool isBookmarked;
   final DateTime? deadline; // 마감일 (있는 경우)
+  final String? author; // 작성자 또는 작성 부서
 
   Notice({
     required this.id,
@@ -24,6 +25,7 @@ class Notice {
     this.tags = const [],
     this.isBookmarked = false,
     this.deadline,
+    this.author,
   });
 
   /// JSON에서 Notice 객체 생성 (Backend API 응답 매핑)
@@ -31,19 +33,16 @@ class Notice {
     // Backend API 응답 필드:
     // - published_at → date
     // - source_url → url
-    // - created_at으로 isNew 판단 (3일 이내)
+    // - view_count → views
+    // - author → author
 
     final publishedAt = json['published_at'] != null
         ? DateTime.parse(json['published_at'] as String)
         : DateTime.now();
 
-    final createdAt = json['created_at'] != null
-        ? DateTime.parse(json['created_at'] as String)
-        : DateTime.now();
-
-    // 생성일 기준 3일 이내면 새 공지사항으로 표시
-    final daysSinceCreation = DateTime.now().difference(createdAt).inDays;
-    final isNew = daysSinceCreation <= 3;
+    // 게시일 기준 3일 이내면 새 공지사항으로 표시
+    final daysSincePublished = DateTime.now().difference(publishedAt).inDays;
+    final isNew = daysSincePublished <= 3;
 
     return Notice(
       id: json['id'] as String,
@@ -53,12 +52,13 @@ class Notice {
       date: publishedAt,
       url: json['source_url'] as String?,
       isNew: isNew,
-      views: json['views'] as int? ?? 0,
+      views: json['view_count'] as int? ?? 0, // DB의 view_count 필드 사용
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
       isBookmarked: json['is_bookmarked'] as bool? ?? false,
       deadline: json['deadline'] != null
           ? DateTime.parse(json['deadline'] as String)
           : null,
+      author: json['author'] as String?, // 작성자 필드 추가
     );
   }
 
@@ -92,6 +92,7 @@ class Notice {
     List<String>? tags,
     bool? isBookmarked,
     DateTime? deadline,
+    String? author,
   }) {
     return Notice(
       id: id ?? this.id,
@@ -105,6 +106,7 @@ class Notice {
       tags: tags ?? this.tags,
       isBookmarked: isBookmarked ?? this.isBookmarked,
       deadline: deadline ?? this.deadline,
+      author: author ?? this.author,
     );
   }
 

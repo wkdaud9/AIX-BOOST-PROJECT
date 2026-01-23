@@ -33,6 +33,10 @@ CREATE TABLE IF NOT EXISTS notices (
     source_url TEXT NOT NULL,
     published_at TIMESTAMP WITH TIME ZONE NOT NULL,
     crawled_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    author TEXT,                                -- 작성자 또는 작성 부서명
+    view_count INTEGER DEFAULT 0,              -- 원본 사이트의 조회수
+    original_id TEXT UNIQUE,                   -- 원본 웹사이트의 게시물 고유 번호 (중복 체크용)
+    attachments TEXT[],                        -- 첨부파일 다운로드 URL 배열
     ai_summary TEXT,
     extracted_dates DATE[],
     is_processed BOOLEAN DEFAULT FALSE,
@@ -96,6 +100,8 @@ CREATE TABLE IF NOT EXISTS notification_logs (
 -- 인덱스 생성
 CREATE INDEX idx_notices_category ON notices(category);
 CREATE INDEX idx_notices_published_at ON notices(published_at DESC);
+CREATE INDEX idx_notices_original_id ON notices(original_id);
+CREATE INDEX idx_notices_author ON notices(author);
 CREATE INDEX idx_ai_analysis_user_id ON ai_analysis(user_id);
 CREATE INDEX idx_ai_analysis_relevance ON ai_analysis(relevance_score DESC);
 CREATE INDEX idx_calendar_events_user_id ON calendar_events(user_id);
@@ -133,6 +139,12 @@ CREATE POLICY "Users can view own notifications" ON notification_logs
 -- 공지사항은 모든 인증된 사용자가 조회 가능
 CREATE POLICY "Authenticated users can view notices" ON notices
     FOR SELECT TO authenticated USING (TRUE);
+
+-- 컬럼 설명 추가
+COMMENT ON COLUMN notices.author IS '작성자 또는 작성 부서명';
+COMMENT ON COLUMN notices.view_count IS '원본 사이트의 조회수';
+COMMENT ON COLUMN notices.original_id IS '원본 웹사이트의 게시물 고유 번호 (중복 체크용)';
+COMMENT ON COLUMN notices.attachments IS '첨부파일 다운로드 URL 배열';
 
 -- 자동 업데이트 트리거 함수
 CREATE OR REPLACE FUNCTION update_updated_at_column()

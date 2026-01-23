@@ -20,7 +20,11 @@ class NoticeProvider with ChangeNotifier {
   /// 맞춤 공지사항 가져오기 (사용자 관심사 기반)
   List<Notice> get customizedNotices {
     // TODO: 실제로는 백엔드 API에서 사용자 맞춤 공지사항을 가져옴
-    return _notices.where((notice) => notice.isNew).toList();
+    // 백엔드에서 이미 published_at 기준으로 정렬되어 오므로, 순서 유지
+    final newNotices = _notices.where((notice) => notice.isNew).toList();
+    // published_at 기준 내림차순 정렬 (최신순)
+    newNotices.sort((a, b) => b.date.compareTo(a.date));
+    return newNotices;
   }
 
   /// 인기 공지사항 가져오기 (조회수 기준)
