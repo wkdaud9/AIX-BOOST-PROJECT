@@ -62,6 +62,15 @@ class SupabaseService:
                 if isinstance(published_at, datetime):
                     published_at = published_at.isoformat()
 
+                # original_id 추출 (URL에서 dataSid 추출)
+                original_id = notice.get("notice_id") or notice.get("original_id")
+                if not original_id and notice.get("source_url"):
+                    # URL에서 dataSid 추출
+                    import re
+                    match = re.search(r'dataSid=(\d+)', notice.get("source_url"))
+                    if match:
+                        original_id = match.group(1)
+
                 notice_data = {
                     "title": notice.get("title"),
                     "content": notice.get("content"),
@@ -69,14 +78,24 @@ class SupabaseService:
                     "source_url": notice.get("source_url"),
                     "published_at": published_at,
                     "crawled_at": datetime.now().isoformat(),
-                    "is_processed": False
+                    "is_processed": False,
+                    "author": notice.get("author"),
+                    "view_count": notice.get("views"),
+                    "original_id": original_id,
+                    "attachments": notice.get("attachments", [])
                 }
 
-                # 중복 체크 (source_url 기준)
-                existing = self.client.table("notices")\
-                    .select("id")\
-                    .eq("source_url", notice_data["source_url"])\
-                    .execute()
+                # 중복 체크 (original_id 우선, 없으면 source_url 사용)
+                if original_id:
+                    existing = self.client.table("notices")\
+                        .select("id")\
+                        .eq("original_id", original_id)\
+                        .execute()
+                else:
+                    existing = self.client.table("notices")\
+                        .select("id")\
+                        .eq("source_url", notice_data["source_url"])\
+                        .execute()
 
                 if existing.data:
                     duplicate_count += 1

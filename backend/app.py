@@ -24,6 +24,11 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
 from routes.notices import notices_bp
 app.register_blueprint(notices_bp)
 
+# 스케줄러 초기화 (1시간마다 자동 크롤링)
+from services.scheduler_service import SchedulerService
+scheduler = SchedulerService()
+scheduler.start()
+
 
 @app.route('/')
 def index():
@@ -44,6 +49,19 @@ def health_check():
         "status": "success",
         "data": {
             "health": "ok"
+        }
+    })
+
+
+@app.route('/scheduler/status')
+def scheduler_status():
+    """스케줄러 상태 확인 엔드포인트"""
+    jobs = scheduler.get_jobs()
+    return jsonify({
+        "status": "success",
+        "data": {
+            "is_running": scheduler.is_running,
+            "jobs": jobs
         }
     })
 

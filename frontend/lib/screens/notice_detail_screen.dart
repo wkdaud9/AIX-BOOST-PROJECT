@@ -181,35 +181,65 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
           const SizedBox(height: AppSpacing.md),
 
           // 메타 정보
-          Row(
+          Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.sm,
             children: [
-              Icon(
-                Icons.calendar_today,
-                size: 16,
-                color: AppTheme.textSecondary,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.calendar_today,
+                    size: 16,
+                    color: AppTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _notice!.formattedDate,
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 4),
-              Text(
-                _notice!.formattedDate,
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 14,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.visibility,
+                    size: 16,
+                    color: AppTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${_notice!.views}',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+              if (_notice!.author != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.person_outline,
+                      size: 16,
+                      color: AppTheme.textSecondary,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _notice!.author!,
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Icon(
-                Icons.visibility,
-                size: 16,
-                color: AppTheme.textSecondary,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '${_notice!.views}',
-                style: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 14,
-                ),
-              ),
             ],
           ),
 

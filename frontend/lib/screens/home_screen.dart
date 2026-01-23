@@ -182,6 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 'date': notice.formattedDate,
                 'isNew': notice.isNew,
                 'views': notice.views,
+                'author': notice.author,
               });
             },
           ),
@@ -223,6 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
               'date': notice.formattedDate,
               'isNew': notice.isNew,
               'views': notice.views,
+              'author': notice.author,
             });
           }).toList(),
         );
@@ -309,6 +311,30 @@ class _HomeScreenState extends State<HomeScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const Spacer(),
+                // 작성자 (있는 경우)
+                if (notice['author'] != null) ...[
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.person_outline,
+                        size: 14,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          notice['author'] as String,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                ],
                 // 날짜와 조회수
                 Row(
                   children: [
@@ -450,6 +476,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ],
               ),
+              // 작성자 (있는 경우)
+              if (notice['author'] != null) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.person_outline,
+                      size: 14,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      notice['author'] as String,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
