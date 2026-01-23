@@ -231,46 +231,77 @@ class NoticeCrawler(BaseCrawler):
             # 제목 추출
             title = notice_preview.get('title', '')
 
-            # 본문 내용 추출
+            # 본문 내용 추출 (div.bv_content_text에서만 추출)
             content_elem = (
+                soup.select_one('div.bv_content_text') or
                 soup.select_one('.board-view-content') or
                 soup.select_one('.view-content') or
-                soup.select_one('.cont_box') or
-                soup.select_one('#content') or
-                soup.select_one('.content')
+                soup.select_one('.cont_box')
             )
 
             content = self.clean_text(content_elem.get_text()) if content_elem else ""
 
-            # 본문이 너무 짧으면 전체 텍스트 사용
+            # 본문이 너무 짧으면 경고만 출력 (전체 텍스트 사용 안 함)
             if len(content) < 50:
-                content = self.clean_text(soup.get_text())
+                print(f"    [WARNING] 본문이 너무 짧음: {title[:30]}... (길이: {len(content)})")
 
-            # 작성일 파싱
-            date_str = notice_preview.get('date', '')
+            # 작성일 추출 (상세 페이지의 div.bv_txt01에서)
+            date_str = None
+            author = None
+            views = None
+
+            bv_txt01 = soup.select_one('div.bv_txt01')
+            if bv_txt01:
+                import re
+                for span in bv_txt01.find_all('span'):
+                    span_text = span.get_text()
+
+                    # 작성일 추출: "작성일 : 2026-01-22"
+                    if '작성일' in span_text:
+                        date_match = re.search(r'(\d{4}-\d{2}-\d{2})', span_text)
+                        if date_match:
+                            date_str = date_match.group(1)
+
+                    # 작성자 추출: "작성자 : 총무과"
+                    elif '작성자' in span_text:
+                        author_match = re.search(r'작성자\s*:\s*(.+)', span_text)
+                        if author_match:
+                            author = author_match.group(1).strip()
+
+                    # 조회수 추출: "조회수 : 160"
+                    elif '조회수' in span_text:
+                        views_match = re.search(r'(\d+)', span_text)
+                        if views_match:
+                            views = int(views_match.group(1))
+
+            # 상세 페이지에서 못 찾으면 목록에서 가져온 날짜 사용
+            if not date_str:
+                date_str = notice_preview.get('date', '')
+
+            # 날짜 파싱
             published_at = self.parse_date(date_str)
 
-            # 파싱 실패 시 현재 날짜 사용
+            # 파싱 실패 시 경고 로그 출력 후 현재 시간 사용
             if not published_at:
+                print(f"    [WARNING] 작성일 파싱 실패 (현재 시간 사용): {title[:30]}...")
                 published_at = datetime.now()
 
-            # 작성자 추출
-            author_elem = soup.select_one('.writer') or soup.select_one('.author')
-            author = self.clean_text(author_elem.get_text()) if author_elem else None
+            # 첨부파일 URL 추출 (div.bv_file01에서)
+            attachments = []
+            bv_file01 = soup.select_one('div.bv_file01')
+            if bv_file01:
+                # a.down_window 링크들 추출
+                for link in bv_file01.select('a.down_window'):
+                    href = link.get('href', '')
+                    if href:
+                        # 상대 경로면 절대 경로로 변환
+                        if not href.startswith('http'):
+                            href = self.BASE_URL + href
+                        attachments.append(href)
 
-            # 조회수 추출
-            views_elem = soup.select_one('.view-count') or soup.select_one('.hit')
-            views = None
-            if views_elem:
-                views_text = views_elem.get_text()
-                # 숫자만 추출
-                import re
-                views_match = re.search(r'\d+', views_text)
-                if views_match:
-                    views = int(views_match.group())
-
-            # 첨부파일 URL 추출
-            attachments = self.extract_attachment_urls(soup)
+            # 첨부파일을 못 찾았으면 기존 방식으로 시도
+            if not attachments:
+                attachments = self.extract_attachment_urls(soup)
 
             # 데이터 저장 형식으로 변환
             notice_data = self.save_to_dict(

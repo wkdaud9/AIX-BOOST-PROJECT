@@ -1,8 +1,11 @@
 import 'package:flutter/foundation.dart';
 import '../models/notice.dart';
+import '../services/api_service.dart';
 
 /// 공지사항 상태 관리 Provider
 class NoticeProvider with ChangeNotifier {
+  final ApiService _apiService = ApiService();
+
   List<Notice> _notices = [];
   List<Notice> _bookmarkedNotices = [];
   bool _isLoading = false;
@@ -49,14 +52,11 @@ class NoticeProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // TODO: 실제 백엔드 API 호출로 교체
-      // final response = await http.get(Uri.parse('$baseUrl/api/notices'));
-      // final data = json.decode(response.body);
-      // _notices = (data['notices'] as List).map((json) => Notice.fromJson(json)).toList();
+      // 실제 백엔드 API 호출
+      final noticesData = await _apiService.getNotices(limit: 100);
 
-      // 임시 더미 데이터
-      await Future.delayed(const Duration(seconds: 1));
-      _notices = _getDummyNotices();
+      // Notice 객체로 변환
+      _notices = noticesData.map((json) => Notice.fromJson(json)).toList();
 
       // 북마크된 공지사항 필터링
       _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
@@ -67,6 +67,15 @@ class NoticeProvider with ChangeNotifier {
       _error = '공지사항을 불러오는데 실패했습니다: $e';
       _isLoading = false;
       notifyListeners();
+
+      // 에러 발생 시 더미 데이터 사용 (개발용)
+      if (kDebugMode) {
+        print('API 에러 발생, 더미 데이터 사용: $e');
+        _notices = _getDummyNotices();
+        _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
+        _error = null; // 더미 데이터 사용 시 에러 초기화
+        notifyListeners();
+      }
     }
   }
 
@@ -95,20 +104,36 @@ class NoticeProvider with ChangeNotifier {
   /// 공지사항 상세 조회 (조회수 증가)
   Future<Notice?> getNoticeDetail(String noticeId) async {
     try {
-      // TODO: 백엔드 API 호출
-      // final response = await http.get(Uri.parse('$baseUrl/api/notices/$noticeId'));
+      // 백엔드 API 호출
+      final noticeData = await _apiService.getNoticeById(noticeId);
+      final notice = Notice.fromJson(noticeData);
 
-      final notice = _notices.firstWhere((n) => n.id == noticeId);
-
-      // 조회수 증가
+      // 로컬 상태 업데이트
       final index = _notices.indexWhere((n) => n.id == noticeId);
-      _notices[index] = notice.copyWith(views: notice.views + 1);
-      notifyListeners();
+      if (index != -1) {
+        _notices[index] = notice;
+        notifyListeners();
+      }
 
-      return _notices[index];
+      return notice;
     } catch (e) {
       _error = '공지사항을 불러오는데 실패했습니다: $e';
       notifyListeners();
+
+      // 에러 발생 시 로컬 데이터 반환 (개발용)
+      if (kDebugMode) {
+        print('API 에러 발생, 로컬 데이터 사용: $e');
+        try {
+          final notice = _notices.firstWhere((n) => n.id == noticeId);
+          final index = _notices.indexWhere((n) => n.id == noticeId);
+          _notices[index] = notice.copyWith(views: notice.views + 1);
+          notifyListeners();
+          return _notices[index];
+        } catch (_) {
+          return null;
+        }
+      }
+
       return null;
     }
   }

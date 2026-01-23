@@ -26,16 +26,33 @@ class Notice {
     this.deadline,
   });
 
-  /// JSON에서 Notice 객체 생성
+  /// JSON에서 Notice 객체 생성 (Backend API 응답 매핑)
   factory Notice.fromJson(Map<String, dynamic> json) {
+    // Backend API 응답 필드:
+    // - published_at → date
+    // - source_url → url
+    // - created_at으로 isNew 판단 (3일 이내)
+
+    final publishedAt = json['published_at'] != null
+        ? DateTime.parse(json['published_at'] as String)
+        : DateTime.now();
+
+    final createdAt = json['created_at'] != null
+        ? DateTime.parse(json['created_at'] as String)
+        : DateTime.now();
+
+    // 생성일 기준 3일 이내면 새 공지사항으로 표시
+    final daysSinceCreation = DateTime.now().difference(createdAt).inDays;
+    final isNew = daysSinceCreation <= 3;
+
     return Notice(
       id: json['id'] as String,
       title: json['title'] as String,
       content: json['content'] as String,
       category: json['category'] as String,
-      date: DateTime.parse(json['date'] as String),
-      url: json['url'] as String?,
-      isNew: json['is_new'] as bool? ?? false,
+      date: publishedAt,
+      url: json['source_url'] as String?,
+      isNew: isNew,
       views: json['views'] as int? ?? 0,
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
       isBookmarked: json['is_bookmarked'] as bool? ?? false,
