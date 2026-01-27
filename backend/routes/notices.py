@@ -10,12 +10,14 @@ from flask import Blueprint, request, jsonify
 from typing import Dict, Any
 from services.supabase_service import SupabaseService
 from crawler.crawler_manager import CrawlerManager
+from utils.auth_middleware import login_required
 
 # Blueprint 생성 (URL 접두사: /api/notices)
 notices_bp = Blueprint('notices', __name__, url_prefix='/api/notices')
 
 
 @notices_bp.route('/crawl', methods=['POST'])
+@login_required
 def crawl_and_save():
     """
     공지사항을 크롤링하고 DB에 저장합니다
@@ -213,6 +215,7 @@ def get_notice(notice_id):
 
 
 @notices_bp.route('/<notice_id>', methods=['DELETE'])
+@login_required
 def delete_notice(notice_id):
     """
     공지사항을 삭제합니다
