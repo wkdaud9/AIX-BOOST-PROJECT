@@ -5,9 +5,19 @@ import 'screens/home_screen.dart';
 import 'theme/app_theme.dart';
 import 'providers/notice_provider.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'services/auth_service.dart';
+import 'services/api_service.dart';
+
 Future<void> main() async {
   // .env 파일 로드
   await dotenv.load(fileName: ".env");
+
+  // Supabase 초기화
+  await Supabase.initialize(
+    url: dotenv.env['SUPABASE_URL'] ?? '',
+    anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
+  );
 
   runApp(const AIXBoostApp());
 }
@@ -19,7 +29,21 @@ class AIXBoostApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => NoticeProvider()),
+        // 1. ApiService 생성 (모든 통신의 기초)
+        Provider<ApiService>(
+          create: (_) => ApiService(),
+        ),
+        // 2. AuthService 생성 (ApiService 의존)
+        ChangeNotifierProxyProvider<ApiService, AuthService>(
+          create: (context) => AuthService(context.read<ApiService>()),
+          update: (_, apiService, __) => AuthService(apiService),
+        ),
+        // 3. NoticeProvider 생성 (ApiService 의존)
+        ChangeNotifierProxyProvider<ApiService, NoticeProvider>(
+          create: (context) => NoticeProvider(apiService: context.read<ApiService>()),
+          update: (_, apiService, previous) => 
+              previous ?? NoticeProvider(apiService: apiService),
+        ),
       ],
       child: MaterialApp(
         title: 'AIX-Boost',

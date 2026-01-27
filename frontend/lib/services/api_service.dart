@@ -19,6 +19,28 @@ class ApiService {
     ));
   }
 
+  /// 인증 토큰 설정
+  void setToken(String? token) {
+    if (token != null) {
+      _dio.options.headers['Authorization'] = 'Bearer $token';
+    } else {
+      _dio.options.headers.remove('Authorization');
+    }
+  }
+
+  /// 관리자: 공지사항 크롤링 수동 실행
+  Future<Map<String, dynamic>> crawlNotices({int maxPages = 1, List<String>? categories}) async {
+    try {
+      final response = await _dio.post('/api/notices/crawl', data: {
+        'max_pages': maxPages,
+        'categories': categories,
+      });
+      return _handleResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// 헬스 체크 API 호출
   Future<Map<String, dynamic>> healthCheck() async {
     try {

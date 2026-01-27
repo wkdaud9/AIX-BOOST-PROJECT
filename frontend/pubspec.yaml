@@ -29,6 +29,7 @@ dependencies:
 
   # 캘린더
   table_calendar: ^3.0.9
+  supabase_flutter: ^2.12.0
 
   # 푸시 알림 (Firebase 설정 후 활성화)
   # firebase_messaging: ^14.7.6

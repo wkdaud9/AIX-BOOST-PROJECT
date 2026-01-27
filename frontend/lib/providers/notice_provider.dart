@@ -4,7 +4,10 @@ import '../services/api_service.dart';
 
 /// 공지사항 상태 관리 Provider
 class NoticeProvider with ChangeNotifier {
-  final ApiService _apiService = ApiService();
+  final ApiService _apiService;
+
+  NoticeProvider({ApiService? apiService})
+      : _apiService = apiService ?? ApiService();
 
   List<Notice> _notices = [];
   List<Notice> _bookmarkedNotices = [];
