@@ -75,13 +75,23 @@ def secret_action():
 
 ### 현재 보호되고 있는 API
 다음 API들은 반드시 **로그인한 사용자(유효한 토큰 보유자)**만 호출할 수 있습니다.
+
+#### 공지사항 관리
 - `POST /api/notices/crawl`: 공지사항 크롤링 트리거
 - `DELETE /api/notices/<id>`: 공지사항 삭제
+
+#### 사용자 프로필 관리 (본인 계정만 접근 가능)
+- `GET /api/users/profile/<user_id>`: 사용자 프로필 조회
+- `PUT /api/users/preferences/<user_id>`: 사용자 선호도(카테고리) 변경
+- `DELETE /api/users/profile/<user_id>`: 사용자 계정 삭제
+
+> **중요**: 위 사용자 API들은 로그인한 사용자의 ID와 요청하는 `user_id`가 일치해야만 접근 가능합니다. 다른 사용자의 정보에는 접근할 수 없습니다.
 
 ### 공개된 API (Public)
 다음 API들은 로그인 없이 호출 가능합니다.
 - `GET /api/notices`: 공지사항 목록 조회
 - `GET /api/notices/<id>`: 상세 조회
+- `POST /api/users/profile`: 회원가입 후 사용자 프로필 생성
 - `GET /health`: 서버 헬스 체크
 
 ---
