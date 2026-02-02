@@ -2,13 +2,91 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 
 /// 마이페이지 화면 - 사용자 설정 및 정보
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  Map<String, dynamic>? _userProfile;
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  /// 사용자 프로필 로드
+  Future<void> _loadUserProfile() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      final authService = context.read<AuthService>();
+      final apiService = context.read<ApiService>();
+
+      if (authService.currentUser == null) {
+        throw Exception('로그인이 필요합니다.');
+      }
+
+      final userId = authService.currentUser!.id;
+      final profileData = await apiService.getUserProfile(userId);
+
+      setState(() {
+        _userProfile = profileData;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              size: 64,
+              color: AppTheme.errorColor,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              style: const TextStyle(color: AppTheme.errorColor),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _loadUserProfile,
+              icon: const Icon(Icons.refresh),
+              label: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      );
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
@@ -53,22 +131,124 @@ class ProfileScreen extends StatelessWidget {
 
           const SizedBox(height: AppSpacing.lg),
 
-          // 관심 카테고리
-          _buildSection(
-            context,
-            title: '관심 카테고리',
-            items: [
-              _buildSettingTile(
-                context,
-                icon: Icons.category_outlined,
-                title: '관심 카테고리 설정',
-                subtitle: '맞춤 공지사항을 위한 카테고리 선택',
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  _showCategoryDialog(context);
-                },
+          // 관심 카테고리 (강조된 박스 디자인)
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                width: 2,
               ),
-            ],
+            ),
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 헤더 섹션
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.star_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '관심 카테고리',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryColor,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '맞춤 공지사항을 위한 카테고리 선택',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: AppTheme.textSecondary,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: AppSpacing.lg),
+
+                // 현재 선택된 카테고리 표시
+                if (_userProfile?['preferences']?['categories'] != null) ...[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: (_userProfile!['preferences']['categories']
+                            as List<dynamic>)
+                        .map((category) => category as String)
+                        .map((category) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          category,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+
+                // 카테고리 변경 버튼
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      _showCategoryDialog(context);
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('카테고리 변경하기'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.md,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
 
           const SizedBox(height: AppSpacing.lg),
@@ -133,6 +313,11 @@ class ProfileScreen extends StatelessWidget {
 
   /// 사용자 프로필 카드
   Widget _buildUserProfile(BuildContext context) {
+    final user = _userProfile?['user'];
+    final name = user?['name'] ?? '이름 없음';
+    final department = user?['department'] ?? '학과 정보 없음';
+    final email = user?['email'] ?? '';
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -157,14 +342,14 @@ class ProfileScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '군산대학교 학생',
+                    '$department $name',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'student@kunsan.ac.kr',
+                    email,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppTheme.textSecondary,
                         ),
@@ -260,17 +445,21 @@ class ProfileScreen extends StatelessWidget {
       '기타',
     ];
 
-    final selectedCategories = <String>{
-      '학사공지',
-      '장학',
-    }; // TODO: 실제 사용자 선택 카테고리로 교체
+    // 현재 사용자의 선택된 카테고리로 초기화
+    final currentCategories = _userProfile?['preferences']?['categories'];
+    final selectedCategories = currentCategories != null
+        ? Set<String>.from(currentCategories as List<dynamic>)
+        : <String>{};
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (context, setDialogState) {
             return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               title: const Text('관심 카테고리 설정'),
               content: SingleChildScrollView(
                 child: Column(
@@ -282,7 +471,7 @@ class ProfileScreen extends StatelessWidget {
                       value: isSelected,
                       activeColor: AppTheme.primaryColor,
                       onChanged: (value) {
-                        setState(() {
+                        setDialogState(() {
                           if (value == true) {
                             selectedCategories.add(category);
                           } else {
@@ -297,19 +486,64 @@ class ProfileScreen extends StatelessWidget {
               actions: [
                 TextButton(
                   onPressed: () {
-                    Navigator.of(context).pop();
+                    Navigator.of(dialogContext).pop();
                   },
                   child: const Text('취소'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    // TODO: 선택한 카테고리 저장
-                    Navigator.of(context).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('관심 카테고리가 저장되었습니다.'),
-                      ),
-                    );
+                  onPressed: () async {
+                    // 최소 1개 이상 선택 확인
+                    if (selectedCategories.isEmpty) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('최소 1개 이상의 카테고리를 선택해주세요.'),
+                          backgroundColor: AppTheme.errorColor,
+                          behavior: SnackBarBehavior.floating,
+                          margin: EdgeInsets.all(16),
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (!context.mounted) return;
+                    final authService = context.read<AuthService>();
+                    final apiService = context.read<ApiService>();
+                    final userId = authService.currentUser!.id;
+
+                    if (!dialogContext.mounted) return;
+                    Navigator.of(dialogContext).pop();
+
+                    // API 호출하여 카테고리 저장
+                    try {
+                      await apiService.updateUserPreferences(
+                        userId: userId,
+                        categories: selectedCategories.toList(),
+                      );
+
+                      // UI 갱신을 위해 프로필 다시 로드
+                      await _loadUserProfile();
+
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('관심 카테고리가 저장되었습니다.'),
+                          backgroundColor: AppTheme.primaryColor,
+                          behavior: SnackBarBehavior.floating,
+                          margin: EdgeInsets.all(16),
+                        ),
+                      );
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('저장 중 오류가 발생했습니다: ${e.toString().replaceFirst('Exception: ', '')}'),
+                          backgroundColor: AppTheme.errorColor,
+                          behavior: SnackBarBehavior.floating,
+                          margin: const EdgeInsets.all(16),
+                        ),
+                      );
+                    }
                   },
                   child: const Text('저장'),
                 ),

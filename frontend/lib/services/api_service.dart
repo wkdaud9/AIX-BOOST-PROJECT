@@ -109,6 +109,7 @@ class ApiService {
   Future<Map<String, dynamic>> createUserProfile({
     required String userId,
     required String email,
+    required String name,
     required String studentId,
     required String department,
     required int grade,
@@ -118,6 +119,7 @@ class ApiService {
       final response = await _dio.post('/api/users/profile', data: {
         'user_id': userId,
         'email': email,
+        'name': name,
         'student_id': studentId,
         'department': department,
         'grade': grade,
@@ -126,6 +128,40 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       throw _handleError(e);
+    }
+  }
+
+  /// 사용자 프로필 조회
+  Future<Map<String, dynamic>> getUserProfile(String userId) async {
+    try {
+      final response = await _dio.get('/api/users/profile/$userId');
+      return _handleResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 사용자 선호도(카테고리) 업데이트
+  Future<Map<String, dynamic>> updateUserPreferences({
+    required String userId,
+    required List<String> categories,
+  }) async {
+    try {
+      final response = await _dio.put('/api/users/preferences/$userId', data: {
+        'categories': categories,
+      });
+      return _handleResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 사용자 삭제 (회원가입 롤백용)
+  Future<void> deleteUser(String userId) async {
+    try {
+      await _dio.delete('/api/users/profile/$userId');
+    } catch (e) {
+      // 삭제 실패해도 무시 (이미 삭제되었을 수 있음)
     }
   }
 
@@ -152,6 +188,17 @@ class ApiService {
         case DioExceptionType.receiveTimeout:
           return Exception('응답 시간 초과');
         case DioExceptionType.badResponse:
+          // 백엔드에서 반환한 에러 메시지 파싱
+          if (error.response?.data != null) {
+            try {
+              final data = error.response!.data as Map<String, dynamic>;
+              if (data['message'] != null) {
+                return Exception(data['message']);
+              }
+            } catch (_) {
+              // 파싱 실패 시 기본 메시지
+            }
+          }
           return Exception('서버 오류: ${error.response?.statusCode}');
         default:
           return Exception('네트워크 오류: ${error.message}');
