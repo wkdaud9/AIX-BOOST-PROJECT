@@ -105,6 +105,30 @@ class ApiService {
     }
   }
 
+  /// 회원가입 후 사용자 프로필 및 선호도 생성
+  Future<Map<String, dynamic>> createUserProfile({
+    required String userId,
+    required String email,
+    required String studentId,
+    required String department,
+    required int grade,
+    required List<String> categories,
+  }) async {
+    try {
+      final response = await _dio.post('/api/users/profile', data: {
+        'user_id': userId,
+        'email': email,
+        'student_id': studentId,
+        'department': department,
+        'grade': grade,
+        'categories': categories,
+      });
+      return _handleResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// API 응답 처리 (공통 포맷: {"status": "success", "data": {...}})
   Map<String, dynamic> _handleResponse(Response response) {
     if (response.statusCode == 200) {
