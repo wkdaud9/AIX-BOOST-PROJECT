@@ -6,9 +6,10 @@
 사용자 프로필 및 선호도 관련 API 엔드포인트를 제공합니다.
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from typing import Dict, Any
 from services.supabase_service import SupabaseService
+from utils.auth_middleware import login_required
 
 # Blueprint 생성 (URL 접두사: /api/users)
 users_bp = Blueprint('users', __name__, url_prefix='/api/users')
@@ -135,6 +136,7 @@ def create_user_profile():
 
 
 @users_bp.route('/profile/<user_id>', methods=['GET'])
+@login_required
 def get_user_profile(user_id):
     """
     사용자 프로필 및 선호도를 조회합니다.
@@ -151,6 +153,13 @@ def get_user_profile(user_id):
     }
     """
     try:
+        # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
+        if g.user.id != user_id:
+            return jsonify({
+                "status": "error",
+                "message": "자신의 프로필만 조회할 수 있습니다."
+            }), 403
+
         supabase = SupabaseService()
 
         # 1. users 테이블에서 사용자 정보 조회
@@ -190,6 +199,7 @@ def get_user_profile(user_id):
 
 
 @users_bp.route('/preferences/<user_id>', methods=['PUT'])
+@login_required
 def update_user_preferences(user_id):
     """
     사용자 선호도(카테고리) 업데이트
@@ -210,6 +220,13 @@ def update_user_preferences(user_id):
     }
     """
     try:
+        # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
+        if g.user.id != user_id:
+            return jsonify({
+                "status": "error",
+                "message": "자신의 선호도만 변경할 수 있습니다."
+            }), 403
+
         data = request.get_json()
 
         # 필수 필드 검증
@@ -273,6 +290,7 @@ def update_user_preferences(user_id):
 
 
 @users_bp.route('/profile/<user_id>', methods=['DELETE'])
+@login_required
 def delete_user(user_id):
     """
     사용자 삭제 (회원가입 롤백용)
@@ -288,6 +306,13 @@ def delete_user(user_id):
     }
     """
     try:
+        # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
+        if g.user.id != user_id:
+            return jsonify({
+                "status": "error",
+                "message": "자신의 계정만 삭제할 수 있습니다."
+            }), 403
+
         supabase = SupabaseService()
 
         # auth.users에서 사용자 삭제 (service_role 권한 필요)
