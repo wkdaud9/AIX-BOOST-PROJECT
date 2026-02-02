@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
-import 'screens/home_screen.dart';
+import 'screens/auth_wrapper.dart';
 import 'theme/app_theme.dart';
 import 'providers/notice_provider.dart';
 
@@ -49,7 +49,7 @@ class AIXBoostApp extends StatelessWidget {
         title: 'AIX-Boost',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        home: const HomeScreen(),
+        home: const AuthWrapper(),
       ),
     );
   }

@@ -22,7 +22,9 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
 
 # Blueprint 등록 (API 라우트)
 from routes.notices import notices_bp
+from routes.users import users_bp
 app.register_blueprint(notices_bp)
+app.register_blueprint(users_bp)
 
 # 스케줄러 초기화 (1시간마다 자동 크롤링)
 from services.scheduler_service import SchedulerService

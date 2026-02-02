@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../services/auth_service.dart';
 
 /// 마이페이지 화면 - 사용자 설정 및 정보
 class ProfileScreen extends StatelessWidget {
@@ -325,27 +327,72 @@ class ProfileScreen extends StatelessWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('로그아웃'),
-          content: const Text('정말 로그아웃 하시겠습니까?'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.logout, color: AppTheme.errorColor),
+              SizedBox(width: 12),
+              Text('로그아웃'),
+            ],
+          ),
+          content: const Text(
+            '정말 로그아웃 하시겠습니까?',
+            style: TextStyle(fontSize: 16),
+          ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
               },
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+              ),
               child: const Text('취소'),
             ),
             ElevatedButton(
-              onPressed: () {
-                // TODO: 로그아웃 처리
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('로그아웃 되었습니다.'),
-                  ),
-                );
+              onPressed: () async {
+                Navigator.of(context).pop(); // 다이얼로그 닫기
+
+                try {
+                  // AuthService.signOut 호출
+                  await context.read<AuthService>().signOut();
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('로그아웃 되었습니다.'),
+                        behavior: SnackBarBehavior.floating,
+                        margin: EdgeInsets.all(16),
+                      ),
+                    );
+                  }
+                  // AuthWrapper가 자동으로 LoginScreen으로 전환
+                } catch (e) {
+                  // 에러 처리
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('로그아웃 중 오류가 발생했습니다.'),
+                        backgroundColor: AppTheme.errorColor,
+                        behavior: SnackBarBehavior.floating,
+                        margin: const EdgeInsets.all(16),
+                      ),
+                    );
+                  }
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.errorColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
               ),
               child: const Text('로그아웃'),
             ),

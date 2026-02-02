@@ -5,8 +5,8 @@
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT UNIQUE NOT NULL,
-    student_id TEXT UNIQUE NOT NULL,
-    department TEXT NOT NULL,
+    student_id TEXT UNIQUE,  -- 나중에 프로필 설정에서 입력 가능
+    department TEXT,          -- 나중에 프로필 설정에서 입력 가능
     grade INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -167,3 +167,39 @@ CREATE TRIGGER update_notices_updated_at BEFORE UPDATE ON notices
 
 CREATE TRIGGER update_calendar_events_updated_at BEFORE UPDATE ON calendar_events
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- 사용자 생성 시 user_preferences 자동 생성 트리거 함수
+CREATE OR REPLACE FUNCTION create_user_preferences()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- 새로운 사용자가 생성되면 user_preferences 테이블에 기본값으로 행 삽입
+    INSERT INTO user_preferences (user_id, categories, keywords, notification_enabled)
+    VALUES (NEW.id, '{}', '{}', TRUE);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- users 테이블에 INSERT 시 user_preferences 자동 생성 트리거
+CREATE TRIGGER trigger_create_user_preferences
+    AFTER INSERT ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION create_user_preferences();
+
+-- auth.users 생성 시 users 테이블 자동 생성 트리거 함수
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- auth.users에 새로운 사용자가 생성되면 users 테이블에도 행 삽입
+    INSERT INTO public.users (id, email, created_at)
+    VALUES (NEW.id, NEW.email, NOW());
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- auth.users 테이블에 INSERT 시 users 테이블 자동 생성 트리거
+-- 주의: 이 트리거는 Supabase 대시보드의 SQL Editor에서 실행해야 합니다
+-- (auth 스키마는 RLS가 적용되어 있어 SECURITY DEFINER 권한 필요)
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW
+    EXECUTE FUNCTION handle_new_user();
