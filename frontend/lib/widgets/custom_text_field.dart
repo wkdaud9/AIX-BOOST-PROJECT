@@ -55,7 +55,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
       onEditingComplete: widget.onEditingComplete,
       decoration: InputDecoration(
         labelText: widget.labelText,
-        hintText: widget.hintText,
+        // hintText 제거 - 더 깔끔한 UI를 위해
         errorText: widget.errorText,
         prefixIcon: widget.prefixIcon,
         suffixIcon: widget.isPassword
@@ -73,6 +73,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
             : null,
       ),
       validator: widget.validator,
+      // 유효성 검사 모드를 변경하여 제출 후에만 에러 표시
       autovalidateMode: AutovalidateMode.onUserInteraction,
     );
   }

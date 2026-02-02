@@ -5,6 +5,7 @@
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT UNIQUE NOT NULL,
+    name TEXT,                -- 사용자 이름
     student_id TEXT UNIQUE,  -- 나중에 프로필 설정에서 입력 가능
     department TEXT,          -- 나중에 프로필 설정에서 입력 가능
     grade INTEGER,

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/loading_button.dart';
+import '../widgets/form_section.dart';
 import '../theme/app_theme.dart';
 import 'signup_screen.dart';
 
@@ -29,6 +30,9 @@ class _LoginScreenState extends State<LoginScreen> {
   /// 로딩 상태
   bool _isLoading = false;
 
+  /// 폼 에러 메시지
+  String? _formError;
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -41,11 +45,17 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     // 1. 폼 유효성 검사
     if (!_formKey.currentState!.validate()) {
+      setState(() {
+        _formError = '이메일과 비밀번호를 확인해주세요.';
+      });
       return;
     }
 
     // 2. 로딩 상태 시작
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _formError = null;
+    });
 
     try {
       // 3. AuthService.signIn 호출
@@ -68,26 +78,16 @@ class _LoginScreenState extends State<LoginScreen> {
         errorMessage = '이메일 인증이 필요합니다.';
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: AppTheme.errorColor,
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-        ),
-      );
+      setState(() {
+        _formError = errorMessage;
+      });
     } catch (e) {
       // 6. 기타 에러
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('네트워크 오류가 발생했습니다.'),
-          backgroundColor: AppTheme.errorColor,
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-        ),
-      );
+      setState(() {
+        _formError = '네트워크 오류가 발생했습니다.';
+      });
     } finally {
       // 7. 로딩 상태 종료
       if (mounted) {
@@ -166,27 +166,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: AppSpacing.xxl + AppSpacing.md),
 
-                // 이메일 입력
-                CustomTextField(
-                  controller: _emailController,
-                  labelText: '이메일',
-                  hintText: 'student@kunsan.ac.kr',
-                  keyboardType: TextInputType.emailAddress,
-                  validator: _validateEmail,
-                  prefixIcon: const Icon(Icons.email_outlined),
-                  onEditingComplete: () => FocusScope.of(context).nextFocus(),
-                ),
-                const SizedBox(height: AppSpacing.md),
-
-                // 비밀번호 입력
-                CustomTextField(
-                  controller: _passwordController,
-                  labelText: '비밀번호',
-                  hintText: '6자 이상 입력',
-                  isPassword: true,
-                  validator: _validatePassword,
-                  prefixIcon: const Icon(Icons.lock_outlined),
-                  onEditingComplete: _handleLogin,
+                // 로그인 정보 박스
+                FormSection(
+                  errorMessage: _formError,
+                  children: [
+                    CustomTextField(
+                      controller: _emailController,
+                      labelText: '이메일',
+                      keyboardType: TextInputType.emailAddress,
+                      validator: _validateEmail,
+                      prefixIcon: const Icon(Icons.email_outlined),
+                      onEditingComplete: () => FocusScope.of(context).nextFocus(),
+                    ),
+                    CustomTextField(
+                      controller: _passwordController,
+                      labelText: '비밀번호',
+                      isPassword: true,
+                      validator: _validatePassword,
+                      prefixIcon: const Icon(Icons.lock_outlined),
+                      onEditingComplete: _handleLogin,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: AppSpacing.lg),
 
