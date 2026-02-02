@@ -93,3 +93,14 @@ coverage/
 
 # 작업 인계 문서 (로컬 전용)
 handoff.md
+
+# Claude Code 임시 파일
+.claude/
+*.input
+
+# Windows 시스템 파일
+nul
+Thumbs.db
+
+# 마이그레이션 완료된 SQL 파일 (로컬 전용)
+docs/add_name_column.sql
