@@ -233,6 +233,29 @@ class GeminiClient:
         print(f"✅ 모델 변경됨: {self.model_name}")
 
 
+# =====================================
+# 헬퍼 함수 (다른 모듈에서 쉽게 사용하기 위함)
+# =====================================
+
+def get_gemini_model():
+    """
+    Gemini 모델 인스턴스를 반환합니다.
+
+    🎯 목적:
+    다른 모듈에서 간편하게 Gemini 모델을 사용할 수 있도록 합니다.
+
+    💡 예시:
+    from ai.gemini_client import get_gemini_model
+    model = get_gemini_model()
+    response = model.generate_content("안녕하세요!")
+
+    📊 반환값:
+    - GenerativeModel 인스턴스 (Gemini API 직접 호출 가능)
+    """
+    client = GeminiClient()
+    return client.model
+
+
 # 🧪 테스트 코드 (이 파일을 직접 실행했을 때만 작동)
 if __name__ == "__main__":
     print("=" * 50)
