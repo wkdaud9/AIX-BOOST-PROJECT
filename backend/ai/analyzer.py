@@ -14,7 +14,11 @@
 
 from typing import Dict, Any, List, Optional
 from .gemini_client import GeminiClient
+from . import prompts
 import json
+import time
+import re
+from datetime import datetime
 
 
 class NoticeAnalyzer:
@@ -331,6 +335,242 @@ class NoticeAnalyzer:
 
         print(f"\n✅ 일괄 분석 완료: {len(results)}개 결과")
         return results
+
+    def analyze_notice_comprehensive(self, notice_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        공지사항을 한 번의 AI 호출로 종합 분석합니다. (TODO 요구사항 준수)
+
+        🎯 목적:
+        prompts.py의 구조화된 프롬프트를 사용하여 JSON 형식으로 분석 결과를 받습니다.
+
+        🔧 매개변수:
+        - notice_data: 공지사항 데이터
+          {
+              "title": "제목",
+              "content": "내용",
+              "url": "링크",
+              "date": "발표일"
+          }
+
+        📊 반환값:
+        {
+            "summary": "요약",
+            "dates": {
+                "start_date": "YYYY-MM-DD",
+                "end_date": "YYYY-MM-DD",
+                "deadline": "YYYY-MM-DD"
+            },
+            "category": "카테고리",
+            "priority": "중요도",
+            "analyzed": True,
+            "analysis_model": "gemini-1.5-flash"
+        }
+
+        💡 특징:
+        - 재시도 로직 포함 (최대 3회, exponential backoff)
+        - 날짜 형식 정규화 (한글 날짜 → ISO 8601)
+        - JSON 응답 파싱 및 검증
+        """
+        title = notice_data.get("title", "")
+        content = notice_data.get("content", "")
+        full_text = f"제목: {title}\n\n내용: {content}"
+
+        print(f"📄 [종합 분석] 시작: {title[:30]}...")
+
+        # 프롬프트 생성
+        prompt = prompts.get_comprehensive_analysis_prompt(full_text)
+        config = prompts.get_prompt_config("comprehensive")
+
+        # 재시도 로직으로 AI 호출
+        try:
+            response = self._retry_with_backoff(
+                lambda: self.client.generate_text(
+                    prompt,
+                    temperature=config["temperature"],
+                    max_tokens=config["max_tokens"]
+                ),
+                max_retries=3
+            )
+
+            # JSON 파싱
+            parsed_result = self._parse_json_response(response)
+
+            # 날짜 정규화
+            if "dates" in parsed_result and isinstance(parsed_result["dates"], dict):
+                parsed_result["dates"] = self._normalize_dates(parsed_result["dates"])
+
+            # 결과 구조화
+            analysis_result = {
+                # 원본 데이터
+                "original_title": title,
+                "original_content": content,
+                "url": notice_data.get("url", ""),
+                "published_date": notice_data.get("date", ""),
+
+                # 분석 결과
+                "summary": parsed_result.get("summary", ""),
+                "dates": parsed_result.get("dates", {}),
+                "category": parsed_result.get("category", "기타"),
+                "priority": parsed_result.get("priority", "일반"),
+
+                # 메타 정보
+                "analyzed": True,
+                "analysis_model": self.client.model_name,
+                "analysis_timestamp": datetime.now().isoformat()
+            }
+
+            print(f"✅ 분석 완료: {analysis_result['category']} / {analysis_result['priority']}")
+            return analysis_result
+
+        except Exception as e:
+            print(f"❌ 종합 분석 실패: {str(e)}")
+            # 실패 시 기본 구조 반환
+            return {
+                "original_title": title,
+                "original_content": content,
+                "url": notice_data.get("url", ""),
+                "published_date": notice_data.get("date", ""),
+                "summary": "",
+                "dates": {},
+                "category": "기타",
+                "priority": "일반",
+                "analyzed": False,
+                "error": str(e)
+            }
+
+    def _retry_with_backoff(self, func, max_retries: int = 3, initial_delay: float = 1.0):
+        """
+        재시도 로직을 적용하여 함수를 실행합니다. (Exponential Backoff)
+
+        🎯 목적:
+        API 호출 실패 시 자동으로 재시도하여 안정성을 높입니다.
+
+        🔧 매개변수:
+        - func: 실행할 함수
+        - max_retries: 최대 재시도 횟수 (기본값: 3)
+        - initial_delay: 초기 대기 시간 (기본값: 1.0초)
+
+        📊 Exponential Backoff:
+        - 1회 실패: 1초 대기 후 재시도
+        - 2회 실패: 2초 대기 후 재시도
+        - 3회 실패: 4초 대기 후 재시도
+        - 3회 모두 실패: 에러 발생
+
+        💡 예시:
+        result = self._retry_with_backoff(
+            lambda: self.client.generate_text("질문"),
+            max_retries=3
+        )
+        """
+        delay = initial_delay
+        last_exception = None
+
+        for attempt in range(max_retries):
+            try:
+                return func()
+            except Exception as e:
+                last_exception = e
+                if attempt < max_retries - 1:
+                    print(f"⚠️ 시도 {attempt + 1}/{max_retries} 실패, {delay}초 후 재시도...")
+                    time.sleep(delay)
+                    delay *= 2  # Exponential backoff
+                else:
+                    print(f"❌ {max_retries}회 모두 실패")
+
+        # 모든 재시도 실패
+        raise last_exception
+
+    def _parse_json_response(self, response: str) -> Dict[str, Any]:
+        """
+        AI 응답에서 JSON을 추출하고 파싱합니다.
+
+        🎯 목적:
+        AI가 반환한 텍스트에서 JSON 부분만 추출하여 파싱합니다.
+
+        🔧 처리 과정:
+        1. ```json ... ``` 코드 블록 제거
+        2. 앞뒤 공백 제거
+        3. JSON 파싱
+        4. 유효성 검증
+
+        💡 예시:
+        response = "```json\n{\"summary\": \"요약\"}\n```"
+        parsed = self._parse_json_response(response)
+        print(parsed)  # {"summary": "요약"}
+        """
+        # JSON 코드 블록 제거
+        response = response.strip()
+        if response.startswith("```json"):
+            response = response[7:]
+        if response.startswith("```"):
+            response = response[3:]
+        if response.endswith("```"):
+            response = response[:-3]
+        response = response.strip()
+
+        try:
+            parsed = json.loads(response)
+            return parsed
+        except json.JSONDecodeError as e:
+            print(f"❌ JSON 파싱 실패: {str(e)}")
+            print(f"응답 내용: {response[:200]}...")
+            raise ValueError(f"JSON 파싱 실패: {str(e)}")
+
+    def _normalize_dates(self, dates: Dict[str, Any]) -> Dict[str, Optional[str]]:
+        """
+        날짜 정보를 ISO 8601 형식(YYYY-MM-DD)으로 정규화합니다.
+
+        🎯 목적:
+        다양한 형식의 날짜를 표준 형식으로 변환합니다.
+
+        🔧 처리 가능한 형식:
+        - YYYY-MM-DD (이미 표준 형식)
+        - YYYY/MM/DD
+        - YYYY.MM.DD
+        - null, None, "null" → None
+        - 빈 문자열 → None
+
+        💡 예시:
+        dates = {
+            "start_date": "2024/02/01",
+            "end_date": "2024.02.05",
+            "deadline": null
+        }
+        normalized = self._normalize_dates(dates)
+        print(normalized)
+        # {
+        #     "start_date": "2024-02-01",
+        #     "end_date": "2024-02-05",
+        #     "deadline": None
+        # }
+        """
+        normalized = {}
+
+        for key, value in dates.items():
+            # null 값 처리
+            if value is None or value == "null" or value == "":
+                normalized[key] = None
+                continue
+
+            # 문자열인 경우 정규화
+            if isinstance(value, str):
+                # 이미 YYYY-MM-DD 형식인지 확인
+                if re.match(r'^\d{4}-\d{2}-\d{2}$', value):
+                    normalized[key] = value
+                # YYYY/MM/DD 형식
+                elif re.match(r'^\d{4}/\d{2}/\d{2}$', value):
+                    normalized[key] = value.replace("/", "-")
+                # YYYY.MM.DD 형식
+                elif re.match(r'^\d{4}\.\d{2}\.\d{2}$', value):
+                    normalized[key] = value.replace(".", "-")
+                else:
+                    # 형식이 맞지 않으면 원본 유지
+                    print(f"⚠️ 날짜 형식 불일치: {key}={value}")
+                    normalized[key] = value
+            else:
+                normalized[key] = value
+
+        return normalized
 
 
 # 🧪 테스트 코드
