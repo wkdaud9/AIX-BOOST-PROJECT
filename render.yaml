@@ -1,0 +1,24 @@
+# Render 배포 설정 파일
+
+services:
+  # Flask API 서버
+  - type: web
+    name: aix-boost-backend
+    runtime: python
+    region: singapore  # 또는 oregon (가까운 리전 선택)
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: python backend/app.py
+    envVars:
+      - key: SUPABASE_URL
+        sync: false  # Render 대시보드에서 직접 설정
+      - key: SUPABASE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PORT
+        value: 10000  # Render의 기본 포트
+      - key: FLASK_ENV
+        value: production
+    healthCheckPath: /health
+    autoDeploy: true

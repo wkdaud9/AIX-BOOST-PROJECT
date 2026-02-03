@@ -17,6 +17,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 import time
 import re
+import random
 
 
 class BaseCrawler:
@@ -60,47 +61,76 @@ class BaseCrawler:
 
         print(f"[OK] {category} 크롤러 초기화 완료")
 
-    def fetch_page(self, url: str, params: Optional[Dict] = None) -> Optional[BeautifulSoup]:
+    def fetch_page(
+        self,
+        url: str,
+        params: Optional[Dict] = None,
+        max_retries: int = 3,
+        delay_range: tuple = (1.0, 2.0)
+    ) -> Optional[BeautifulSoup]:
         """
-        웹 페이지의 HTML을 가져옵니다.
+        웹 페이지의 HTML을 가져옵니다. (재시도 및 백오프 로직 포함)
 
         🔧 매개변수:
         - url: 가져올 페이지 주소
         - params: URL 파라미터 (딕셔너리)
+        - max_retries: 최대 재시도 횟수 (기본값: 3)
+        - delay_range: 요청 간 딜레이 범위 (초 단위, 기본값: 1~2초)
 
         🎯 하는 일:
         1. requests로 웹 페이지 요청
         2. HTML을 BeautifulSoup으로 파싱
-        3. 파싱된 객체 반환
+        3. 실패 시 exponential backoff로 재시도
+        4. 파싱된 객체 반환
 
         💡 예시:
         soup = crawler.fetch_page("https://example.com")
         제목 = soup.find("h1").text
         """
-        try:
-            print(f"[페이지] 페이지 요청 중: {url}")
+        for attempt in range(1, max_retries + 1):
+            try:
+                if attempt == 1:
+                    print(f"[페이지] 페이지 요청 중: {url}")
+                else:
+                    print(f"[재시도 {attempt}/{max_retries}] {url}")
 
-            # 웹 페이지 요청
-            response = self.session.get(url, params=params, timeout=10)
-            response.raise_for_status()  # 에러 확인
+                # 웹 페이지 요청
+                response = self.session.get(url, params=params, timeout=10)
+                response.raise_for_status()  # 에러 확인
 
-            # 인코딩 설정 (한글 깨짐 방지)
-            response.encoding = 'utf-8'
+                # 인코딩 설정 (한글 깨짐 방지)
+                response.encoding = 'utf-8'
 
-            # HTML 파싱
-            soup = BeautifulSoup(response.text, 'html.parser')
+                # HTML 파싱
+                soup = BeautifulSoup(response.text, 'html.parser')
 
-            # 서버에 부담 주지 않기 위해 잠깐 대기
-            time.sleep(0.5)
+                # 서버 부담 최소화: 1~2초 랜덤 대기
+                delay = random.uniform(*delay_range)
+                time.sleep(delay)
 
-            return soup
+                return soup
 
-        except requests.exceptions.Timeout:
-            print(f"[타임아웃] {url}")
-            return None
-        except requests.exceptions.RequestException as e:
-            print(f"[ERROR] 페이지 요청 실패: {str(e)}")
-            return None
+            except requests.exceptions.Timeout:
+                print(f"[타임아웃] {url}")
+                if attempt < max_retries:
+                    # Exponential backoff (2^attempt 초)
+                    backoff_time = 2 ** attempt
+                    print(f"  → {backoff_time}초 후 재시도...")
+                    time.sleep(backoff_time)
+                else:
+                    return None
+
+            except requests.exceptions.RequestException as e:
+                print(f"[ERROR] 페이지 요청 실패: {str(e)}")
+                if attempt < max_retries:
+                    # Exponential backoff
+                    backoff_time = 2 ** attempt
+                    print(f"  → {backoff_time}초 후 재시도...")
+                    time.sleep(backoff_time)
+                else:
+                    return None
+
+        return None
 
     def parse_date(self, date_str: str) -> Optional[datetime]:
         """

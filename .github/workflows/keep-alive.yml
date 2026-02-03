@@ -1,0 +1,37 @@
+name: Keep Render Server Alive
+
+# 14분마다 /health 엔드포인트를 ping해서 서버를 깨어있게 합니다
+on:
+  schedule:
+    # 14분마다 실행 (Render의 15분 sleep 타이머 방지)
+    - cron: '*/14 * * * *'
+
+  # 수동 실행도 가능하게
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ping Health Endpoint
+        run: |
+          echo "🏓 Pinging AIX-Boost server..."
+
+          # /health 엔드포인트 호출
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://aix-boost-backend.onrender.com/health)
+
+          if [ $response -eq 200 ]; then
+            echo "✅ Server is alive! (HTTP $response)"
+          else
+            echo "⚠️ Server responded with HTTP $response"
+            exit 1
+          fi
+
+      - name: Check Scheduler Status
+        run: |
+          echo "📊 Checking scheduler status..."
+
+          # 스케줄러 상태 확인
+          curl -s https://aix-boost-backend.onrender.com/scheduler/status | jq '.'
+        continue-on-error: true

@@ -239,6 +239,48 @@ class NoticeService:
             print(f"❌ AI 분석 업데이트 실패: {str(e)}")
             return False
 
+    def get_latest_original_id(self, category: str = None) -> Optional[str]:
+        """
+        DB에 저장된 최신 공지사항의 original_id를 조회합니다.
+
+        🎯 목적:
+        크롤링 최적화를 위해 DB에 이미 저장된 최신 공지의 ID를 확인합니다.
+
+        🔧 매개변수:
+        - category: 카테고리로 필터링 (기본값: None - 전체)
+
+        📊 반환값:
+        - 최신 공지사항의 original_id (없으면 None)
+
+        💡 예시:
+        service = NoticeService()
+        latest_id = service.get_latest_original_id(category="공지사항")
+        if latest_id:
+            print(f"마지막 저장된 공지 ID: {latest_id}")
+        """
+        try:
+            query = self.client.table("notices")\
+                .select("original_id")\
+                .order("crawled_at", desc=True)\
+                .limit(1)
+
+            if category:
+                query = query.eq("category", category)
+
+            result = query.execute()
+
+            if result.data and result.data[0].get("original_id"):
+                latest_id = result.data[0]["original_id"]
+                print(f"📌 최신 공지 ID: {latest_id}")
+                return latest_id
+            else:
+                print("ℹ️ DB에 저장된 공지사항 없음")
+                return None
+
+        except Exception as e:
+            print(f"❌ 최신 공지 ID 조회 실패: {str(e)}")
+            return None
+
     def get_unprocessed_notices(self, limit: int = 50) -> List[Dict[str, Any]]:
         """
         아직 AI 분석되지 않은 공지사항을 조회합니다.
