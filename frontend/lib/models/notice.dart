@@ -12,6 +12,9 @@ class Notice {
   final bool isBookmarked;
   final DateTime? deadline; // 마감일 (있는 경우)
   final String? author; // 작성자 또는 작성 부서
+  final String? aiSummary; // AI 요약
+  final String? priority; // 중요도 (긴급/중요/일반)
+  final List<String> extractedDates; // AI가 추출한 일정 날짜들
 
   Notice({
     required this.id,
@@ -26,6 +29,9 @@ class Notice {
     this.isBookmarked = false,
     this.deadline,
     this.author,
+    this.aiSummary,
+    this.priority,
+    this.extractedDates = const [],
   });
 
   /// JSON에서 Notice 객체 생성 (Backend API 응답 매핑)
@@ -35,6 +41,9 @@ class Notice {
     // - source_url → url
     // - view_count → views
     // - author → author
+    // - ai_summary → aiSummary
+    // - priority → priority
+    // - extracted_dates → extractedDates
 
     final publishedAt = json['published_at'] != null
         ? DateTime.parse(json['published_at'] as String)
@@ -59,6 +68,9 @@ class Notice {
           ? DateTime.parse(json['deadline'] as String)
           : null,
       author: json['author'] as String?, // 작성자 필드 추가
+      aiSummary: json['ai_summary'] as String?, // AI 요약 추가
+      priority: json['priority'] as String?, // 중요도 추가
+      extractedDates: (json['extracted_dates'] as List<dynamic>?)?.cast<String>() ?? [],
     );
   }
 
@@ -76,6 +88,9 @@ class Notice {
       'tags': tags,
       'is_bookmarked': isBookmarked,
       'deadline': deadline?.toIso8601String(),
+      'ai_summary': aiSummary,
+      'priority': priority,
+      'extracted_dates': extractedDates,
     };
   }
 
@@ -93,6 +108,9 @@ class Notice {
     bool? isBookmarked,
     DateTime? deadline,
     String? author,
+    String? aiSummary,
+    String? priority,
+    List<String>? extractedDates,
   }) {
     return Notice(
       id: id ?? this.id,
@@ -107,6 +125,9 @@ class Notice {
       isBookmarked: isBookmarked ?? this.isBookmarked,
       deadline: deadline ?? this.deadline,
       author: author ?? this.author,
+      aiSummary: aiSummary ?? this.aiSummary,
+      priority: priority ?? this.priority,
+      extractedDates: extractedDates ?? this.extractedDates,
     );
   }
 

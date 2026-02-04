@@ -37,9 +37,45 @@ class NoticeProvider with ChangeNotifier {
     return sorted.take(5).toList();
   }
 
-  /// 카테고리별 공지사항 가져오기
+  /// 카테고리별 공지사항 가져오기 (로컬 필터링)
   List<Notice> getNoticesByCategory(String category) {
     return _notices.where((notice) => notice.category == category).toList();
+  }
+
+  /// 카테고리별 공지사항 가져오기 (백엔드 API 호출)
+  Future<void> fetchNoticesByCategory(String category) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // 백엔드 API 호출 (카테고리 필터 적용)
+      final noticesData = await _apiService.getNotices(
+        category: category,
+        limit: 100,
+      );
+
+      // Notice 객체로 변환
+      _notices = noticesData.map((json) => Notice.fromJson(json)).toList();
+
+      // 북마크된 공지사항 필터링
+      _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
+
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _error = '공지사항을 불러오는데 실패했습니다: $e';
+      _isLoading = false;
+      notifyListeners();
+
+      // 에러 발생 시 로컬 필터링 사용 (개발용)
+      if (kDebugMode) {
+        print('API 에러 발생, 로컬 필터링 사용: $e');
+        _notices = _notices.where((n) => n.category == category).toList();
+        _error = null;
+        notifyListeners();
+      }
+    }
   }
 
   /// 공지사항 검색
@@ -165,12 +201,15 @@ class NoticeProvider with ChangeNotifier {
 
 자세한 사항은 학사공지를 참고하시기 바랍니다.
         ''',
-        category: '학사공지',
+        category: '학사',
         date: DateTime.now().subtract(const Duration(days: 1)),
         isNew: true,
         views: 234,
         tags: ['수강신청', '학사일정'],
         deadline: DateTime.now().add(const Duration(days: 2)),
+        aiSummary: '2월 5일부터 학년별 수강신청 시작. 4학년부터 순차적으로 진행.',
+        priority: '긴급',
+        extractedDates: ['2024-02-05', '2024-02-06', '2024-02-07', '2024-02-08'],
       ),
       Notice(
         id: '2',
@@ -195,6 +234,10 @@ class NoticeProvider with ChangeNotifier {
         tags: ['장학금', '국가장학금'],
         isBookmarked: true,
         deadline: DateTime.now().add(const Duration(days: 5)),
+        aiSummary: '1학기 국가장학금 2차 신청 마감 임박. 2월 1일까지 신청 가능.',
+        priority: '중요',
+        extractedDates: ['2024-02-01'],
+        author: '학생지원팀',
       ),
       Notice(
         id: '3',

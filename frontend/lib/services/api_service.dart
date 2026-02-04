@@ -105,6 +105,37 @@ class ApiService {
     }
   }
 
+  /// 캘린더 이벤트 조회
+  ///
+  /// [month] 조회할 월 (예: "2026-02")
+  Future<List<Map<String, dynamic>>> getCalendarEvents({String? month}) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (month != null) {
+        queryParams['month'] = month;
+      }
+
+      final response = await _dio.get(
+        '/api/calendar/events',
+        queryParameters: queryParams,
+      );
+
+      // 응답 처리
+      if (response.statusCode == 200) {
+        final responseData = response.data as Map<String, dynamic>;
+        if (responseData['status'] == 'success' && responseData.containsKey('data')) {
+          final data = responseData['data'] as Map<String, dynamic>;
+          if (data.containsKey('events')) {
+            return List<Map<String, dynamic>>.from(data['events']);
+          }
+        }
+      }
+      return [];
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// 회원가입 후 사용자 프로필 및 선호도 생성
   Future<Map<String, dynamic>> createUserProfile({
     required String userId,

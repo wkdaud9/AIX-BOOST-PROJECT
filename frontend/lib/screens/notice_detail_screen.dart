@@ -118,8 +118,10 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 카테고리와 NEW 뱃지
-          Row(
+          // 카테고리, 중요도, NEW 뱃지
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -144,8 +146,26 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                   ),
                 ),
               ),
-              if (_notice!.isNew) ...[
-                const SizedBox(width: AppSpacing.sm),
+              if (_notice!.priority != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _getPriorityColor(_notice!.priority!),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Text(
+                    _notice!.priority!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              if (_notice!.isNew)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.sm,
@@ -164,7 +184,6 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                     ),
                   ),
                 ),
-              ],
             ],
           ),
 
@@ -179,6 +198,112 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
           ),
 
           const SizedBox(height: AppSpacing.md),
+
+          // AI 요약 (있는 경우)
+          if (_notice!.aiSummary != null) ...[
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.auto_awesome, size: 18, color: Colors.blue.shade700),
+                      const SizedBox(width: 6),
+                      Text(
+                        'AI 요약',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    _notice!.aiSummary!,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.blue.shade900,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+
+          // 추출된 일정 (있는 경우)
+          if (_notice!.extractedDates.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.event, size: 18, color: Colors.green.shade700),
+                      const SizedBox(width: 6),
+                      Text(
+                        '추출된 일정',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: _notice!.extractedDates.map((date) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade100,
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                          border: Border.all(color: Colors.green.shade300),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.calendar_today, size: 12, color: Colors.green.shade700),
+                            const SizedBox(width: 4),
+                            Text(
+                              date,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.green.shade900,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
 
           // 메타 정보
           Wrap(
@@ -438,5 +563,18 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('공유 기능은 준비 중입니다.')),
     );
+  }
+
+  /// 중요도에 따른 색상 반환
+  Color _getPriorityColor(String priority) {
+    switch (priority) {
+      case '긴급':
+        return Colors.red.shade700;
+      case '중요':
+        return Colors.orange.shade700;
+      case '일반':
+      default:
+        return Colors.grey.shade600;
+    }
   }
 }
