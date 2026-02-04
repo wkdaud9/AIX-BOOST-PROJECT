@@ -66,9 +66,9 @@ class GeminiClient:
         genai.configure(api_key=self.api_key)
 
         # 사용할 AI 모델 설정
-        # gemini-1.5-pro: 더 똑똑하지만 느림, 복잡한 분석용
-        # gemini-1.5-flash: 빠르지만 덜 똑똑함, 간단한 작업용
-        self.model_name = "gemini-1.5-flash"  # 기본은 빠른 버전 사용
+        # gemini-2.5-pro: 최신 고성능 모델
+        # gemini-2.0-flash: 빠르고 효율적, 간단한 작업용 (권장)
+        self.model_name = "models/gemini-2.0-flash"  # 2024년 최신 모델
         self.model = genai.GenerativeModel(self.model_name)
 
         print(f"✅ Gemini AI 클라이언트 초기화 완료 (모델: {self.model_name})")

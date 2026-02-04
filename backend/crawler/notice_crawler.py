@@ -11,8 +11,13 @@
 """
 
 from .base_crawler import BaseCrawler
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
+import sys
+import os
+
+# NoticeService import를 위해 경로 추가
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 
 class NoticeCrawler(BaseCrawler):
@@ -53,6 +58,169 @@ class NoticeCrawler(BaseCrawler):
             base_url=self.BASE_URL,
             category="공지사항"
         )
+
+    def check_new_notices(self, last_known_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        목록 페이지만 확인하여 새로운 공지가 있는지 체크합니다.
+
+        🎯 목적:
+        DB의 마지막 original_id와 비교하여 새 공지가 있을 때만 상세 크롤링을 수행합니다.
+        학교 서버 부담을 최소화하고 크롤링 속도를 향상시킵니다.
+
+        🔧 매개변수:
+        - last_known_id: DB에 저장된 마지막 공지 ID
+
+        📊 반환값:
+        - 새로운 공지사항 목록 (ID와 URL만 포함)
+
+        💡 예시:
+        crawler = NoticeCrawler()
+        new_notices = crawler.check_new_notices(last_known_id="12345")
+        if new_notices:
+            print(f"{len(new_notices)}개 새 공지 발견!")
+        """
+        print(f"\n[체크] 새 공지사항 확인 중... (마지막 ID: {last_known_id})")
+
+        # 1페이지 목록만 가져오기
+        params = self.BOARD_PARAMS.copy()
+        params['pagerOffset'] = '0'
+
+        soup = self.fetch_page(self.LIST_URL, params=params)
+
+        if not soup:
+            print("[ERROR] 목록 페이지 로드 실패")
+            return []
+
+        # 목록 추출
+        notices = self._extract_notice_list(soup)
+
+        if not notices:
+            print("[INFO] 목록에서 공지사항을 찾지 못했습니다")
+            return []
+
+        # last_known_id가 없으면 모든 공지를 새 공지로 간주
+        if not last_known_id:
+            print(f"[OK] 첫 크롤링 - {len(notices)}개 모두 처리")
+            return notices
+
+        # 새로운 공지만 필터링
+        new_notices = []
+        for notice in notices:
+            notice_id = notice.get("notice_id")
+
+            # 마지막 알려진 ID를 만나면 중단
+            if notice_id == last_known_id:
+                print(f"[OK] 마지막 저장 공지 발견 - {len(new_notices)}개 새 공지")
+                break
+
+            new_notices.append(notice)
+
+        # 모든 공지가 새 공지인 경우 (마지막 ID를 찾지 못함)
+        if len(new_notices) == len(notices):
+            print(f"[WARNING] 마지막 ID를 찾지 못함 - 모든 공지 처리 ({len(new_notices)}개)")
+
+        return new_notices
+
+    def crawl_optimized(
+        self,
+        last_known_id: Optional[str] = None,
+        max_pages: int = 1
+    ) -> List[Dict[str, Any]]:
+        """
+        최적화된 크롤링을 수행합니다.
+
+        🎯 목적:
+        1. 목록 페이지만 먼저 확인
+        2. 새 공지가 있을 때만 상세 페이지 크롤링
+        3. 학교 서버 부담 최소화
+
+        🔧 매개변수:
+        - last_known_id: DB에 저장된 마지막 공지 ID
+        - max_pages: 최대 페이지 수 (기본값: 1)
+
+        📊 반환값:
+        - 크롤링한 공지사항 리스트 (상세 정보 포함)
+
+        💡 예시:
+        from services.notice_service import NoticeService
+
+        service = NoticeService()
+        last_id = service.get_latest_original_id(category="공지사항")
+
+        crawler = NoticeCrawler()
+        notices = crawler.crawl_optimized(last_known_id=last_id)
+        print(f"새로운 공지: {len(notices)}개")
+        """
+        print(f"\n{'='*50}")
+        print(f"[최적화 크롤링] 시작")
+        print(f"{'='*50}\n")
+
+        all_notices = []
+
+        # 페이지별로 확인
+        for page in range(1, max_pages + 1):
+            print(f"\n[페이지 {page}/{max_pages}] 목록 확인 중...")
+
+            # 목록 페이지 가져오기
+            params = self.BOARD_PARAMS.copy()
+            params['pagerOffset'] = str((page - 1) * 10)
+
+            soup = self.fetch_page(self.LIST_URL, params=params)
+
+            if not soup:
+                print(f"[WARNING] 페이지 {page} 로드 실패")
+                break
+
+            # 목록 추출
+            notices_list = self._extract_notice_list(soup)
+
+            if not notices_list:
+                print(f"[INFO] 페이지 {page}에서 공지사항을 찾지 못했습니다")
+                break
+
+            # 새로운 공지만 필터링
+            new_notices = []
+            found_last_id = False
+
+            for notice in notices_list:
+                notice_id = notice.get("notice_id")
+
+                # 마지막 알려진 ID를 만나면 중단
+                if last_known_id and notice_id == last_known_id:
+                    print(f"[OK] 마지막 저장 공지 발견 - 크롤링 중단")
+                    found_last_id = True
+                    break
+
+                new_notices.append(notice)
+
+            if not new_notices:
+                print(f"[INFO] 페이지 {page}에 새 공지 없음")
+                if found_last_id:
+                    break
+                continue
+
+            print(f"[OK] 새 공지 {len(new_notices)}개 발견 - 상세 크롤링 시작")
+
+            # 새 공지만 상세 크롤링
+            for i, notice_preview in enumerate(new_notices, 1):
+                print(f"  [{i}/{len(new_notices)}] {notice_preview['title'][:30]}...")
+
+                detail = self._crawl_notice_detail(notice_preview)
+
+                if detail:
+                    # original_id 추가
+                    detail["original_id"] = notice_preview.get("notice_id")
+                    all_notices.append(detail)
+
+            # 마지막 ID를 찾았으면 더 이상 페이지를 돌지 않음
+            if found_last_id:
+                break
+
+        print(f"\n{'='*50}")
+        print(f"[완료] 최적화 크롤링 완료: 총 {len(all_notices)}개 새 공지")
+        print(f"{'='*50}\n")
+
+        return all_notices
 
     def crawl(self, max_pages: int = 1) -> List[Dict[str, Any]]:
         """
