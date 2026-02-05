@@ -1,96 +1,120 @@
-# 작업 목록 (2026-02-04 예정)
+# 크롤링 최적화 작업 계획 (2026-02-06 예정)
 
 ## 🎯 작업 영역: Backend (AI/크롤링)
 
 ---
 
-## ✅ 어제 완료 (2026-02-03)
+## 현재 문제점
 
-- [x] Gemini API 연결 및 공지사항 분석 구현
-- [x] 분석 정보 DB 저장 로직 구현
-- [x] 캘린더 이벤트 서비스
-- [x] APScheduler 기반 15분 자동 크롤링
-- [x] Render 배포 완료: `https://aix-boost-backend.onrender.com`
+### 1. 카테고리 혼동
+- **원본 게시판**: 공지사항, 학사/장학, 채용/공고/모집 (3개)
+- **AI 변환 카테고리**: 학사, 장학, 취업, 행사, 교육, 공모전 (6개)
+- 문제: 원본 게시판 정보가 저장되지 않아 "마지막 크롤링 순번"을 게시판별로 체크할 수 없음
 
----
+### 2. 순번 미활용
+- 군산대 게시판에는 순번이 있음: `<td class="pcv_moh_768">5125</td>`
+- 현재 `original_id`에 `nttId` (URL 파라미터)를 저장 중이나, 이는 순차적이지 않음
+- 순번은 게시판 내에서 순차적으로 증가하므로 최적화에 활용 가능
 
-## 🚀 오늘 할 일 (2026-02-04)
-
-### 1. 크롤링 최적화 (4.3)
-
-#### 목표: 학교 서버 부담 최소화 + 효율적 크롤링
-
-- [ ] 목록 페이지만 먼저 확인하는 로직
-  - 1페이지 목록 크롤링 (1회 요청)
-  - DB의 마지막 `original_id`와 비교
-  - 새 글 있을 때만 상세 페이지 크롤링
-- [ ] 요청 간 딜레이 (1~2초) 추가
-- [ ] User-Agent 헤더 정상 설정
-- [ ] 에러 시 백오프 로직
+### 3. 현재 URL 기반 방식의 단점
+- DB에서 URL 500개를 조회해야 함
+- 메모리 사용량 증가
+- 쿼리 비용 발생
 
 ---
 
-### 2. 사용자별 맞춤 관련도 계산 (4.4)
+## 우선순위(priority) 기준 (참고)
 
-#### 목표: 같은 공지도 사용자마다 다른 관련도 점수 부여
+Gemini AI가 공지사항 분석 시 아래 기준으로 결정:
 
-- [ ] `ai_analysis` 테이블 활용 설계
-  - `user_id` + `notice_id` + `relevance_score` 저장
-- [ ] 관련도 계산 프롬프트 작성
-  - 입력: 사용자 정보 (학과, 학년, 관심 키워드) + 공지 내용
-  - 출력: 0~1 관련도 점수
-- [ ] 배치 처리로 API 호출 최적화
-  - 사용자 1명 + 공지 여러 개 한 번에 처리
+| 등급 | 기준 | 예시 |
+|------|------|------|
+| 긴급 | 마감일 3일 이내 또는 즉시 조치 필요 | 오늘까지 신청, 긴급 공지 |
+| 중요 | 대부분 학생에게 영향, 필수 확인 | 수강신청, 등록금 납부 |
+| 일반 | 특정 학생만 해당, 선택 사항 | 동아리 모집, 선택 특강 |
 
 ---
 
-### 3. 북마크 기능 구현 (신규)
+## 해결 방안
 
-#### 목표: 푸시 알림 전에 사용자 북마크 기능 확립
+### DB 스키마 변경
 
-- [ ] `bookmarks` 테이블 스키마 설계 (또는 기존 테이블 확인)
-- [ ] 북마크 API 엔드포인트 구현
-  - `POST /api/bookmarks` - 북마크 추가
-  - `DELETE /api/bookmarks/{id}` - 북마크 삭제
-  - `GET /api/bookmarks` - 내 북마크 목록 조회
-- [ ] 북마크 서비스 로직 구현 (`backend/services/bookmark_service.py`)
-
----
-
-### 4. 푸시 알림 구현 준비 (4.5) - 시간 되면
-
-- [ ] FCM (Firebase Cloud Messaging) 연동 조사
-- [ ] `notification_logs` 테이블 확인
-- [ ] 알림 발송 조건 설계: `relevance_score > 0.5`
-
----
-
-## 📋 DB 테이블 참고
-
-### `ai_analysis` 테이블
 ```sql
-CREATE TABLE ai_analysis (
-    id UUID PRIMARY KEY,
-    notice_id UUID REFERENCES notices(id),
-    user_id UUID REFERENCES users(id),
-    relevance_score DECIMAL(3,2),  -- 0~1 관련도 점수
-    summary TEXT,
-    action_required BOOLEAN,
-    deadline TIMESTAMP,
-    analyzed_at TIMESTAMP
-);
+ALTER TABLE notices ADD COLUMN source_board TEXT;  -- 원본 게시판 (공지사항/학사장학/모집공고)
+ALTER TABLE notices ADD COLUMN board_seq INTEGER;  -- 게시판 내 순번
+
+-- 인덱스 추가
+CREATE INDEX idx_notices_source_board ON notices(source_board);
+CREATE INDEX idx_notices_board_seq ON notices(source_board, board_seq DESC);
 ```
 
-### `bookmarks` 테이블 (예상)
-```sql
-CREATE TABLE bookmarks (
-    id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
-    notice_id UUID REFERENCES notices(id),
-    created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE(user_id, notice_id)
-);
+### 새로운 크롤링 플로우
+
 ```
+1. DB에서 해당 게시판의 마지막 순번 조회
+   SELECT MAX(board_seq) FROM notices WHERE source_board = '공지사항'
+
+2. 목록 페이지 1페이지만 확인
+
+3. 각 공지의 순번 추출 (<td class="pcv_moh_768">)
+
+4. 마지막 순번보다 큰 것만 상세 크롤링
+
+5. 저장 시 source_board, board_seq 함께 저장
+```
+
+---
+
+## 🚀 내일 할 일
+
+### 1단계: DB 마이그레이션
+- [ ] `source_board` 컬럼 추가
+- [ ] `board_seq` 컬럼 추가
+- [ ] 인덱스 생성
+- [ ] 마이그레이션 SQL 파일 생성: `docs/migrations/005_add_board_seq.sql`
+
+### 2단계: 크롤러 수정
+- [ ] `_extract_notice_list`에서 순번 추출 로직 추가
+  - `<td class="pcv_moh_768">` 태그에서 순번 파싱
+- [ ] `crawl_optimized` 메서드 수정
+  - URL 기반 → 순번 기반으로 변경
+  - `_get_existing_urls` → `_get_last_board_seq`로 변경
+- [ ] `save_to_dict`에 `source_board`, `board_seq` 추가
+
+### 3단계: 서비스 수정
+- [ ] `notice_service.py`에 `get_last_board_seq(source_board)` 메서드 추가
+- [ ] `save_analyzed_notice`에서 `source_board`, `board_seq` 저장
+- [ ] `save_notice_with_embedding`에서도 동일 적용
+
+### 4단계: 파이프라인 수정
+- [ ] `crawl_and_notify.py`에서 새 로직 적용
+- [ ] 크롤러 키를 `source_board` 값과 매핑
+
+### 5단계: 테스트
+- [ ] 단일 게시판 크롤링 테스트
+- [ ] 전체 파이프라인 테스트
+- [ ] 중복 크롤링 방지 확인
+
+---
+
+## 📁 수정 대상 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `docs/migrations/005_add_board_seq.sql` | 신규 생성 |
+| `docs/database_schema.sql` | 스키마 업데이트 |
+| `backend/crawler/notice_crawler.py` | 순번 추출, crawl_optimized 수정 |
+| `backend/crawler/base_crawler.py` | save_to_dict에 필드 추가 |
+| `backend/services/notice_service.py` | get_last_board_seq 추가 |
+| `backend/scripts/crawl_and_notify.py` | 파이프라인 수정 |
+
+---
+
+## 📋 기존 데이터 마이그레이션
+
+기존 데이터의 `source_board`와 `board_seq`는 비워둠 (NULL)
+- 다음 크롤링부터 새 공지에만 적용
+- 필요시 URL 패턴으로 역추적 가능 (boardId로 source_board 유추)
 
 ---
 
@@ -100,19 +124,3 @@ CREATE TABLE bookmarks (
 2. `requirements.txt` 수정 시 팀원에게 즉시 공지
 3. Gemini API 호출 시 비용 고려 (Flash 모델 사용)
 4. 학교 서버 부담 최소화 (목록 페이지만 확인, 딜레이 추가)
-
----
-
-## ⏳ 기술 부채 (나중에)
-
-- [ ] `google.generativeai` → `google.genai` 마이그레이션
-- [ ] Flask 개발 서버 → Gunicorn 전환
-
----
-
-## 🔗 참고 자료
-
-- [Gemini API 공식 문서](https://ai.google.dev/docs)
-- [Supabase Python Client](https://supabase.com/docs/reference/python/introduction)
-- 프로젝트 API 명세서: `docs/api_spec.md`
-- 데이터베이스 스키마: `docs/database_schema.sql`

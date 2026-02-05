@@ -30,8 +30,8 @@ class ScholarshipCrawler(NoticeCrawler):
     BOARD_PARAMS = {
         "boardId": "BBS_0000009",
         "menuCd": "DOM_000000105001002000",
-        "contentsSid": "212",
-        "cpath": ""
+        "orderBy": "REGISTER_DATE DESC",
+        "paging": "ok"
     }
 
     def __init__(self):

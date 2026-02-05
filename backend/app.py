@@ -24,9 +24,11 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
 from routes.notices import notices_bp
 from routes.users import users_bp
 from routes.crawl import crawl_bp
+from routes.search import search_bp
 app.register_blueprint(notices_bp)
 app.register_blueprint(users_bp)
 app.register_blueprint(crawl_bp)
+app.register_blueprint(search_bp)
 
 # 스케줄러 초기화 (1시간마다 자동 크롤링)
 from services.scheduler_service import SchedulerService

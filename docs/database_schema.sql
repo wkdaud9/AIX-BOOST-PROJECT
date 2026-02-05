@@ -45,19 +45,6 @@ CREATE TABLE IF NOT EXISTS notices (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- AI 분석 결과 테이블
-CREATE TABLE IF NOT EXISTS ai_analysis (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    notice_id UUID NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    relevance_score DECIMAL(3,2) CHECK (relevance_score >= 0 AND relevance_score <= 1),
-    summary TEXT,
-    action_required BOOLEAN DEFAULT FALSE,
-    deadline TIMESTAMP WITH TIME ZONE,
-    analyzed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
 -- 추출된 이벤트 테이블
 CREATE TABLE IF NOT EXISTS extracted_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -103,8 +90,6 @@ CREATE INDEX idx_notices_category ON notices(category);
 CREATE INDEX idx_notices_published_at ON notices(published_at DESC);
 CREATE INDEX idx_notices_original_id ON notices(original_id);
 CREATE INDEX idx_notices_author ON notices(author);
-CREATE INDEX idx_ai_analysis_user_id ON ai_analysis(user_id);
-CREATE INDEX idx_ai_analysis_relevance ON ai_analysis(relevance_score DESC);
 CREATE INDEX idx_calendar_events_user_id ON calendar_events(user_id);
 CREATE INDEX idx_calendar_events_start_date ON calendar_events(start_date);
 CREATE INDEX idx_notification_logs_user_id ON notification_logs(user_id);
@@ -146,6 +131,7 @@ COMMENT ON COLUMN notices.author IS '작성자 또는 작성 부서명';
 COMMENT ON COLUMN notices.view_count IS '원본 사이트의 조회수';
 COMMENT ON COLUMN notices.original_id IS '원본 웹사이트의 게시물 고유 번호 (중복 체크용)';
 COMMENT ON COLUMN notices.attachments IS '첨부파일 다운로드 URL 배열';
+COMMENT ON COLUMN notices.category IS '공지사항 카테고리: 학사(수강신청,학적,성적,졸업), 장학(장학금,학자금대출,등록금), 취업(채용,인턴십,취업박람회), 행사(입학식,졸업식,축제,오리엔테이션), 교육(특강,교육프로그램,진로교육,세미나), 공모전(대회,경진대회,콘테스트)';
 
 -- 자동 업데이트 트리거 함수
 CREATE OR REPLACE FUNCTION update_updated_at_column()

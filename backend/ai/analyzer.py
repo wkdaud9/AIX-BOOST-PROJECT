@@ -2,12 +2,12 @@
 """
 공지사항 분석기 모듈
 
-🤔 이 파일이 하는 일:
+이 파일이 하는 일:
 크롤링한 공지사항을 Gemini AI로 분석해서 유용한 정보를 추출합니다.
 예를 들어, 긴 공지사항을 요약하거나, 어떤 카테고리인지 판단하거나,
 얼마나 중요한지 점수를 매깁니다.
 
-📚 비유:
+비유:
 - 공지사항 = 학교에서 받은 긴 가정통신문
 - 이 분석기 = 가정통신문을 읽고 중요한 부분만 형광펜으로 표시해주는 친구
 """
@@ -38,12 +38,12 @@ class NoticeAnalyzer:
 
     # 지원하는 카테고리 목록
     CATEGORIES = [
-        "학사",      # 수강신청, 학적, 성적 등
-        "장학",      # 장학금, 학자금 대출 등
-        "취업",      # 채용, 인턴십, 취업특강 등
-        "행사",      # 축제, 세미나, 공모전 등
-        "시설",      # 도서관, 기숙사 등
-        "기타"       # 위 카테고리에 해당 안 되는 것
+        "학사",      # 수강신청, 학적, 성적, 졸업 등
+        "장학",      # 장학금, 학자금 대출, 등록금 등
+        "취업",      # 채용, 인턴십, 취업박람회 등
+        "행사",      # 입학식, 졸업식, 축제, 오리엔테이션 등
+        "교육",      # 특강, 교육 프로그램, 진로 교육, 세미나 등
+        "공모전"     # 대회, 경진대회, 공모전, 콘테스트 등
     ]
 
     def __init__(self, gemini_client: Optional[GeminiClient] = None):
@@ -172,7 +172,7 @@ class NoticeAnalyzer:
         - text: 분류할 공지사항 텍스트
 
         🎯 하는 일:
-        공지사항이 학사/장학/취업/행사/시설/기타 중 어디에 속하는지 판단합니다.
+        공지사항이 학사/장학/취업/행사/교육/공모전 중 어디에 속하는지 판단합니다.
 
         💡 예시:
         공지 = "2024년 1학기 수강신청 안내..."
@@ -196,10 +196,10 @@ class NoticeAnalyzer:
         category = self.client.generate_text(prompt, temperature=0.1)  # 일관성을 위해 낮은 temperature
         category = category.strip()
 
-        # 카테고리 목록에 없으면 "기타"로 처리
+        # 카테고리 목록에 없으면 "학사"로 처리 (기본값)
         if category not in self.CATEGORIES:
-            print(f"⚠️ 알 수 없는 카테고리 '{category}' -> '기타'로 변경")
-            category = "기타"
+            print(f"⚠️ 알 수 없는 카테고리 '{category}' -> '학사'로 변경")
+            category = "학사"
 
         return category
 
@@ -401,16 +401,19 @@ class NoticeAnalyzer:
 
             # 결과 구조화
             analysis_result = {
-                # 원본 데이터
+                # 원본 데이터 (DB 저장용 필드명 유지)
+                "title": title,
+                "content": content,
                 "original_title": title,
                 "original_content": content,
-                "url": notice_data.get("url", ""),
-                "published_date": notice_data.get("date", ""),
+                "url": notice_data.get("url") or notice_data.get("source_url", ""),
+                "source_url": notice_data.get("source_url") or notice_data.get("url", ""),
+                "published_date": notice_data.get("date") or notice_data.get("published_at", ""),
 
                 # 분석 결과
                 "summary": parsed_result.get("summary", ""),
                 "dates": parsed_result.get("dates", {}),
-                "category": parsed_result.get("category", "기타"),
+                "category": parsed_result.get("category", "학사"),
                 "priority": parsed_result.get("priority", "일반"),
 
                 # 메타 정보
@@ -419,24 +422,49 @@ class NoticeAnalyzer:
                 "analysis_timestamp": datetime.now().isoformat()
             }
 
+            # 크롤러에서 전달된 추가 필드 유지
+            if "original_id" in notice_data:
+                analysis_result["original_id"] = notice_data["original_id"]
+            if "author" in notice_data:
+                analysis_result["author"] = notice_data["author"]
+            if "views" in notice_data:
+                analysis_result["views"] = notice_data["views"]
+            if "attachments" in notice_data:
+                analysis_result["attachments"] = notice_data["attachments"]
+
             print(f"✅ 분석 완료: {analysis_result['category']} / {analysis_result['priority']}")
             return analysis_result
 
         except Exception as e:
             print(f"❌ 종합 분석 실패: {str(e)}")
-            # 실패 시 기본 구조 반환
-            return {
+            # 실패 시 기본 구조 반환 (DB 저장용 필드명 유지)
+            fallback_result = {
+                "title": title,
+                "content": content,
                 "original_title": title,
                 "original_content": content,
-                "url": notice_data.get("url", ""),
-                "published_date": notice_data.get("date", ""),
+                "url": notice_data.get("url") or notice_data.get("source_url", ""),
+                "source_url": notice_data.get("source_url") or notice_data.get("url", ""),
+                "published_date": notice_data.get("date") or notice_data.get("published_at", ""),
                 "summary": "",
                 "dates": {},
-                "category": "기타",
+                "category": "학사",
                 "priority": "일반",
                 "analyzed": False,
                 "error": str(e)
             }
+
+            # 크롤러에서 전달된 추가 필드 유지
+            if "original_id" in notice_data:
+                fallback_result["original_id"] = notice_data["original_id"]
+            if "author" in notice_data:
+                fallback_result["author"] = notice_data["author"]
+            if "views" in notice_data:
+                fallback_result["views"] = notice_data["views"]
+            if "attachments" in notice_data:
+                fallback_result["attachments"] = notice_data["attachments"]
+
+            return fallback_result
 
     def _retry_with_backoff(self, func, max_retries: int = 3, initial_delay: float = 1.0):
         """

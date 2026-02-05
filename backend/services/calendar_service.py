@@ -193,7 +193,7 @@ class CalendarService:
             notice_id=notice_data.get("id"),
             dates=notice_data.get("dates", {}),
             notice_title=notice_data.get("title", "일정"),
-            category=notice_data.get("category", "기타"),
+            category=notice_data.get("category", "학사"),
             user_ids=user_ids
         )
 

@@ -42,8 +42,8 @@ class NoticeCrawler(BaseCrawler):
     BOARD_PARAMS = {
         "boardId": "BBS_0000008",
         "menuCd": "DOM_000000105001001000",
-        "contentsSid": "211",
-        "cpath": ""
+        "orderBy": "REGISTER_DATE DESC",
+        "paging": "ok"
     }
 
     def __init__(self):
@@ -83,7 +83,7 @@ class NoticeCrawler(BaseCrawler):
 
         # 1페이지 목록만 가져오기
         params = self.BOARD_PARAMS.copy()
-        params['pagerOffset'] = '0'
+        params['startPage'] = '1'
 
         soup = self.fetch_page(self.LIST_URL, params=params)
 
@@ -123,39 +123,42 @@ class NoticeCrawler(BaseCrawler):
 
     def crawl_optimized(
         self,
-        last_known_id: Optional[str] = None,
-        max_pages: int = 1
+        existing_urls: Optional[set] = None,
+        max_pages: int = 1,
+        **kwargs  # 하위 호환성을 위해 last_known_id 등 무시
     ) -> List[Dict[str, Any]]:
         """
-        최적화된 크롤링을 수행합니다.
+        최적화된 크롤링을 수행합니다. (URL 기반 중복 체크)
 
         🎯 목적:
-        1. 목록 페이지만 먼저 확인
-        2. 새 공지가 있을 때만 상세 페이지 크롤링
+        1. 목록 페이지에서 URL 추출
+        2. DB에 없는 URL만 상세 페이지 크롤링
         3. 학교 서버 부담 최소화
 
         🔧 매개변수:
-        - last_known_id: DB에 저장된 마지막 공지 ID
+        - existing_urls: DB에 이미 저장된 URL 집합 (없으면 내부에서 조회)
         - max_pages: 최대 페이지 수 (기본값: 1)
 
         📊 반환값:
         - 크롤링한 공지사항 리스트 (상세 정보 포함)
 
         💡 예시:
-        from services.notice_service import NoticeService
-
-        service = NoticeService()
-        last_id = service.get_latest_original_id(category="공지사항")
-
         crawler = NoticeCrawler()
-        notices = crawler.crawl_optimized(last_known_id=last_id)
+        notices = crawler.crawl_optimized(max_pages=1)
         print(f"새로운 공지: {len(notices)}개")
         """
         print(f"\n{'='*50}")
-        print(f"[최적화 크롤링] 시작")
+        print(f"[최적화 크롤링] URL 기반 중복 체크")
         print(f"{'='*50}\n")
 
+        # 기존 URL 집합이 없으면 DB에서 조회
+        if existing_urls is None:
+            existing_urls = self._get_existing_urls()
+
+        print(f"[정보] DB에 저장된 공지: {len(existing_urls)}개")
+
         all_notices = []
+        all_new_in_page = True  # 페이지의 모든 공지가 새 공지인지 여부
 
         # 페이지별로 확인
         for page in range(1, max_pages + 1):
@@ -163,7 +166,7 @@ class NoticeCrawler(BaseCrawler):
 
             # 목록 페이지 가져오기
             params = self.BOARD_PARAMS.copy()
-            params['pagerOffset'] = str((page - 1) * 10)
+            params['startPage'] = str(page)
 
             soup = self.fetch_page(self.LIST_URL, params=params)
 
@@ -178,26 +181,27 @@ class NoticeCrawler(BaseCrawler):
                 print(f"[INFO] 페이지 {page}에서 공지사항을 찾지 못했습니다")
                 break
 
-            # 새로운 공지만 필터링
+            # URL 기반으로 새로운 공지만 필터링
             new_notices = []
-            found_last_id = False
+            found_existing = 0
 
             for notice in notices_list:
-                notice_id = notice.get("notice_id")
+                url = notice.get("url", "")
 
-                # 마지막 알려진 ID를 만나면 중단
-                if last_known_id and notice_id == last_known_id:
-                    print(f"[OK] 마지막 저장 공지 발견 - 크롤링 중단")
-                    found_last_id = True
-                    break
+                if url in existing_urls:
+                    found_existing += 1
+                    continue
 
                 new_notices.append(notice)
 
+            # 기존 공지가 발견되면 다음 페이지는 확인하지 않음
+            if found_existing > 0:
+                all_new_in_page = False
+                print(f"[정보] 기존 공지 {found_existing}개 발견 - 이후 페이지 스킵")
+
             if not new_notices:
                 print(f"[INFO] 페이지 {page}에 새 공지 없음")
-                if found_last_id:
-                    break
-                continue
+                break
 
             print(f"[OK] 새 공지 {len(new_notices)}개 발견 - 상세 크롤링 시작")
 
@@ -212,8 +216,8 @@ class NoticeCrawler(BaseCrawler):
                     detail["original_id"] = notice_preview.get("notice_id")
                     all_notices.append(detail)
 
-            # 마지막 ID를 찾았으면 더 이상 페이지를 돌지 않음
-            if found_last_id:
+            # 기존 공지가 하나라도 발견되면 더 이상 페이지를 돌지 않음
+            if not all_new_in_page:
                 break
 
         print(f"\n{'='*50}")
@@ -221,6 +225,42 @@ class NoticeCrawler(BaseCrawler):
         print(f"{'='*50}\n")
 
         return all_notices
+
+    def _get_existing_urls(self) -> set:
+        """
+        DB에서 현재 카테고리의 기존 공지 URL들을 조회합니다.
+        """
+        try:
+            from services.notice_service import NoticeService
+            from supabase import create_client
+            import os
+
+            url = os.getenv("SUPABASE_URL")
+            key = os.getenv("SUPABASE_KEY")
+
+            if not url or not key:
+                print("[WARNING] Supabase 환경변수 없음 - 빈 집합 반환")
+                return set()
+
+            client = create_client(url, key)
+
+            # 해당 카테고리의 URL만 조회 (최근 500개)
+            result = client.table("notices")\
+                .select("source_url")\
+                .eq("category", self.category)\
+                .order("published_at", desc=True)\
+                .limit(500)\
+                .execute()
+
+            if result.data:
+                urls = {row["source_url"] for row in result.data if row.get("source_url")}
+                return urls
+
+            return set()
+
+        except Exception as e:
+            print(f"[WARNING] 기존 URL 조회 실패: {str(e)}")
+            return set()
 
     def crawl(self, max_pages: int = 1) -> List[Dict[str, Any]]:
         """
@@ -255,7 +295,7 @@ class NoticeCrawler(BaseCrawler):
 
             # 페이지 파라미터 추가
             params = self.BOARD_PARAMS.copy()
-            params['pagerOffset'] = str((page - 1) * 10)  # 페이지네이션
+            params['startPage'] = str(page)  # 페이지네이션
 
             # 목록 페이지 가져오기
             soup = self.fetch_page(self.LIST_URL, params=params)
@@ -480,7 +520,7 @@ class NoticeCrawler(BaseCrawler):
                 author=author,
                 views=views,
                 attachments=attachments,
-                notice_id=notice_preview.get('notice_id')
+                original_id=notice_preview.get('notice_id')
             )
 
             return notice_data

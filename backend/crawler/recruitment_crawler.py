@@ -30,8 +30,8 @@ class RecruitmentCrawler(NoticeCrawler):
     BOARD_PARAMS = {
         "boardId": "BBS_0000010",
         "menuCd": "DOM_000000105001003000",
-        "contentsSid": "213",
-        "cpath": ""
+        "orderBy": "REGISTER_DATE DESC",
+        "paging": "ok"
     }
 
     def __init__(self):

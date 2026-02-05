@@ -420,7 +420,7 @@ class CrawlerManager:
                             notice_id=notice.get("id"),
                             dates=dates,
                             notice_title=notice.get("original_title", ""),
-                            category=notice.get("category", "기타"),
+                            category=notice.get("category", "학사"),
                             user_ids=None  # None이면 관심 사용자 자동 조회
                         )
                         calendar_event_count += len(event_ids)
@@ -549,7 +549,7 @@ class CrawlerManager:
                                         notice_id=notice["id"],
                                         dates=dates,
                                         notice_title=notice.get("title", ""),
-                                        category=analysis.get("category", "기타"),
+                                        category=analysis.get("category", "학사"),
                                         user_ids=None
                                     )
                                     calendar_event_count += len(event_ids)
