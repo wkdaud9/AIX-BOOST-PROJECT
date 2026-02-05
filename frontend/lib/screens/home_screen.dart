@@ -168,27 +168,38 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 배너 슬라이드
-            _buildBannerSlider(),
-
-            Padding(
-              padding: const EdgeInsets.all(16.0),
+            // 배너 + 카테고리 영역 (흰색 배경 통일)
+            Container(
+              color: Colors.white,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 카테고리 필터
+                  // 배너 슬라이드
+                  _buildBannerSlider(),
+                  // 카테고리 필터 (제목 제거, 여백 없이 바로 연결)
                   _buildCategoryFilter(),
-                  const SizedBox(height: 24),
-
-                  // 슬라이드 카드 섹션
-                  _buildSectionTitle('추천 정보'),
-                  const SizedBox(height: 12),
                 ],
               ),
             ),
 
-            // 슬라이드 카드 (Padding 밖에 배치하여 전체 너비 사용)
-            _buildSlideCards(),
+            const SizedBox(height: 16),
+
+            // 추천 정보 섹션 (그레이 배경)
+            Container(
+              color: Colors.grey.shade100,
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: _buildSectionTitle('추천 정보'),
+                  ),
+                  const SizedBox(height: 16),
+                  // 슬라이드 카드
+                  _buildSlideCards(),
+                ],
+              ),
+            ),
 
             const SizedBox(height: 24),
           ],
@@ -314,29 +325,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 카테고리 필터 UI (6개 한 줄 배치, 트렌디한 디자인)
+  // 카테고리 필터 UI (6개 한 줄 배치, 미니멀 디자인)
   Widget _buildCategoryFilter() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '카테고리',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimary,
-              ),
-        ),
-        const SizedBox(height: 16),
-        // 6개 카테고리를 2행으로 배치
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: _categories.map((category) {
-            final categoryName = category['name'] as String;
-            final isSelected = _selectedCategory == categoryName;
-            final categoryColor = category['color'] as Color;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: _categories.map((category) {
+          final categoryName = category['name'] as String;
+          final isSelected = _selectedCategory == categoryName;
+          final categoryColor = category['color'] as Color;
 
-            return GestureDetector(
+          return Expanded(
+            child: GestureDetector(
               onTap: () {
                 setState(() {
                   _selectedCategory = categoryName;
@@ -351,61 +352,40 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 );
               },
-              child: AnimatedContainer(
-                duration: AppDuration.normal,
-                curve: Curves.easeInOut,
-                width: (MediaQuery.of(context).size.width - 32 - 24) / 3, // 3개씩 배치
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? categoryColor.withOpacity(0.12)
-                      : AppTheme.surfaceLight,
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                  border: Border.all(
-                    color: isSelected
-                        ? categoryColor
-                        : Colors.transparent,
-                    width: 2,
-                  ),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: categoryColor.withOpacity(0.2),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ]
-                      : AppShadow.soft,
-                ),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    // 네모 박스 아이콘
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? categoryColor.withOpacity(0.2)
+                            ? categoryColor.withOpacity(0.15)
                             : Colors.grey.shade200,
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
                         category['icon'] as IconData,
-                        size: 22,
+                        size: 24,
                         color: isSelected
                             ? categoryColor
-                            : AppTheme.textSecondary,
+                            : Colors.grey.shade600,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
+                    // 카테고리 이름
                     Text(
                       categoryName,
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                         color: isSelected
                             ? categoryColor
-                            : AppTheme.textSecondary,
-                        letterSpacing: -0.2,
+                            : Colors.grey.shade700,
                       ),
                       textAlign: TextAlign.center,
                       maxLines: 1,
@@ -414,10 +394,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-            );
-          }).toList(),
-        ),
-      ],
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -478,7 +458,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 카드 1: 인기 게시물 (세련된 디자인)
+  // 카드 1: 인기 게시물 (미니멀 디자인)
   Widget _buildPopularCard() {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
@@ -487,20 +467,15 @@ class _HomeScreenState extends State<HomeScreen> {
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.white,
-                AppTheme.warningColor.withOpacity(0.02),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(AppRadius.xl),
-            boxShadow: AppShadow.medium,
-            border: Border.all(
-              color: AppTheme.warningColor.withOpacity(0.1),
-              width: 1,
-            ),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -765,26 +740,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                       ),
                                       if (notice.daysUntilDeadline != null) ...[
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: notice.isDeadlineSoon
-                                                ? Colors.red.shade100
-                                                : Colors.blue.shade100,
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            'D-${notice.daysUntilDeadline}',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: notice.isDeadlineSoon
-                                                  ? Colors.red.shade700
-                                                  : Colors.blue.shade700,
-                                            ),
+                                        Text(
+                                          'D-${notice.daysUntilDeadline}',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.red.shade600,
                                           ),
                                         ),
                                         const SizedBox(width: 8),
@@ -1439,24 +1400,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   if (notice.deadline != null && notice.daysUntilDeadline != null) ...[
                     const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: notice.isDeadlineSoon
-                            ? AppTheme.errorColor
-                            : AppTheme.infoColor,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                      child: Text(
-                        'D-${notice.daysUntilDeadline}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    Text(
+                      'D-${notice.daysUntilDeadline}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red.shade600,
                       ),
                     ),
                   ],
@@ -2026,8 +1975,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // 중요도에 따른 색상 반환
   Color _getPriorityColor(String priority) {
     switch (priority) {
-      case '긴급':
-        return Colors.red.shade700;
       case '중요':
         return Colors.orange.shade700;
       case '일반':

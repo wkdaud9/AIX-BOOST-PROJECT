@@ -177,151 +177,150 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
         borderRadius: BorderRadius.circular(AppRadius.lg),
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
             children: [
-              // 왼쪽 영역 (제목, 메타 정보)
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // D-day 뱃지 + 우선순위 + NEW
-                    Row(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 왼쪽 영역 (제목, 메타 정보)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // D-day 표시 (빨간색 텍스트만)
                         if (notice.deadline != null &&
                             notice.daysUntilDeadline != null) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: notice.isDeadlineSoon
-                                  ? AppTheme.errorColor
-                                  : AppTheme.infoColor,
-                              borderRadius: BorderRadius.circular(AppRadius.sm),
-                            ),
-                            child: Text(
-                              'D-${notice.daysUntilDeadline}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
+                          Text(
+                            'D-${notice.daysUntilDeadline}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red.shade600,
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(height: 8),
                         ],
-                        if (notice.priority != null) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _getPriorityColor(notice.priority!),
-                              borderRadius: BorderRadius.circular(AppRadius.sm),
-                            ),
-                            child: Text(
-                              notice.priority!,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+
+                        // 제목
+                        Padding(
+                          padding: const EdgeInsets.only(right: 60), // 우선순위 뱃지 공간 확보
+                          child: Text(
+                            notice.title,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textPrimary,
+                                ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(width: 6),
-                        ],
-                        if (notice.isNew)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+                        ),
+                        const SizedBox(height: 8),
+
+                        // 메타 정보 (조회수, 저장 횟수)
+                        Row(
+                          children: [
+                            // 조회수
+                            Icon(
+                              Icons.visibility_outlined,
+                              size: 16,
+                              color: AppTheme.textSecondary,
                             ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.errorColor,
-                              borderRadius: BorderRadius.circular(AppRadius.sm),
-                            ),
-                            child: const Text(
-                              'NEW',
+                            const SizedBox(width: 4),
+                            Text(
+                              '${notice.views}',
                               style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: AppTheme.textSecondary,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
+                            const SizedBox(width: 16),
 
-                    // 제목
-                    Text(
-                      notice.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary,
-                          ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
+                            // 캘린더 저장 횟수
+                            Icon(
+                              Icons.bookmark_border,
+                              size: 16,
+                              color: AppTheme.textSecondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${(notice.views * 0.1).toInt()}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const Spacer(),
 
-                    // 메타 정보 (조회수, 저장 횟수)
-                    Row(
-                      children: [
-                        // 조회수
-                        Icon(
-                          Icons.visibility_outlined,
-                          size: 16,
-                          color: AppTheme.textSecondary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${notice.views}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-
-                        // 캘린더 저장 횟수 (임시로 랜덤 값 표시)
-                        Icon(
-                          Icons.bookmark_border,
-                          size: 16,
-                          color: AppTheme.textSecondary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${(notice.views * 0.1).toInt()}', // 임시: 조회수의 10%
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const Spacer(),
-
-                        // 날짜 정보
-                        Text(
-                          notice.formattedDate,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textHint,
-                          ),
+                            // 날짜 정보
+                            Text(
+                              notice.formattedDate,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textHint,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+
+                  // 오른쪽 영역 (썸네일)
+                  _buildThumbnail(notice),
+                ],
+              ),
+              // 우선순위 + NEW 뱃지 (오른쪽 상단)
+              Positioned(
+                top: 0,
+                right: 90,
+                child: Row(
+                  children: [
+                    if (notice.priority != null) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getPriorityColor(notice.priority!),
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                        ),
+                        child: Text(
+                          notice.priority!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    if (notice.isNew)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.errorColor,
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                        ),
+                        child: const Text(
+                          'NEW',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
-              const SizedBox(width: AppSpacing.md),
-
-              // 오른쪽 영역 (썸네일)
-              _buildThumbnail(notice),
             ],
           ),
         ),
@@ -427,8 +426,6 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
   /// 우선순위 색상
   Color _getPriorityColor(String priority) {
     switch (priority) {
-      case '긴급':
-        return Colors.red.shade700;
       case '중요':
         return Colors.orange.shade700;
       case '일반':

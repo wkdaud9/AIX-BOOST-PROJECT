@@ -208,7 +208,7 @@ class NoticeProvider with ChangeNotifier {
         tags: ['수강신청', '학사일정'],
         deadline: DateTime.now().add(const Duration(days: 2)),
         aiSummary: '2월 5일부터 학년별 수강신청 시작. 4학년부터 순차적으로 진행.',
-        priority: '긴급',
+        priority: '중요',
         extractedDates: ['2024-02-05', '2024-02-06', '2024-02-07', '2024-02-08'],
       ),
       Notice(
