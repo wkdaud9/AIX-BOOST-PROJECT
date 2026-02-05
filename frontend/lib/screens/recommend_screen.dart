@@ -12,55 +12,65 @@ class RecommendScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 헤더
-              _buildHeader(context),
-              const SizedBox(height: 24),
+      body: Consumer<NoticeProvider>(
+        builder: (context, provider, child) {
+          return RefreshIndicator(
+            onRefresh: () async {
+              await provider.fetchNotices();
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 헤더
+                    _buildHeader(context),
+                    const SizedBox(height: 24),
 
-              // AI 추천 공지사항
-              _buildSection(
-                context,
-                title: 'AI 맞춤 추천',
-                icon: Icons.auto_awesome,
-                color: Colors.purple,
-                description: '당신의 관심사에 맞는 공지사항',
+                    // AI 추천 공지사항
+                    _buildSection(
+                      context,
+                      title: 'AI 맞춤 추천',
+                      icon: Icons.auto_awesome,
+                      color: Colors.purple,
+                      description: '당신의 관심사에 맞는 공지사항',
+                    ),
+                    const SizedBox(height: 16),
+                    _buildAIRecommendList(context),
+
+                    const SizedBox(height: 32),
+
+                    // 우선순위 높은 공지사항
+                    _buildSection(
+                      context,
+                      title: '긴급 공지사항',
+                      icon: Icons.priority_high,
+                      color: Colors.red,
+                      description: '놓치면 안 되는 중요한 정보',
+                    ),
+                    const SizedBox(height: 16),
+                    _buildUrgentList(context),
+
+                    const SizedBox(height: 32),
+
+                    // 마감 임박 공지사항
+                    _buildSection(
+                      context,
+                      title: '마감 임박',
+                      icon: Icons.alarm,
+                      color: Colors.orange,
+                      description: '곧 마감되는 공지사항',
+                    ),
+                    const SizedBox(height: 16),
+                    _buildDeadlineSoonList(context),
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
-              _buildAIRecommendList(context),
-
-              const SizedBox(height: 32),
-
-              // 우선순위 높은 공지사항
-              _buildSection(
-                context,
-                title: '긴급 공지사항',
-                icon: Icons.priority_high,
-                color: Colors.red,
-                description: '놓치면 안 되는 중요한 정보',
-              ),
-              const SizedBox(height: 16),
-              _buildUrgentList(context),
-
-              const SizedBox(height: 32),
-
-              // 마감 임박 공지사항
-              _buildSection(
-                context,
-                title: '마감 임박',
-                icon: Icons.alarm,
-                color: Colors.orange,
-                description: '곧 마감되는 공지사항',
-              ),
-              const SizedBox(height: 16),
-              _buildDeadlineSoonList(context),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -219,7 +229,7 @@ class RecommendScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 카테고리와 우선순위
+              // 카테고리, 우선순위, 북마크
               Row(
                 children: [
                   Container(
@@ -287,6 +297,29 @@ class RecommendScreen extends StatelessWidget {
                       ),
                     ),
                   ],
+                  const Spacer(),
+                  // 북마크 아이콘
+                  Consumer<NoticeProvider>(
+                    builder: (context, provider, child) {
+                      return IconButton(
+                        icon: Icon(
+                          notice.isBookmarked
+                              ? Icons.bookmark
+                              : Icons.bookmark_border,
+                          size: 20,
+                        ),
+                        color: notice.isBookmarked
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey[600],
+                        onPressed: () {
+                          provider.toggleBookmark(notice.id);
+                        },
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: notice.isBookmarked ? '북마크 해제' : '북마크 추가',
+                      );
+                    },
+                  ),
                 ],
               ),
 

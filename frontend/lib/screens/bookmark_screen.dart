@@ -5,15 +5,42 @@ import '../providers/notice_provider.dart';
 import '../theme/app_theme.dart';
 import 'notice_detail_screen.dart';
 
+enum BookmarkSortMode { recent, deadline, views }
+
 /// 북마크 화면 - 저장된 공지사항 목록
-class BookmarkScreen extends StatelessWidget {
+class BookmarkScreen extends StatefulWidget {
   const BookmarkScreen({super.key});
+
+  @override
+  State<BookmarkScreen> createState() => _BookmarkScreenState();
+}
+
+class _BookmarkScreenState extends State<BookmarkScreen> {
+  BookmarkSortMode _sortMode = BookmarkSortMode.recent;
 
   @override
   Widget build(BuildContext context) {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
-        final bookmarkedNotices = provider.bookmarkedNotices;
+        var bookmarkedNotices = List<Notice>.from(provider.bookmarkedNotices);
+
+        // 정렬
+        switch (_sortMode) {
+          case BookmarkSortMode.recent:
+            bookmarkedNotices.sort((a, b) => b.date.compareTo(a.date));
+            break;
+          case BookmarkSortMode.deadline:
+            bookmarkedNotices.sort((a, b) {
+              if (a.deadline == null && b.deadline == null) return 0;
+              if (a.deadline == null) return 1;
+              if (b.deadline == null) return -1;
+              return a.deadline!.compareTo(b.deadline!);
+            });
+            break;
+          case BookmarkSortMode.views:
+            bookmarkedNotices.sort((a, b) => b.views.compareTo(a.views));
+            break;
+        }
 
         if (provider.isLoading) {
           return const Center(
@@ -25,18 +52,73 @@ class BookmarkScreen extends StatelessWidget {
           return _buildEmptyView();
         }
 
-        return RefreshIndicator(
-          onRefresh: () async {
-            await provider.fetchNotices();
-          },
-          child: ListView.builder(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            itemCount: bookmarkedNotices.length,
-            itemBuilder: (context, index) {
-              final notice = bookmarkedNotices[index];
-              return _buildBookmarkCard(context, notice, provider);
-            },
-          ),
+        return Column(
+          children: [
+            // 정렬 옵션
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  const Text(
+                    '정렬',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: SegmentedButton<BookmarkSortMode>(
+                      segments: const [
+                        ButtonSegment<BookmarkSortMode>(
+                          value: BookmarkSortMode.recent,
+                          label: Text('최신순', style: TextStyle(fontSize: 12)),
+                          icon: Icon(Icons.schedule, size: 16),
+                        ),
+                        ButtonSegment<BookmarkSortMode>(
+                          value: BookmarkSortMode.deadline,
+                          label: Text('마감순', style: TextStyle(fontSize: 12)),
+                          icon: Icon(Icons.alarm, size: 16),
+                        ),
+                        ButtonSegment<BookmarkSortMode>(
+                          value: BookmarkSortMode.views,
+                          label: Text('조회순', style: TextStyle(fontSize: 12)),
+                          icon: Icon(Icons.trending_up, size: 16),
+                        ),
+                      ],
+                      selected: {_sortMode},
+                      onSelectionChanged: (Set<BookmarkSortMode> newSelection) {
+                        setState(() {
+                          _sortMode = newSelection.first;
+                        });
+                      },
+                      style: ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+
+            // 북마크 리스트
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  await provider.fetchNotices();
+                },
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  itemCount: bookmarkedNotices.length,
+                  itemBuilder: (context, index) {
+                    final notice = bookmarkedNotices[index];
+                    return _buildBookmarkCard(context, notice, provider);
+                  },
+                ),
+              ),
+            ),
+          ],
         );
       },
     );

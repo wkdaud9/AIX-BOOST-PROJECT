@@ -17,36 +17,68 @@ class CalendarScreen extends StatefulWidget {
 enum ViewMode { calendar, list }
 enum SortMode { deadline, recent }
 
-class _CalendarScreenState extends State<CalendarScreen> {
+class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProviderStateMixin {
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   ViewMode _viewMode = ViewMode.calendar; // 보기 모드 (캘린더/리스트)
   SortMode _sortMode = SortMode.deadline; // 정렬 모드 (마감순/최신저장순)
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabChange);
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_handleTabChange);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _handleTabChange() {
+    if (!_tabController.indexIsChanging) {
+      setState(() {
+        _sortMode = _tabController.index == 0 ? SortMode.deadline : SortMode.recent;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('일정'),
+        title: Text(
+          '일정',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+        elevation: 0,
+        backgroundColor: AppTheme.surfaceColor,
         actions: [
-          // 보기 모드 전환 버튼
+          // 보기 모드 전환 버튼 (세련된 디자인)
           Container(
-            margin: const EdgeInsets.only(right: 8),
+            margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.primaryColor.withOpacity(0.15),
+                  AppTheme.primaryColor.withOpacity(0.08),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(AppRadius.md),
             ),
             child: IconButton(
               icon: Icon(
-                _viewMode == ViewMode.calendar ? Icons.list : Icons.calendar_month,
-                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                _viewMode == ViewMode.calendar ? Icons.view_list_rounded : Icons.calendar_month_rounded,
+                color: AppTheme.primaryColor,
+                size: 22,
               ),
               onPressed: () {
                 setState(() {
@@ -151,44 +183,40 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  /// 정렬 옵션
+  /// 정렬 옵션 (탭 방식)
   Widget _buildSortOptions() {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Row(
-        children: [
-          const Text(
-            '정렬',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.grey.shade300,
+            width: 1,
           ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: SegmentedButton<SortMode>(
-              segments: const [
-                ButtonSegment<SortMode>(
-                  value: SortMode.deadline,
-                  label: Text('마감 임박 순'),
-                  icon: Icon(Icons.alarm, size: 16),
-                ),
-                ButtonSegment<SortMode>(
-                  value: SortMode.recent,
-                  label: Text('최신 저장 순'),
-                  icon: Icon(Icons.schedule, size: 16),
-                ),
-              ],
-              selected: {_sortMode},
-              onSelectionChanged: (Set<SortMode> newSelection) {
-                setState(() {
-                  _sortMode = newSelection.first;
-                });
-              },
-              style: ButtonStyle(
-                visualDensity: VisualDensity.compact,
-              ),
-            ),
+        ),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        labelColor: AppTheme.primaryColor,
+        unselectedLabelColor: Colors.grey.shade600,
+        labelStyle: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.bold,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+        ),
+        indicatorColor: AppTheme.primaryColor,
+        indicatorWeight: 3,
+        tabs: const [
+          Tab(
+            icon: Icon(Icons.alarm, size: 20),
+            text: '마감 임박순',
+          ),
+          Tab(
+            icon: Icon(Icons.schedule, size: 20),
+            text: '최신 저장순',
           ),
         ],
       ),
@@ -367,10 +395,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   color: AppTheme.primaryColor,
                   shape: BoxShape.circle,
                 ),
-                markerDecoration: const BoxDecoration(
-                  color: AppTheme.secondaryColor,
+                // 마감일 마커 스타일
+                markerDecoration: BoxDecoration(
+                  color: AppTheme.primaryColor,
                   shape: BoxShape.circle,
                 ),
+                markerSize: 7.0, // 마커 크기
+                markerMargin: const EdgeInsets.symmetric(horizontal: 1.5), // 마커 간격
+                markersMaxCount: 3, // 최대 마커 개수
+                markersAlignment: Alignment.bottomCenter, // 마커 위치
                 weekendTextStyle: const TextStyle(
                   color: AppTheme.errorColor,
                 ),
@@ -527,12 +560,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
               const SizedBox(height: AppSpacing.sm),
 
-              // 날짜 정보
+              // 내용 미리보기
+              Text(
+                notice.content,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+
+              const SizedBox(height: AppSpacing.sm),
+
+              // 날짜 정보 및 조회수
               Row(
                 children: [
                   Icon(
-                    Icons.access_time,
-                    size: 16,
+                    Icons.event,
+                    size: 14,
                     color: AppTheme.textSecondary,
                   ),
                   const SizedBox(width: 4),
@@ -540,6 +585,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     notice.deadline != null
                         ? '마감: ${notice.deadline!.year}.${notice.deadline!.month.toString().padLeft(2, '0')}.${notice.deadline!.day.toString().padLeft(2, '0')}'
                         : notice.formattedDate,
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Icon(
+                    Icons.visibility,
+                    size: 14,
+                    color: AppTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${notice.views}',
                     style: TextStyle(
                       color: AppTheme.textSecondary,
                       fontSize: 12,
