@@ -18,6 +18,10 @@ from . import prompts
 import json
 import time
 import re
+import requests
+import google.generativeai as genai
+from PIL import Image
+from io import BytesIO
 from datetime import datetime
 
 
@@ -110,7 +114,6 @@ class NoticeAnalyzer:
         # 각종 분석 수행
         summary = self.extract_summary(full_text)
         category = self.categorize(full_text)
-        importance = self.calculate_importance(full_text)
         keywords = self.extract_keywords(full_text)
 
         # 결과를 하나로 합치기
@@ -124,7 +127,6 @@ class NoticeAnalyzer:
             # 분석 결과
             "summary": summary,
             "category": category,
-            "importance": importance,
             "keywords": keywords,
 
             # 메타 정보
@@ -132,7 +134,7 @@ class NoticeAnalyzer:
             "analysis_model": self.client.model_name
         }
 
-        print(f"✅ 분석 완료: {category} / 중요도 {importance}점")
+        print(f"✅ 분석 완료: {category}")
         return analysis_result
 
     def extract_summary(self, text: str, max_length: int = 100) -> str:
@@ -203,60 +205,6 @@ class NoticeAnalyzer:
 
         return category
 
-    def calculate_importance(self, text: str) -> int:
-        """
-        공지사항의 중요도를 1~5점으로 평가합니다.
-
-        🔧 매개변수:
-        - text: 평가할 공지사항 텍스트
-
-        🎯 하는 일:
-        공지사항이 얼마나 중요한지 1점(별로 안 중요)부터 5점(매우 중요)까지 점수를 매깁니다.
-
-        📊 점수 기준:
-        - 1점: 선택 사항, 관심 있는 사람만 보면 됨
-        - 2점: 알아두면 좋음
-        - 3점: 해당되면 확인 필요
-        - 4점: 대부분 학생이 확인해야 함
-        - 5점: 모든 학생 필독 (수강신청, 등록금 납부 등)
-
-        💡 예시:
-        공지 = "수강신청 안내"
-        점수 = analyzer.calculate_importance(공지)
-        print(점수)  # 5
-        """
-        prompt = f"""
-        다음 공지사항의 중요도를 1~5점으로 평가해주세요.
-
-        평가 기준:
-        1점: 선택 사항, 관심 있는 사람만
-        2점: 알아두면 좋음
-        3점: 해당되면 확인 필요
-        4점: 대부분 학생 확인 필요
-        5점: 전체 학생 필독 (마감일 있음, 의무사항 등)
-
-        숫자만 답해주세요. (예: 4)
-
-        공지사항:
-        {text}
-
-        중요도 점수:
-        """
-
-        importance_str = self.client.generate_text(prompt, temperature=0.2)
-
-        # 숫자로 변환 시도
-        try:
-            importance = int(importance_str.strip())
-            # 1~5 범위 확인
-            if importance < 1 or importance > 5:
-                print(f"⚠️ 중요도 범위 초과 ({importance}) -> 3점으로 조정")
-                importance = 3
-        except ValueError:
-            print(f"⚠️ 중요도 파싱 실패 ('{importance_str}') -> 3점으로 설정")
-            importance = 3
-
-        return importance
 
     def extract_keywords(self, text: str, max_keywords: int = 5) -> List[str]:
         """
@@ -361,7 +309,6 @@ class NoticeAnalyzer:
                 "deadline": "YYYY-MM-DD"
             },
             "category": "카테고리",
-            "priority": "중요도",
             "analyzed": True,
             "analysis_model": "gemini-1.5-flash"
         }
@@ -414,7 +361,6 @@ class NoticeAnalyzer:
                 "summary": parsed_result.get("summary", ""),
                 "dates": parsed_result.get("dates", {}),
                 "category": parsed_result.get("category", "학사"),
-                "priority": parsed_result.get("priority", "일반"),
 
                 # 메타 정보
                 "analyzed": True,
@@ -431,8 +377,12 @@ class NoticeAnalyzer:
                 analysis_result["views"] = notice_data["views"]
             if "attachments" in notice_data:
                 analysis_result["attachments"] = notice_data["attachments"]
+            if "source_board" in notice_data:
+                analysis_result["source_board"] = notice_data["source_board"]
+            if "board_seq" in notice_data:
+                analysis_result["board_seq"] = notice_data["board_seq"]
 
-            print(f"✅ 분석 완료: {analysis_result['category']} / {analysis_result['priority']}")
+            print(f"✅ 분석 완료: {analysis_result['category']}")
             return analysis_result
 
         except Exception as e:
@@ -449,7 +399,6 @@ class NoticeAnalyzer:
                 "summary": "",
                 "dates": {},
                 "category": "학사",
-                "priority": "일반",
                 "analyzed": False,
                 "error": str(e)
             }
@@ -463,6 +412,10 @@ class NoticeAnalyzer:
                 fallback_result["views"] = notice_data["views"]
             if "attachments" in notice_data:
                 fallback_result["attachments"] = notice_data["attachments"]
+            if "source_board" in notice_data:
+                fallback_result["source_board"] = notice_data["source_board"]
+            if "board_seq" in notice_data:
+                fallback_result["board_seq"] = notice_data["board_seq"]
 
             return fallback_result
 
@@ -543,6 +496,97 @@ class NoticeAnalyzer:
             print(f"❌ JSON 파싱 실패: {str(e)}")
             print(f"응답 내용: {response[:200]}...")
             raise ValueError(f"JSON 파싱 실패: {str(e)}")
+
+    def analyze_images(
+        self,
+        image_urls: List[str],
+        title: str = "",
+        base_url: str = "https://www.kunsan.ac.kr"
+    ) -> str:
+        """
+        이미지 URL들을 Gemini Vision으로 분석하여 텍스트 내용을 추출합니다.
+
+        🎯 목적:
+        공지사항이 이미지로만 구성된 경우, 이미지 내용을 텍스트로 변환합니다.
+
+        🔧 매개변수:
+        - image_urls: 분석할 이미지 URL 리스트
+        - title: 공지사항 제목 (컨텍스트 제공용)
+        - base_url: 상대 경로 변환용 기본 URL
+
+        📊 반환값:
+        - 이미지에서 추출한 텍스트 내용
+
+        💡 예시:
+        urls = ["/upload_data/editor/BBS_0000010/177034525863919.jpg"]
+        content = analyzer.analyze_images(urls, title="장학금 안내")
+        print(content)  # "2026학년도 국가장학금 신청 안내..."
+        """
+        if not image_urls:
+            return ""
+
+        print(f"🖼️ 이미지 분석 시작: {len(image_urls)}개 이미지")
+
+        # 이미지 다운로드 및 PIL Image로 변환
+        images = []
+        for url in image_urls[:5]:  # 최대 5개까지만 처리 (비용 절감)
+            try:
+                # 상대 경로면 절대 경로로 변환
+                if not url.startswith("http"):
+                    url = base_url + url
+
+                # 이미지 다운로드
+                response = requests.get(url, timeout=10)
+                response.raise_for_status()
+
+                # PIL Image로 변환
+                img = Image.open(BytesIO(response.content))
+                images.append(img)
+                print(f"  ✅ 이미지 로드 성공: {url[-30:]}")
+
+            except Exception as e:
+                print(f"  ⚠️ 이미지 로드 실패: {url[-30:]} ({str(e)})")
+                continue
+
+        if not images:
+            print("  ❌ 로드된 이미지 없음")
+            return ""
+
+        # Gemini Vision 모델로 이미지 분석
+        try:
+            # Gemini 2.0 Flash 모델 사용 (Vision 지원)
+            vision_model = genai.GenerativeModel("models/gemini-2.0-flash")
+
+            # 프롬프트 구성
+            prompt = f"""
+다음은 대학교 공지사항에 포함된 이미지입니다.
+공지사항 제목: {title}
+
+이미지에서 모든 텍스트 내용을 추출해주세요.
+표, 목록, 날짜, 연락처 등 중요한 정보를 빠짐없이 포함해주세요.
+추출된 내용만 작성하고, 설명이나 해석은 하지 마세요.
+
+추출된 내용:
+"""
+
+            # 이미지와 함께 요청
+            content_parts = [prompt] + images
+            response = vision_model.generate_content(
+                content_parts,
+                generation_config={
+                    "max_output_tokens": 4096,
+                    "temperature": 0.1
+                }
+            )
+
+            extracted_text = response.text.strip()
+            print(f"  ✅ 이미지 분석 완료: {len(extracted_text)}자 추출")
+
+            return extracted_text
+
+        except Exception as e:
+            print(f"  ❌ 이미지 분석 실패: {str(e)}")
+            return ""
 
     def _normalize_dates(self, dates: Dict[str, Any]) -> Dict[str, Optional[str]]:
         """

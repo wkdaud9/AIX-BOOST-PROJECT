@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS notices (
     ai_summary TEXT,
     extracted_dates DATE[],
     is_processed BOOLEAN DEFAULT FALSE,
+    source_board TEXT,                          -- 원본 게시판 구분 (공지사항, 학사장학, 모집공고)
+    board_seq INTEGER,                          -- 게시판 내 순번 (중복 크롤링 방지용)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -90,6 +92,8 @@ CREATE INDEX idx_notices_category ON notices(category);
 CREATE INDEX idx_notices_published_at ON notices(published_at DESC);
 CREATE INDEX idx_notices_original_id ON notices(original_id);
 CREATE INDEX idx_notices_author ON notices(author);
+CREATE INDEX idx_notices_source_board ON notices(source_board);
+CREATE INDEX idx_notices_board_seq ON notices(source_board, board_seq DESC);
 CREATE INDEX idx_calendar_events_user_id ON calendar_events(user_id);
 CREATE INDEX idx_calendar_events_start_date ON calendar_events(start_date);
 CREATE INDEX idx_notification_logs_user_id ON notification_logs(user_id);
@@ -132,6 +136,8 @@ COMMENT ON COLUMN notices.view_count IS '원본 사이트의 조회수';
 COMMENT ON COLUMN notices.original_id IS '원본 웹사이트의 게시물 고유 번호 (중복 체크용)';
 COMMENT ON COLUMN notices.attachments IS '첨부파일 다운로드 URL 배열';
 COMMENT ON COLUMN notices.category IS '공지사항 카테고리: 학사(수강신청,학적,성적,졸업), 장학(장학금,학자금대출,등록금), 취업(채용,인턴십,취업박람회), 행사(입학식,졸업식,축제,오리엔테이션), 교육(특강,교육프로그램,진로교육,세미나), 공모전(대회,경진대회,콘테스트)';
+COMMENT ON COLUMN notices.source_board IS '원본 게시판 구분: 공지사항, 학사장학, 모집공고';
+COMMENT ON COLUMN notices.board_seq IS '게시판 내 순번 (중복 크롤링 방지용)';
 
 -- 자동 업데이트 트리거 함수
 CREATE OR REPLACE FUNCTION update_updated_at_column()

@@ -61,8 +61,7 @@ class NoticeService:
               "published_date": "발표일",
               "summary": "AI 요약",
               "dates": {"start_date": "...", "end_date": "...", "deadline": "..."},
-              "category": "카테고리",
-              "priority": "중요도"
+              "category": "카테고리"
           }
 
         반환값:
@@ -80,8 +79,7 @@ class NoticeService:
             "content": "...",
             "url": "http://...",
             "summary": "1학기 수강신청 2월 1일 시작",
-            "category": "학사",
-            "priority": "중요"
+            "category": "학사"
         }
         notice_id = service.save_analyzed_notice(notice)
         print(f"저장 완료: {notice_id}")
@@ -91,8 +89,9 @@ class NoticeService:
             # url 또는 source_url 중 하나는 있어야 함
             if not notice_data.get("title"):
                 raise ValueError("필수 필드 누락: title")
+            # content는 이미지 공지의 경우 비어있을 수 있음 (제목으로 대체)
             if not notice_data.get("content"):
-                raise ValueError("필수 필드 누락: content")
+                notice_data["content"] = notice_data.get("title", "")
             if not notice_data.get("url") and not notice_data.get("source_url"):
                 raise ValueError("필수 필드 누락: url 또는 source_url")
 
@@ -110,14 +109,19 @@ class NoticeService:
                 "source_url": source_url,
                 "category": notice_data.get("category", "학사"),
                 "published_at": self._parse_datetime(
-                    notice_data.get("published_date") or notice_data.get("date")
+                    notice_data.get("published_at") or notice_data.get("published_date") or notice_data.get("date")
                 ),
                 "ai_summary": notice_data.get("summary", ""),
-                "priority": notice_data.get("priority", "일반"),
                 "is_processed": True,
                 "ai_analyzed_at": datetime.now().isoformat(),
                 "updated_at": datetime.now().isoformat()
             }
+
+            # source_board, board_seq 추가 (크롤링 최적화용)
+            if "source_board" in notice_data:
+                db_data["source_board"] = notice_data["source_board"]
+            if "board_seq" in notice_data:
+                db_data["board_seq"] = notice_data["board_seq"]
 
             # 날짜 정보 추출 (dates 객체에서 배열로 변환)
             dates = notice_data.get("dates", {})
@@ -187,8 +191,7 @@ class NoticeService:
           {
               "summary": "요약",
               "dates": {...},
-              "category": "카테고리",
-              "priority": "중요도"
+              "category": "카테고리"
           }
 
         반환값:
@@ -198,8 +201,7 @@ class NoticeService:
         service = NoticeService()
         analysis = {
             "summary": "요약문",
-            "category": "학사",
-            "priority": "중요"
+            "category": "학사"
         }
         success = service.update_ai_analysis("uuid-123", analysis)
         """
@@ -208,7 +210,6 @@ class NoticeService:
             update_data = {
                 "ai_summary": analysis_result.get("summary", ""),
                 "category": analysis_result.get("category", "학사"),
-                "priority": analysis_result.get("priority", "일반"),
                 "is_processed": True,
                 "ai_analyzed_at": datetime.now().isoformat(),
                 "updated_at": datetime.now().isoformat()
@@ -418,14 +419,13 @@ class NoticeService:
 
         매개변수:
         - notice_data: 공지사항 데이터 (AI 분석 결과 포함)
-        - embedding: 768차원 벡터 임베딩 (Optional)
+        - embedding: 3072차원 벡터 임베딩 (Optional)
         - enriched_metadata: 보강된 메타데이터 (Optional)
           {
               "target_departments": ["컴퓨터정보공학과"],
               "target_grades": [3, 4],
               "keywords_expanded": ["AI", "인공지능"],
-              "action_type": "신청",
-              "urgency_level": 3
+              "action_type": "신청"
           }
 
         반환값:
@@ -435,7 +435,7 @@ class NoticeService:
         service = NoticeService()
         notice_id = service.save_notice_with_embedding(
             notice_data=notice,
-            embedding=[0.1, 0.2, ...],  # 768차원
+            embedding=[0.1, 0.2, ...],  # 3072차원
             enriched_metadata={"target_departments": ["컴공"]}
         )
         """
@@ -446,8 +446,9 @@ class NoticeService:
             # 필수 필드 검증
             if not notice_data.get("title"):
                 raise ValueError("필수 필드 누락: title")
+            # content는 이미지 공지의 경우 비어있을 수 있음 (제목으로 대체)
             if not notice_data.get("content"):
-                raise ValueError("필수 필드 누락: content")
+                notice_data["content"] = notice_data.get("title", "")
             if not source_url:
                 raise ValueError("필수 필드 누락: url 또는 source_url")
 
@@ -464,10 +465,9 @@ class NoticeService:
                 "source_url": source_url,
                 "category": notice_data.get("category", "학사"),
                 "published_at": self._parse_datetime(
-                    notice_data.get("published_date") or notice_data.get("date")
+                    notice_data.get("published_at") or notice_data.get("published_date") or notice_data.get("date")
                 ),
                 "ai_summary": notice_data.get("summary", ""),
-                "priority": notice_data.get("priority", "일반"),
                 "is_processed": True,
                 "ai_analyzed_at": datetime.now().isoformat(),
                 "updated_at": datetime.now().isoformat()
@@ -491,6 +491,12 @@ class NoticeService:
                 db_data["original_id"] = notice_data["original_id"]
             if "attachments" in notice_data:
                 db_data["attachments"] = notice_data["attachments"]
+
+            # source_board, board_seq 추가 (크롤링 최적화용)
+            if "source_board" in notice_data:
+                db_data["source_board"] = notice_data["source_board"]
+            if "board_seq" in notice_data:
+                db_data["board_seq"] = notice_data["board_seq"]
 
             # 임베딩 추가 (새로운 필드)
             if embedding:
@@ -542,7 +548,7 @@ class NoticeService:
 
         매개변수:
         - notice_id: 공지사항 ID
-        - embedding: 768차원 벡터 임베딩
+        - embedding: 3072차원 벡터 임베딩
         - enriched_metadata: 보강된 메타데이터 (Optional)
 
         반환값:
@@ -572,6 +578,46 @@ class NoticeService:
         except Exception as e:
             print(f"임베딩 업데이트 실패: {str(e)}")
             return False
+
+    def get_last_board_seq(self, source_board: str) -> Optional[int]:
+        """
+        특정 게시판의 마지막 순번을 조회합니다.
+
+        목적:
+        크롤링 최적화를 위해 DB에 저장된 최신 순번을 확인합니다.
+
+        매개변수:
+        - source_board: 게시판 구분 (공지사항, 학사장학, 모집공고)
+
+        반환값:
+        - 마지막 순번 (없으면 None)
+
+        예시:
+        service = NoticeService()
+        last_seq = service.get_last_board_seq("공지사항")
+        if last_seq:
+            print(f"마지막 순번: {last_seq}")
+        """
+        try:
+            result = self.client.table("notices")\
+                .select("board_seq")\
+                .eq("source_board", source_board)\
+                .not_.is_("board_seq", "null")\
+                .order("board_seq", desc=True)\
+                .limit(1)\
+                .execute()
+
+            if result.data and result.data[0].get("board_seq"):
+                last_seq = result.data[0]["board_seq"]
+                print(f"[정보] {source_board} 마지막 순번: {last_seq}")
+                return last_seq
+            else:
+                print(f"[정보] {source_board} 저장된 순번 없음")
+                return None
+
+        except Exception as e:
+            print(f"[오류] 마지막 순번 조회 실패: {str(e)}")
+            return None
 
     def get_notices_without_embedding(self, limit: int = 100) -> List[Dict[str, Any]]:
         """
@@ -664,7 +710,8 @@ if __name__ == "__main__":
                 "deadline": None
             },
             "category": "학사",
-            "priority": "중요"
+            "source_board": "공지사항",
+            "board_seq": 9999
         }
 
         notice_id = service.save_analyzed_notice(test_notice)

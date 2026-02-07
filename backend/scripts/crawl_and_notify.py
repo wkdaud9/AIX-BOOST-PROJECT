@@ -129,9 +129,9 @@ class CrawlAndNotifyPipeline:
             traceback.print_exc()
 
     def _step1_crawl(self) -> List[Dict[str, Any]]:
-        """1단계: 새 공지사항 크롤링 (URL 기반 중복 체크)"""
+        """1단계: 새 공지사항 크롤링 (순번 기반 중복 체크)"""
         print("\n" + "-"*60)
-        print("[1단계] 새 공지사항 크롤링")
+        print("[1단계] 새 공지사항 크롤링 (순번 기반)")
         print("-"*60)
 
         all_new_notices = []
@@ -152,6 +152,12 @@ class CrawlAndNotifyPipeline:
             else:
                 print(f"  [정보] 새 공지 없음")
 
+        # 테스트용: 최대 5개만 처리
+        TEST_LIMIT = 5
+        if len(all_new_notices) > TEST_LIMIT:
+            print(f"\n[테스트] {len(all_new_notices)}개 중 {TEST_LIMIT}개만 처리")
+            all_new_notices = all_new_notices[:TEST_LIMIT]
+
         print(f"\n[통계] 크롤링 완료: 총 {len(all_new_notices)}개 새 공지")
         return all_new_notices
 
@@ -168,6 +174,23 @@ class CrawlAndNotifyPipeline:
             print(f"\n[{i}/{len(notices)}] {title}...")
 
             try:
+                # 이미지 공지 처리: content가 비어있고 이미지가 있으면 이미지 분석
+                content = notice.get('content', '')
+                content_images = notice.get('content_images', [])
+
+                if len(content) < 50 and content_images:
+                    print(f"  [이미지 분석] {len(content_images)}개 이미지 분석 중...")
+                    extracted_content = self.ai_analyzer.analyze_images(
+                        image_urls=content_images,
+                        title=notice.get('title', '')
+                    )
+                    if extracted_content:
+                        notice['content'] = extracted_content
+                        print(f"  [완료] 이미지에서 {len(extracted_content)}자 추출")
+                    else:
+                        print(f"  [경고] 이미지 분석 실패 - 제목만으로 진행")
+                        notice['content'] = notice.get('title', '')
+
                 # AI 종합 분석 (요약, 카테고리, 중요도, 날짜)
                 analysis = self.ai_analyzer.analyze_notice_comprehensive(notice)
 
@@ -189,9 +212,9 @@ class CrawlAndNotifyPipeline:
                     embedding = self.embedding_service.create_embedding(embedding_text)
                     analysis["content_embedding"] = embedding
 
-                    print(f"  [완료] 분석+임베딩 완료 - {analysis.get('category', '학사')}/{analysis.get('priority', '일반')}")
+                    print(f"  [완료] 분석+임베딩 완료 - {analysis.get('category', '학사')}")
                 else:
-                    print(f"  [완료] 분석 완료 - {analysis.get('category', '학사')}/{analysis.get('priority', '일반')}")
+                    print(f"  [완료] 분석 완료 - {analysis.get('category', '학사')}")
 
                 analyzed_notices.append(analysis)
 

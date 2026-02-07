@@ -27,11 +27,14 @@ load_dotenv()
 
 class EmbeddingService:
     """
-    Google text-embedding-004 기반 임베딩 생성 서비스
+    Google gemini-embedding-001 기반 임베딩 생성 서비스
 
     목적:
     텍스트를 768차원의 숫자 벡터로 변환합니다.
     이 벡터를 DB에 저장하면 빠른 유사도 검색이 가능합니다.
+
+    참고: gemini-embedding-001은 기본 3072 차원이지만,
+    HNSW 인덱스가 최대 2000 차원까지만 지원하므로 768로 축소합니다.
 
     사용 예시:
     service = EmbeddingService()
@@ -39,9 +42,10 @@ class EmbeddingService:
     # embedding = [0.123, -0.456, 0.789, ...]  # 768개의 숫자
     """
 
-    # 모델 설정
-    MODEL_NAME = "models/text-embedding-004"
-    DIMENSION = 768  # 임베딩 벡터의 차원 수
+    # 모델 설정 (Gemini Embedding 모델 사용)
+    MODEL_NAME = "models/gemini-embedding-001"
+    # 768 차원으로 축소 출력 (HNSW 인덱스는 최대 2000 차원까지만 지원)
+    DIMENSION = 768
     MAX_CHARS = 8000  # 최대 입력 문자 수 (약 3000 토큰)
 
     def __init__(self, api_key: Optional[str] = None):
@@ -80,7 +84,7 @@ class EmbeddingService:
 
         사용 예시:
         embedding = service.create_embedding("2024학년도 장학금 신청 안내")
-        print(len(embedding))  # 768
+        print(len(embedding))  # 3072
 
         task_type 설명:
         - retrieval_document: 검색될 문서용 (공지사항, 사용자 프로필)
@@ -97,7 +101,8 @@ class EmbeddingService:
             result = genai.embed_content(
                 model=self.MODEL_NAME,
                 content=text,
-                task_type="retrieval_document"  # 문서 검색용
+                task_type="retrieval_document",  # 문서 검색용
+                output_dimensionality=self.DIMENSION  # 차원 축소
             )
 
             embedding = result['embedding']
@@ -144,7 +149,8 @@ class EmbeddingService:
             result = genai.embed_content(
                 model=self.MODEL_NAME,
                 content=query,
-                task_type="retrieval_query"  # 쿼리 검색용
+                task_type="retrieval_query",  # 쿼리 검색용
+                output_dimensionality=self.DIMENSION  # 차원 축소
             )
 
             return result['embedding']
@@ -171,7 +177,7 @@ class EmbeddingService:
         texts = ["공지1 내용", "공지2 내용", "공지3 내용"]
         embeddings = service.batch_create_embeddings(texts)
         print(len(embeddings))  # 3
-        print(len(embeddings[0]))  # 768
+        print(len(embeddings[0]))  # 3072
         """
         embeddings = []
         total = len(texts)

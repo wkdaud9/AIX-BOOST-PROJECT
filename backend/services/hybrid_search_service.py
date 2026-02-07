@@ -278,7 +278,7 @@ class HybridSearchService:
         """공지사항 조회"""
         try:
             result = self.supabase.table("notices")\
-                .select("id, title, content, ai_summary, category, priority, content_embedding, enriched_metadata")\
+                .select("id, title, content, ai_summary, category, content_embedding, enriched_metadata")\
                 .eq("id", notice_id)\
                 .single()\
                 .execute()
@@ -309,7 +309,7 @@ class HybridSearchService:
         try:
             # 최근 공지사항 조회 (30일 이내)
             result = self.supabase.table("notices")\
-                .select("id, title, ai_summary, category, priority, enriched_metadata, content_embedding")\
+                .select("id, title, ai_summary, category, enriched_metadata, content_embedding")\
                 .gte("published_at", "now() - interval '30 days'")\
                 .order("published_at", desc=True)\
                 .limit(200)\
@@ -450,7 +450,7 @@ class HybridSearchService:
         try:
             # 공지사항 조회
             query = self.supabase.table("notices")\
-                .select("id, title, ai_summary, category, priority, content_embedding")
+                .select("id, title, ai_summary, category, content_embedding")
 
             if notice_ids:
                 query = query.in_("id", notice_ids)
@@ -475,7 +475,6 @@ class HybridSearchService:
                     "title": notice["title"],
                     "ai_summary": notice.get("ai_summary"),
                     "category": notice.get("category"),
-                    "priority": notice.get("priority"),
                     "similarity": similarity
                 })
 
@@ -585,7 +584,6 @@ class HybridSearchService:
                 "title": notice.get("title"),
                 "ai_summary": notice.get("ai_summary"),
                 "category": notice.get("category"),
-                "priority": notice.get("priority"),
                 "hard_filter_score": hard_score,
                 "vector_score": 0.0,
                 "total_score": hard_score
@@ -605,7 +603,6 @@ class HybridSearchService:
                     "title": result.get("title"),
                     "ai_summary": result.get("ai_summary"),
                     "category": result.get("category"),
-                    "priority": result.get("priority"),
                     "hard_filter_score": 0.0,
                     "vector_score": vector_score,
                     "total_score": vector_score

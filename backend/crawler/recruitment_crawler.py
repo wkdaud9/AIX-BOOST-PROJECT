@@ -26,7 +26,9 @@ class RecruitmentCrawler(NoticeCrawler):
     - 채용공고, 인턴십, 공모전 등의 정보를 수집
     """
 
-    # 모집공고 게시판 URL 파라미터
+    # 모집공고 게시판 설정
+    SOURCE_BOARD = "모집공고"  # DB 순번 조회 시 게시판 구분용
+
     BOARD_PARAMS = {
         "boardId": "BBS_0000010",
         "menuCd": "DOM_000000105001003000",

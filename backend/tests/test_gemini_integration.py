@@ -88,7 +88,6 @@ def test_analyzer():
         print("\n✅ 분석 결과:")
         print(f"  📝 요약: {result.get('summary', '')[:100]}...")
         print(f"  🏷️ 카테고리: {result.get('category', '')}")
-        print(f"  ⚡ 중요도: {result.get('priority', '')}")
         print(f"  📅 날짜 정보:")
 
         dates = result.get('dates', {})
@@ -179,7 +178,6 @@ def test_full_pipeline():
         analysis = analyzer.analyze_notice_comprehensive(test_notice)
         print(f"✅ AI 분석 완료")
         print(f"  - 카테고리: {analysis.get('category')}")
-        print(f"  - 중요도: {analysis.get('priority')}")
 
         # 2. DB 저장
         print("\n[2단계] DB 저장 중...")

@@ -48,7 +48,6 @@ def search_personalized_notices():
                     "title": "공지사항 제목",
                     "ai_summary": "AI 요약",
                     "category": "학사",
-                    "priority": "중요",
                     "total_score": 0.85,
                     "hard_filter_score": 0.3,
                     "vector_score": 0.55,
@@ -133,7 +132,6 @@ def search_by_keyword():
                     "title": "2024학년도 국가장학금 신청 안내",
                     "ai_summary": "국가장학금 1월 2일부터 신청 시작",
                     "category": "장학",
-                    "priority": "중요",
                     "similarity": 0.85
                 }
             ],

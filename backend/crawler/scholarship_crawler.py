@@ -26,7 +26,9 @@ class ScholarshipCrawler(NoticeCrawler):
     - 장학금, 수강신청, 학사일정 등의 정보를 수집
     """
 
-    # 학사/장학 게시판 URL 파라미터
+    # 학사/장학 게시판 설정
+    SOURCE_BOARD = "학사/장학"  # DB 순번 조회 시 게시판 구분용
+
     BOARD_PARAMS = {
         "boardId": "BBS_0000009",
         "menuCd": "DOM_000000105001002000",

@@ -270,7 +270,7 @@ class EmbeddingMigration:
         """임베딩이 없는 공지사항 조회"""
         try:
             query = self.supabase.table("notices")\
-                .select("id, title, content, ai_summary, category, priority")\
+                .select("id, title, content, ai_summary, category")\
                 .is_("content_embedding", "null")\
                 .order("published_at", desc=True)
 

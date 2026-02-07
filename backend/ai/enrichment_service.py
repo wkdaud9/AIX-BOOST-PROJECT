@@ -91,15 +91,6 @@ class EnrichmentService:
             "납부": ["납부", "결제", "입금", "등록금"],
         }
 
-        # 긴급도 키워드
-        self.urgency_keywords = {
-            5: ["긴급", "즉시", "필독", "중요공지", "[긴급]", "[필독]"],
-            4: ["마감임박", "D-3", "D-2", "D-1", "마지막", "최종"],
-            3: ["중요", "필수", "반드시", "[중요]"],
-            2: ["안내", "공지", "알림"],
-            1: ["참고", "정보", "소식"]
-        }
-
         print("EnrichmentService 초기화 완료")
 
     def enrich_notice(self, notice: Dict[str, Any]) -> Dict[str, Any]:
@@ -118,7 +109,6 @@ class EnrichmentService:
         - target_student_types: 대상 학생 유형 리스트
         - keywords_expanded: 확장된 키워드 리스트
         - action_type: 필요한 행동 (신청, 제출 등)
-        - urgency_level: 긴급도 (1~5)
         """
         title = notice.get("title", "")
         content = notice.get("content", "")
@@ -130,7 +120,6 @@ class EnrichmentService:
             "target_student_types": self._extract_student_types(full_text),
             "keywords_expanded": self._expand_keywords(notice.get("keywords", [])),
             "action_type": self._detect_action_type(full_text),
-            "urgency_level": self._calculate_urgency(notice),
             "is_for_all": self._is_for_all_students(full_text)
         }
 
@@ -326,35 +315,6 @@ class EnrichmentService:
                 return action_type
         return None
 
-    def _calculate_urgency(self, notice: Dict[str, Any]) -> int:
-        """
-        공지사항의 긴급도를 계산합니다 (1~5).
-
-        고려 요소:
-        1. 긴급 키워드 존재 여부
-        2. 우선순위 (priority) 필드
-        3. 마감일까지 남은 시간
-        """
-        title = notice.get("title", "")
-        content = notice.get("content", "")
-        priority = notice.get("priority", "일반")
-        full_text = f"{title} {content}"
-
-        urgency = 2  # 기본값
-
-        # 1. 키워드 기반 긴급도
-        for level, keywords in self.urgency_keywords.items():
-            if any(kw in full_text for kw in keywords):
-                urgency = max(urgency, level)
-
-        # 2. priority 필드 반영
-        if priority == "긴급":
-            urgency = max(urgency, 5)
-        elif priority == "중요":
-            urgency = max(urgency, 4)
-
-        return urgency
-
     def _is_for_all_students(self, text: str) -> bool:
         """
         전체 학생 대상 공지인지 확인합니다.
@@ -446,7 +406,6 @@ if __name__ == "__main__":
         자세한 사항은 학과 사무실로 문의바랍니다.
         """,
         "category": "취업",
-        "priority": "긴급",
         "keywords": ["인턴", "현장실습"]
     }
 

@@ -29,8 +29,8 @@ class NoticeCrawler(BaseCrawler):
 
     🏗️ 작동 방식:
     1. 공지사항 목록 페이지 접속
-    2. 각 공지사항의 제목, 작성일, 링크 추출
-    3. 상세 페이지 접속해서 본문 내용 가져오기
+    2. 각 공지사항의 제목, 작성일, 링크, 순번 추출
+    3. DB의 마지막 순번보다 큰 공지만 상세 크롤링
     4. 데이터 정리해서 반환
     """
 
@@ -45,6 +45,9 @@ class NoticeCrawler(BaseCrawler):
         "orderBy": "REGISTER_DATE DESC",
         "paging": "ok"
     }
+
+    # 원본 게시판 이름 (source_board 저장용)
+    SOURCE_BOARD = "공지사항"
 
     def __init__(self):
         """
@@ -123,20 +126,20 @@ class NoticeCrawler(BaseCrawler):
 
     def crawl_optimized(
         self,
-        existing_urls: Optional[set] = None,
+        last_board_seq: Optional[int] = None,
         max_pages: int = 1,
-        **kwargs  # 하위 호환성을 위해 last_known_id 등 무시
+        **kwargs  # 하위 호환성을 위해 existing_urls 등 무시
     ) -> List[Dict[str, Any]]:
         """
-        최적화된 크롤링을 수행합니다. (URL 기반 중복 체크)
+        최적화된 크롤링을 수행합니다. (순번 기반 중복 체크)
 
         🎯 목적:
-        1. 목록 페이지에서 URL 추출
-        2. DB에 없는 URL만 상세 페이지 크롤링
-        3. 학교 서버 부담 최소화
+        1. DB에서 해당 게시판의 마지막 순번 조회
+        2. 목록 페이지에서 마지막 순번보다 큰 공지만 크롤링
+        3. 학교 서버 부담 최소화 + DB 조회 비용 감소
 
         🔧 매개변수:
-        - existing_urls: DB에 이미 저장된 URL 집합 (없으면 내부에서 조회)
+        - last_board_seq: DB에 저장된 마지막 순번 (없으면 내부에서 조회)
         - max_pages: 최대 페이지 수 (기본값: 1)
 
         📊 반환값:
@@ -148,17 +151,16 @@ class NoticeCrawler(BaseCrawler):
         print(f"새로운 공지: {len(notices)}개")
         """
         print(f"\n{'='*50}")
-        print(f"[최적화 크롤링] URL 기반 중복 체크")
+        print(f"[최적화 크롤링] 순번 기반 중복 체크 ({self.SOURCE_BOARD})")
         print(f"{'='*50}\n")
 
-        # 기존 URL 집합이 없으면 DB에서 조회
-        if existing_urls is None:
-            existing_urls = self._get_existing_urls()
+        # 마지막 순번이 없으면 DB에서 조회
+        if last_board_seq is None:
+            last_board_seq = self._get_last_board_seq()
 
-        print(f"[정보] DB에 저장된 공지: {len(existing_urls)}개")
+        print(f"[정보] DB 마지막 순번: {last_board_seq if last_board_seq else '없음 (첫 크롤링)'}")
 
         all_notices = []
-        all_new_in_page = True  # 페이지의 모든 공지가 새 공지인지 여부
 
         # 페이지별로 확인
         for page in range(1, max_pages + 1):
@@ -181,23 +183,24 @@ class NoticeCrawler(BaseCrawler):
                 print(f"[INFO] 페이지 {page}에서 공지사항을 찾지 못했습니다")
                 break
 
-            # URL 기반으로 새로운 공지만 필터링
+            # 순번 기반으로 새로운 공지만 필터링
             new_notices = []
-            found_existing = 0
+            found_old = False
 
             for notice in notices_list:
-                url = notice.get("url", "")
+                board_seq = notice.get("board_seq")
 
-                if url in existing_urls:
-                    found_existing += 1
+                # 순번이 없는 경우 (공지 등) 또는 마지막 순번보다 큰 경우만 처리
+                if board_seq is None:
+                    # 순번 없는 공지(상단 고정 등)는 URL 기반으로 중복 체크
                     continue
 
-                new_notices.append(notice)
+                if last_board_seq and board_seq <= last_board_seq:
+                    found_old = True
+                    print(f"[정보] 기존 공지 발견 (순번 {board_seq}) - 이후 스킵")
+                    break
 
-            # 기존 공지가 발견되면 다음 페이지는 확인하지 않음
-            if found_existing > 0:
-                all_new_in_page = False
-                print(f"[정보] 기존 공지 {found_existing}개 발견 - 이후 페이지 스킵")
+                new_notices.append(notice)
 
             if not new_notices:
                 print(f"[INFO] 페이지 {page}에 새 공지 없음")
@@ -212,12 +215,14 @@ class NoticeCrawler(BaseCrawler):
                 detail = self._crawl_notice_detail(notice_preview)
 
                 if detail:
-                    # original_id 추가
+                    # original_id, source_board, board_seq 추가
                     detail["original_id"] = notice_preview.get("notice_id")
+                    detail["source_board"] = self.SOURCE_BOARD
+                    detail["board_seq"] = notice_preview.get("board_seq")
                     all_notices.append(detail)
 
-            # 기존 공지가 하나라도 발견되면 더 이상 페이지를 돌지 않음
-            if not all_new_in_page:
+            # 기존 공지가 발견되면 더 이상 페이지를 돌지 않음
+            if found_old:
                 break
 
         print(f"\n{'='*50}")
@@ -226,12 +231,17 @@ class NoticeCrawler(BaseCrawler):
 
         return all_notices
 
-    def _get_existing_urls(self) -> set:
+    def _get_last_board_seq(self) -> Optional[int]:
         """
-        DB에서 현재 카테고리의 기존 공지 URL들을 조회합니다.
+        DB에서 해당 게시판의 마지막 순번을 조회합니다.
+
+        🎯 목적:
+        순번 기반 중복 체크를 위해 DB에 저장된 최신 순번을 가져옵니다.
+
+        📊 반환값:
+        - 마지막 순번 (없으면 None)
         """
         try:
-            from services.notice_service import NoticeService
             from supabase import create_client
             import os
 
@@ -239,28 +249,28 @@ class NoticeCrawler(BaseCrawler):
             key = os.getenv("SUPABASE_KEY")
 
             if not url or not key:
-                print("[WARNING] Supabase 환경변수 없음 - 빈 집합 반환")
-                return set()
+                print("[WARNING] Supabase 환경변수 없음 - None 반환")
+                return None
 
             client = create_client(url, key)
 
-            # 해당 카테고리의 URL만 조회 (최근 500개)
+            # 해당 게시판의 최대 순번 조회
             result = client.table("notices")\
-                .select("source_url")\
-                .eq("category", self.category)\
-                .order("published_at", desc=True)\
-                .limit(500)\
+                .select("board_seq")\
+                .eq("source_board", self.SOURCE_BOARD)\
+                .not_.is_("board_seq", "null")\
+                .order("board_seq", desc=True)\
+                .limit(1)\
                 .execute()
 
-            if result.data:
-                urls = {row["source_url"] for row in result.data if row.get("source_url")}
-                return urls
+            if result.data and result.data[0].get("board_seq"):
+                return result.data[0]["board_seq"]
 
-            return set()
+            return None
 
         except Exception as e:
-            print(f"[WARNING] 기존 URL 조회 실패: {str(e)}")
-            return set()
+            print(f"[WARNING] 마지막 순번 조회 실패: {str(e)}")
+            return None
 
     def crawl(self, max_pages: int = 1) -> List[Dict[str, Any]]:
         """
@@ -339,7 +349,7 @@ class NoticeCrawler(BaseCrawler):
         - soup: BeautifulSoup 객체
 
         🎯 하는 일:
-        게시판 목록에서 각 공지사항의 기본 정보(제목, 링크, 날짜)를 추출합니다.
+        게시판 목록에서 각 공지사항의 기본 정보(제목, 링크, 날짜, 순번)를 추출합니다.
 
         💡 반환값:
         [
@@ -347,7 +357,8 @@ class NoticeCrawler(BaseCrawler):
                 "title": "제목",
                 "url": "상세페이지 링크",
                 "date": "작성일",
-                "notice_id": "게시물 ID"
+                "notice_id": "게시물 ID",
+                "board_seq": 5125  # 게시판 내 순번
             },
             ...
         ]
@@ -388,11 +399,22 @@ class NoticeCrawler(BaseCrawler):
                 elif 'id=' in link:
                     notice_id = link.split('id=')[1].split('&')[0]
 
+                # 순번 추출 (td.pcv_moh_768에서)
+                # 군산대 게시판 HTML: <td class="pcv_moh_768">5125</td>
+                board_seq = None
+                seq_elem = row.select_one('td.pcv_moh_768')
+                if seq_elem:
+                    seq_text = self.clean_text(seq_elem.get_text())
+                    # 숫자만 추출 (공지 등 특수 표시 제외)
+                    if seq_text.isdigit():
+                        board_seq = int(seq_text)
+
                 notices.append({
                     "title": title,
                     "url": link,
                     "date": date_str,
-                    "notice_id": notice_id
+                    "notice_id": notice_id,
+                    "board_seq": board_seq
                 })
 
             except Exception as e:
@@ -449,9 +471,23 @@ class NoticeCrawler(BaseCrawler):
 
             content = self.clean_text(content_elem.get_text()) if content_elem else ""
 
-            # 본문이 너무 짧으면 경고만 출력 (전체 텍스트 사용 안 함)
+            # 본문 내 이미지 URL 추출 (이미지 공지 처리용)
+            content_images = []
+            if content_elem:
+                for img in content_elem.select('img'):
+                    src = img.get('src', '')
+                    if src:
+                        # 상대 경로면 절대 경로로 변환
+                        if not src.startswith('http'):
+                            src = self.BASE_URL + src
+                        content_images.append(src)
+
+            # 본문이 너무 짧고 이미지가 있으면 이미지 공지로 표시
             if len(content) < 50:
-                print(f"    [WARNING] 본문이 너무 짧음: {title[:30]}... (길이: {len(content)})")
+                if content_images:
+                    print(f"    [INFO] 이미지 공지 감지: {len(content_images)}개 이미지 발견")
+                else:
+                    print(f"    [WARNING] 본문이 너무 짧음: {title[:30]}... (길이: {len(content)})")
 
             # 작성일 추출 (상세 페이지의 div.bv_txt01에서)
             date_str = None
@@ -522,6 +558,10 @@ class NoticeCrawler(BaseCrawler):
                 attachments=attachments,
                 original_id=notice_preview.get('notice_id')
             )
+
+            # 이미지 공지인 경우 이미지 URL 추가
+            if content_images:
+                notice_data["content_images"] = content_images
 
             return notice_data
 

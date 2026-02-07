@@ -219,7 +219,7 @@ class RerankingService:
         """공지사항 요약 정보 조회"""
         try:
             result = self.supabase.table("notices")\
-                .select("id, title, ai_summary, category, priority, enriched_metadata")\
+                .select("id, title, ai_summary, category, enriched_metadata")\
                 .eq("id", notice_id)\
                 .single()\
                 .execute()
@@ -360,7 +360,6 @@ class RerankingService:
 제목: {notice.get('title', 'N/A')}
 카테고리: {notice.get('category', 'N/A')}
 요약: {notice.get('ai_summary', 'N/A')}
-우선순위: {notice.get('priority', '일반')}
 """
         enriched = notice.get('enriched_metadata', {})
         if enriched:
