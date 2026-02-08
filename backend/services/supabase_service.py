@@ -79,9 +79,10 @@ class SupabaseService:
                     "published_at": published_at,
                     "is_processed": False,
                     "author": notice.get("author"),
-                    "view_count": notice.get("views"),
+                    "view_count": notice.get("view_count") or notice.get("views"),
                     "original_id": original_id,
-                    "attachments": notice.get("attachments", [])
+                    "attachments": notice.get("attachments", []),
+                    "ai_summary": notice.get("ai_summary") or notice.get("summary", ""),
                 }
 
                 # 중복 체크 (original_id 우선, 없으면 source_url 사용)

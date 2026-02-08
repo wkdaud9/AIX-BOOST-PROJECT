@@ -192,8 +192,8 @@ class EmbeddingService:
 
             except Exception as e:
                 print(f"  임베딩 생성 실패 (인덱스 {i}): {str(e)}")
-                # 실패한 경우 빈 벡터 추가 (나중에 재시도 가능)
-                embeddings.append([])
+                # 실패한 경우 None 추가 (빈 벡터 [] 저장 방지)
+                embeddings.append(None)
 
         if show_progress:
             success_count = sum(1 for e in embeddings if e)

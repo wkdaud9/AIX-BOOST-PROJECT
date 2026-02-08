@@ -320,12 +320,22 @@ class NoticeAnalyzer:
         """
         title = notice_data.get("title", "")
         content = notice_data.get("content", "")
+        ocr_text = notice_data.get("_ocr_text", "")
+        content_images = notice_data.get("content_images", [])
+
+        # AI 분석용 텍스트 조합 (OCR 텍스트는 참고 정보로만 전달)
         full_text = f"제목: {title}\n\n내용: {content}"
+        if ocr_text:
+            full_text += f"\n\n[이미지에서 추출한 텍스트 (참고용)]\n{ocr_text}"
 
         print(f"📄 [종합 분석] 시작: {title[:30]}...")
 
-        # 프롬프트 생성
-        prompt = prompts.get_comprehensive_analysis_prompt(full_text)
+        # 프롬프트 생성 (이미지 정보 포함)
+        prompt = prompts.get_comprehensive_analysis_prompt(
+            full_text,
+            has_images=len(content_images) > 0,
+            image_count=len(content_images)
+        )
         config = prompts.get_prompt_config("comprehensive")
 
         # 재시도 로직으로 AI 호출
@@ -346,6 +356,19 @@ class NoticeAnalyzer:
             if "dates" in parsed_result and isinstance(parsed_result["dates"], dict):
                 parsed_result["dates"] = self._normalize_dates(parsed_result["dates"])
 
+            # display_mode 유효성 검증
+            valid_display_modes = {"POSTER", "DOCUMENT", "HYBRID"}
+            display_mode = parsed_result.get("display_mode", "DOCUMENT")
+            if display_mode not in valid_display_modes:
+                display_mode = "DOCUMENT"
+
+            # 이미지가 없으면 강제로 DOCUMENT 모드
+            if not content_images:
+                display_mode = "DOCUMENT"
+                has_important_image = False
+            else:
+                has_important_image = parsed_result.get("has_important_image", False)
+
             # 결과 구조화
             analysis_result = {
                 # 원본 데이터 (DB 저장용 필드명 유지)
@@ -361,6 +384,8 @@ class NoticeAnalyzer:
                 "summary": parsed_result.get("summary", ""),
                 "dates": parsed_result.get("dates", {}),
                 "category": parsed_result.get("category", "학사"),
+                "display_mode": display_mode,
+                "has_important_image": has_important_image,
 
                 # 메타 정보
                 "analyzed": True,
@@ -369,18 +394,10 @@ class NoticeAnalyzer:
             }
 
             # 크롤러에서 전달된 추가 필드 유지
-            if "original_id" in notice_data:
-                analysis_result["original_id"] = notice_data["original_id"]
-            if "author" in notice_data:
-                analysis_result["author"] = notice_data["author"]
-            if "views" in notice_data:
-                analysis_result["views"] = notice_data["views"]
-            if "attachments" in notice_data:
-                analysis_result["attachments"] = notice_data["attachments"]
-            if "source_board" in notice_data:
-                analysis_result["source_board"] = notice_data["source_board"]
-            if "board_seq" in notice_data:
-                analysis_result["board_seq"] = notice_data["board_seq"]
+            for field in ["original_id", "author", "views", "attachments",
+                          "source_board", "board_seq", "content_images"]:
+                if field in notice_data:
+                    analysis_result[field] = notice_data[field]
 
             print(f"✅ 분석 완료: {analysis_result['category']}")
             return analysis_result
@@ -396,26 +413,20 @@ class NoticeAnalyzer:
                 "url": notice_data.get("url") or notice_data.get("source_url", ""),
                 "source_url": notice_data.get("source_url") or notice_data.get("url", ""),
                 "published_date": notice_data.get("date") or notice_data.get("published_at", ""),
-                "summary": "",
+                "summary": title[:200] if title else "",
                 "dates": {},
                 "category": "학사",
+                "display_mode": "DOCUMENT",
+                "has_important_image": False,
                 "analyzed": False,
                 "error": str(e)
             }
 
             # 크롤러에서 전달된 추가 필드 유지
-            if "original_id" in notice_data:
-                fallback_result["original_id"] = notice_data["original_id"]
-            if "author" in notice_data:
-                fallback_result["author"] = notice_data["author"]
-            if "views" in notice_data:
-                fallback_result["views"] = notice_data["views"]
-            if "attachments" in notice_data:
-                fallback_result["attachments"] = notice_data["attachments"]
-            if "source_board" in notice_data:
-                fallback_result["source_board"] = notice_data["source_board"]
-            if "board_seq" in notice_data:
-                fallback_result["board_seq"] = notice_data["board_seq"]
+            for field in ["original_id", "author", "views", "attachments",
+                          "source_board", "board_seq", "content_images"]:
+                if field in notice_data:
+                    fallback_result[field] = notice_data[field]
 
             return fallback_result
 
@@ -619,6 +630,11 @@ class NoticeAnalyzer:
         normalized = {}
 
         for key, value in dates.items():
+            # date_type은 날짜가 아닌 분류 필드이므로 그대로 유지
+            if key == "date_type":
+                normalized[key] = value
+                continue
+
             # null 값 처리
             if value is None or value == "null" or value == "":
                 normalized[key] = None

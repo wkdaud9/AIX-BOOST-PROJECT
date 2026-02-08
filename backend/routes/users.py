@@ -7,12 +7,78 @@
 """
 
 from flask import Blueprint, request, jsonify, g
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional, Tuple
 from services.supabase_service import SupabaseService
 from utils.auth_middleware import login_required
+from ai.embedding_service import EmbeddingService
+from ai.enrichment_service import EnrichmentService
 
 # Blueprint 생성 (URL 접두사: /api/users)
 users_bp = Blueprint('users', __name__, url_prefix='/api/users')
+
+
+def _generate_user_embedding_and_profile(
+    department: str,
+    categories: List[str],
+    grade: Optional[int] = None
+) -> Tuple[Optional[List[float]], Optional[Dict[str, Any]]]:
+    """사용자 프로필 보강(enriched_profile) 및 관심사 임베딩을 생성합니다."""
+    try:
+        # 1. enriched_profile 생성 (학과/학년 기반 관심사 확장)
+        enrichment_service = EnrichmentService()
+        enriched_profile = enrichment_service.enrich_user_profile(
+            department=department,
+            grade=grade,
+            categories=categories
+        )
+        print(f"[프로필 보강] 완료: {enriched_profile}")
+
+        # 2. 보강된 정보를 포함한 임베딩 텍스트 생성
+        parts = []
+        if department:
+            parts.append(f"학과: {department}")
+        if grade:
+            parts.append(f"학년: {grade}학년")
+        if categories:
+            parts.append(f"관심 카테고리: {', '.join(categories)}")
+        # enriched_profile의 확장 정보를 임베딩에 포함
+        if enriched_profile.get("department_context"):
+            parts.append(f"학과 관련: {', '.join(enriched_profile['department_context'])}")
+        if enriched_profile.get("grade_context"):
+            parts.append(f"학년 관련: {', '.join(enriched_profile['grade_context'])}")
+        if enriched_profile.get("category_context"):
+            parts.append(f"카테고리 관련: {', '.join(enriched_profile['category_context'])}")
+
+        if not parts:
+            return None, enriched_profile
+
+        profile_text = " ".join(parts)
+        embedding_service = EmbeddingService()
+        embedding = embedding_service.create_embedding(profile_text)
+        print(f"[임베딩] 사용자 관심사 임베딩 생성 완료 ({len(embedding)}차원)")
+        return embedding, enriched_profile
+    except Exception as e:
+        print(f"[임베딩] 사용자 임베딩/프로필 생성 실패: {str(e)}")
+        return None, None
+
+
+@users_bp.route('/departments', methods=['GET'])
+def get_departments():
+    """
+    학과 목록 조회 (회원가입 드롭다운용)
+
+    GET /api/users/departments
+
+    응답:
+    {
+        "status": "success",
+        "data": { "대학명": ["학과1", "학과2", ...], ... }
+    }
+    """
+    return jsonify({
+        "status": "success",
+        "data": EnrichmentService.UNIVERSITY_DEPARTMENTS
+    })
 
 
 @users_bp.route('/profile', methods=['POST'])
@@ -85,13 +151,25 @@ def create_user_profile():
 
         print(f"[사용자 프로필] 생성 완료: {email} ({student_id})")
 
-        # 2. user_preferences 테이블에 선호도 정보 삽입 또는 업데이트
+        # 2. 사용자 관심사 임베딩 + enriched_profile 생성
+        interests_embedding, enriched_profile = _generate_user_embedding_and_profile(
+            department=department,
+            categories=categories,
+            grade=grade
+        )
+
+        # 3. user_preferences 테이블에 선호도 정보 삽입 또는 업데이트
         preferences_data = {
             "user_id": user_id,
             "categories": categories,
             "keywords": [],  # 초기값: 빈 배열
             "notification_enabled": True
         }
+
+        if interests_embedding:
+            preferences_data["interests_embedding"] = interests_embedding
+        if enriched_profile:
+            preferences_data["enriched_profile"] = enriched_profile
 
         # upsert: 이미 존재하면 업데이트, 없으면 삽입
         preferences_result = supabase.client.table("user_preferences")\
@@ -254,14 +332,34 @@ def update_user_preferences(user_id):
 
         supabase = SupabaseService()
 
+        # 사용자 정보 조회 (임베딩 생성에 필요)
+        user_result = supabase.client.table("users")\
+            .select("department, grade")\
+            .eq("id", user_id)\
+            .execute()
+
+        department = ""
+        grade = None
+        if user_result.data:
+            department = user_result.data[0].get("department", "")
+            grade = user_result.data[0].get("grade")
+
+        # 관심사 임베딩 + enriched_profile 재생성
+        interests_embedding, enriched_profile = _generate_user_embedding_and_profile(
+            department=department,
+            categories=categories,
+            grade=grade
+        )
+
         # user_preferences 테이블 업데이트
-        preferences_data = {
-            "user_id": user_id,
-            "categories": categories
-        }
+        update_data = {"categories": categories}
+        if interests_embedding:
+            update_data["interests_embedding"] = interests_embedding
+        if enriched_profile:
+            update_data["enriched_profile"] = enriched_profile
 
         result = supabase.client.table("user_preferences")\
-            .update({"categories": categories})\
+            .update(update_data)\
             .eq("user_id", user_id)\
             .execute()
 
@@ -271,7 +369,7 @@ def update_user_preferences(user_id):
                 "message": "선호도 업데이트에 실패했습니다."
             }), 500
 
-        print(f"[선호도 업데이트] 완료: {user_id} - {len(categories)}개 카테고리")
+        print(f"[선호도 업데이트] 완료: {user_id} - {len(categories)}개 카테고리, 임베딩 갱신: {'성공' if interests_embedding else '실패'}")
 
         return jsonify({
             "status": "success",

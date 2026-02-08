@@ -35,7 +35,6 @@ from ai.analyzer import NoticeAnalyzer
 from ai.embedding_service import EmbeddingService
 from ai.enrichment_service import EnrichmentService
 from services.notice_service import NoticeService
-from services.calendar_service import CalendarService
 from services.hybrid_search_service import HybridSearchService
 from services.reranking_service import RerankingService
 from supabase import create_client
@@ -58,8 +57,6 @@ class CrawlAndNotifyPipeline:
         # 서비스 초기화
         self.notice_service = NoticeService()
         self.ai_analyzer = NoticeAnalyzer()
-        self.calendar_service = CalendarService()
-
         # 새로운 벡터 검색 서비스
         self.embedding_service = EmbeddingService()
         self.enrichment_service = EnrichmentService()
@@ -106,11 +103,8 @@ class CrawlAndNotifyPipeline:
             # 4단계: 사용자별 관련도 계산
             relevance_results = self._step4_calculate_relevance(saved_ids)
 
-            # 5단계: 캘린더 이벤트 생성
-            calendar_count = self._step5_create_calendar_events(analyzed_notices)
-
-            # 6단계: 푸시 알림 발송
-            notification_count = self._step6_send_notifications(relevance_results)
+            # 5단계: 푸시 알림 발송
+            notification_count = self._step5_send_notifications(relevance_results)
 
             # 최종 통계
             self._print_final_stats(
@@ -119,7 +113,6 @@ class CrawlAndNotifyPipeline:
                 analyzed_count=len(analyzed_notices),
                 saved_count=len(saved_ids),
                 relevance_count=sum(len(users) for users in relevance_results.values()),
-                calendar_count=calendar_count,
                 notification_count=notification_count
             )
 
@@ -184,21 +177,26 @@ class CrawlAndNotifyPipeline:
             print(f"\n[{i}/{len(notices)}] {title}...")
 
             try:
-                # 이미지 공지 처리: content가 비어있고 이미지가 있으면 이미지 분석
+                # 이미지 공지 처리: OCR 텍스트는 AI 분석용으로만 사용 (content에 추가하지 않음)
                 content = notice.get('content', '')
                 content_images = notice.get('content_images', [])
 
-                if len(content) < 50 and content_images:
+                if content_images:
                     print(f"  [이미지 분석] {len(content_images)}개 이미지 분석 중...")
                     extracted_content = self.ai_analyzer.analyze_images(
                         image_urls=content_images,
                         title=notice.get('title', '')
                     )
                     if extracted_content:
-                        notice['content'] = extracted_content
-                        print(f"  [완료] 이미지에서 {len(extracted_content)}자 추출")
+                        # OCR 텍스트를 별도 필드에 저장 (AI 분석 시 참고용)
+                        notice['_ocr_text'] = extracted_content
+                        print(f"  [완료] 이미지에서 {len(extracted_content)}자 추출 (AI 분석용)")
                     else:
-                        print(f"  [경고] 이미지 분석 실패 - 제목만으로 진행")
+                        notice['_ocr_text'] = ''
+                        print(f"  [경고] 이미지 분석 실패")
+
+                    # 본문이 거의 없는 경우 제목으로 대체 (content는 순수 크롤링 텍스트 유지)
+                    if len(content) < 50 and not extracted_content:
                         notice['content'] = notice.get('title', '')
 
                 # AI 종합 분석 (요약, 카테고리, 중요도, 날짜)
@@ -206,23 +204,28 @@ class CrawlAndNotifyPipeline:
 
                 # 벡터 검색 모드: 임베딩 + 메타데이터 보강
                 if self.use_vector_search:
-                    # 메타데이터 보강
-                    enriched = self.enrichment_service.enrich_notice(analysis)
-                    analysis["enriched_metadata"] = enriched.get("enriched_metadata", {})
+                    try:
+                        # 메타데이터 보강
+                        enriched = self.enrichment_service.enrich_notice(analysis)
+                        analysis["enriched_metadata"] = enriched.get("enriched_metadata", {})
 
-                    # 임베딩 생성
-                    embedding_text = self.embedding_service.create_notice_embedding_text(
-                        title=analysis.get("title", ""),
-                        content=analysis.get("content", ""),
-                        summary=analysis.get("summary"),
-                        category=analysis.get("category"),
-                        keywords=analysis.get("enriched_metadata", {}).get("keywords_expanded"),
-                        target_departments=analysis.get("enriched_metadata", {}).get("target_departments")
-                    )
-                    embedding = self.embedding_service.create_embedding(embedding_text)
-                    analysis["content_embedding"] = embedding
+                        # 임베딩 생성
+                        embedding_text = self.embedding_service.create_notice_embedding_text(
+                            title=analysis.get("title", ""),
+                            content=analysis.get("content", ""),
+                            summary=analysis.get("summary"),
+                            category=analysis.get("category"),
+                            keywords=analysis.get("enriched_metadata", {}).get("keywords_expanded"),
+                            target_departments=analysis.get("enriched_metadata", {}).get("target_departments")
+                        )
+                        embedding = self.embedding_service.create_embedding(embedding_text)
+                        analysis["content_embedding"] = embedding
 
-                    print(f"  [완료] 분석+임베딩 완료 - {analysis.get('category', '학사')}")
+                        print(f"  [완료] 분석+임베딩 완료 - {analysis.get('category', '학사')}")
+                    except Exception as embed_err:
+                        # 임베딩 실패해도 AI 분석 결과(category 등)는 유지
+                        print(f"  [경고] 임베딩 생성 실패 (분석 결과는 유지): {str(embed_err)}")
+                        print(f"  [완료] 분석 완료 (임베딩 없음) - {analysis.get('category', '학사')}")
                 else:
                     print(f"  [완료] 분석 완료 - {analysis.get('category', '학사')}")
 
@@ -230,7 +233,7 @@ class CrawlAndNotifyPipeline:
 
             except Exception as e:
                 print(f"  [오류] 분석 실패: {str(e)}")
-                # 분석 실패해도 원본 데이터는 유지
+                # AI 분석 자체가 실패한 경우 원본 데이터 유지
                 notice['analyzed'] = False
                 analyzed_notices.append(notice)
 
@@ -312,50 +315,7 @@ class CrawlAndNotifyPipeline:
 
         return relevance_results
 
-    def _step5_create_calendar_events(
-        self,
-        notices: List[Dict[str, Any]]
-    ) -> int:
-        """5단계: 캘린더 이벤트 생성"""
-        print("\n" + "-"*60)
-        print("[5단계] 캘린더 이벤트 생성")
-        print("-"*60)
-
-        calendar_count = 0
-
-        for i, notice in enumerate(notices, 1):
-            # notice_id가 없으면 스킵 (DB 저장 실패한 경우)
-            notice_id = notice.get("id")
-            if not notice_id:
-                print(f"\n[{i}/{len(notices)}] [경고] DB ID 없음 - 스킵")
-                continue
-
-            dates = notice.get("dates", {})
-
-            # 날짜 정보가 있는 공지만 처리
-            if not dates or not any(dates.values()):
-                continue
-
-            print(f"\n[{i}/{len(notices)}] 캘린더 이벤트 생성 중...")
-
-            try:
-                event_ids = self.calendar_service.create_calendar_events(
-                    notice_id=notice_id,
-                    dates=dates,
-                    notice_title=notice.get("original_title", notice.get("title", "")),
-                    category=notice.get("category", "학사"),
-                    user_ids=None  # 관심 사용자 자동 조회
-                )
-                calendar_count += len(event_ids)
-                print(f"  [완료] {len(event_ids)}개 이벤트 생성")
-
-            except Exception as e:
-                print(f"  [오류] 캘린더 생성 실패: {str(e)}")
-
-        print(f"\n[통계] 캘린더 이벤트 생성 완료: {calendar_count}개")
-        return calendar_count
-
-    def _step6_send_notifications(
+    def _step5_send_notifications(
         self,
         relevance_results: Dict[str, List[Dict[str, Any]]]
     ) -> int:
@@ -436,7 +396,6 @@ class CrawlAndNotifyPipeline:
         analyzed_count: int,
         saved_count: int,
         relevance_count: int,
-        calendar_count: int,
         notification_count: int
     ):
         """최종 통계 출력"""
@@ -451,7 +410,6 @@ class CrawlAndNotifyPipeline:
         print(f"  - AI 분석 완료: {analyzed_count}개")
         print(f"  - DB 저장: {saved_count}개")
         print(f"  - 관련도 분석: {relevance_count}건")
-        print(f"  - 캘린더 이벤트: {calendar_count}개")
         print(f"  - 알림 발송: {notification_count}건")
         print(f"  - 소요 시간: {elapsed:.2f}초")
         print(f"  - 완료 시각: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")

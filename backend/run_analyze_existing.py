@@ -51,8 +51,7 @@ def main():
 
         # 기존 공지사항 분석 (최대 100개)
         result = manager.analyze_existing_notices(
-            limit=100,           # 최대 100개 분석
-            create_calendar=True # 캘린더 이벤트도 생성
+            limit=100           # 최대 100개 분석
         )
 
         # 결과 출력
@@ -61,7 +60,6 @@ def main():
         print("="*60)
         print(f"  ✅ 분석 완료: {result['analyzed']}개")
         print(f"  ❌ 분석 실패: {result['failed']}개")
-        print(f"  📅 캘린더 이벤트: {result['calendar_events']}개")
         print("="*60 + "\n")
 
         if result['analyzed'] > 0:

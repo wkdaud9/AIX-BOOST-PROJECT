@@ -14,6 +14,7 @@ load_dotenv()
 
 # Flask 앱 초기화
 app = Flask(__name__)
+app.url_map.strict_slashes = False  # trailing slash 리다이렉트 비활성화 (CORS 호환)
 CORS(app)  # CORS 설정 (Flutter 웹 클라이언트와 통신)
 
 # 기본 설정

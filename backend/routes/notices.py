@@ -6,8 +6,9 @@
 공지사항 관련 API 엔드포인트를 제공합니다.
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from typing import Dict, Any
+import requests as http_requests
 from services.supabase_service import SupabaseService
 from crawler.crawler_manager import CrawlerManager
 from utils.auth_middleware import login_required
@@ -282,6 +283,60 @@ def get_statistics():
 
     except Exception as e:
         print(f"[ERROR] 에러: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+@notices_bp.route('/image-proxy', methods=['GET'])
+def proxy_image():
+    """
+    학교 서버 이미지 프록시 (CORS/핫링크 차단 우회)
+
+    GET /api/notices/image-proxy?url=https://www.kunsan.ac.kr/upload_data/...
+
+    학교 서버가 외부 직접 접근을 차단하므로,
+    백엔드에서 이미지를 가져와 클라이언트에 전달합니다.
+    """
+    image_url = request.args.get('url', '')
+
+    # 보안: 군산대 도메인만 허용
+    if not image_url.startswith('https://www.kunsan.ac.kr/'):
+        return jsonify({
+            "status": "error",
+            "message": "허용되지 않는 URL입니다"
+        }), 403
+
+    try:
+        # 학교 서버에 Referer 포함하여 요청
+        resp = http_requests.get(
+            image_url,
+            headers={
+                'Referer': 'https://www.kunsan.ac.kr/',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            },
+            timeout=10,
+        )
+
+        if resp.status_code != 200:
+            return jsonify({
+                "status": "error",
+                "message": f"이미지 로드 실패: {resp.status_code}"
+            }), 502
+
+        # 이미지 바이너리 응답 (1일 캐시)
+        content_type = resp.headers.get('Content-Type', 'image/png')
+        return Response(
+            resp.content,
+            content_type=content_type,
+            headers={
+                'Cache-Control': 'public, max-age=86400',
+            },
+        )
+
+    except Exception as e:
+        print(f"[ERROR] 이미지 프록시 에러: {str(e)}")
         return jsonify({
             "status": "error",
             "message": str(e)

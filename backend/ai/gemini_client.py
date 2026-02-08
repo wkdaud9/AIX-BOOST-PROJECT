@@ -108,7 +108,8 @@ class GeminiClient:
                 generation_config={
                     "max_output_tokens": max_tokens,  # 최대 답변 길이
                     "temperature": temperature,  # 창의성 수준
-                }
+                },
+                request_options={"timeout": 30}  # 30초 타임아웃
             )
 
             # 답변 텍스트 추출

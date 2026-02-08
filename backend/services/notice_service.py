@@ -138,6 +138,14 @@ class NoticeService:
                 db_data["original_id"] = notice_data["original_id"]
             if "attachments" in notice_data:
                 db_data["attachments"] = notice_data["attachments"]
+            if "content_images" in notice_data and notice_data["content_images"]:
+                db_data["content_images"] = notice_data["content_images"]
+
+            # display_mode, has_important_image 추가 (AI 분석 결과)
+            if "display_mode" in notice_data:
+                db_data["display_mode"] = notice_data["display_mode"]
+            if "has_important_image" in notice_data:
+                db_data["has_important_image"] = notice_data["has_important_image"]
 
             # 4. INSERT 또는 UPDATE
             if existing.data:
@@ -204,6 +212,8 @@ class NoticeService:
             update_data = {
                 "ai_summary": analysis_result.get("summary", ""),
                 "category": analysis_result.get("category", "학사"),
+                "display_mode": analysis_result.get("display_mode", "DOCUMENT"),
+                "has_important_image": analysis_result.get("has_important_image", False),
                 "is_processed": True,
                 "ai_analyzed_at": datetime.now().isoformat(),
                 "updated_at": datetime.now().isoformat()
@@ -408,7 +418,7 @@ class NoticeService:
 
         매개변수:
         - notice_data: 공지사항 데이터 (AI 분석 결과 포함)
-        - embedding: 3072차원 벡터 임베딩 (Optional)
+        - embedding: 768차원 벡터 임베딩 (Optional)
         - enriched_metadata: 보강된 메타데이터 (Optional)
           {
               "target_departments": ["컴퓨터정보공학과"],
@@ -471,10 +481,20 @@ class NoticeService:
             # 추가 필드
             if "author" in notice_data:
                 db_data["author"] = notice_data["author"]
+            if "view_count" in notice_data or "views" in notice_data:
+                db_data["view_count"] = notice_data.get("view_count") or notice_data.get("views")
             if "original_id" in notice_data:
                 db_data["original_id"] = notice_data["original_id"]
             if "attachments" in notice_data:
                 db_data["attachments"] = notice_data["attachments"]
+            if "content_images" in notice_data and notice_data["content_images"]:
+                db_data["content_images"] = notice_data["content_images"]
+
+            # display_mode, has_important_image 추가 (AI 분석 결과)
+            if "display_mode" in notice_data:
+                db_data["display_mode"] = notice_data["display_mode"]
+            if "has_important_image" in notice_data:
+                db_data["has_important_image"] = notice_data["has_important_image"]
 
             # source_board, board_seq 추가 (크롤링 최적화용)
             if "source_board" in notice_data:
@@ -489,6 +509,14 @@ class NoticeService:
             # 보강 메타데이터 추가 (새로운 필드)
             if enriched_metadata:
                 db_data["enriched_metadata"] = enriched_metadata
+
+            # date_type을 enriched_metadata에 포함 (AI 프롬프트에서 추출한 날짜 성격)
+            date_type = dates.get("date_type")
+            if date_type and date_type != "null":
+                if "enriched_metadata" not in db_data:
+                    db_data["enriched_metadata"] = {}
+                if isinstance(db_data["enriched_metadata"], dict):
+                    db_data["enriched_metadata"]["date_type"] = date_type
 
             # INSERT 또는 UPDATE
             if existing.data:
@@ -661,8 +689,8 @@ class NoticeService:
             else:
                 return date_str
         except:
-            # 파싱 실패 시 현재 시간 반환
-            return datetime.now().isoformat()
+            # 파싱 실패 시 원본 문자열 그대로 반환
+            return date_str
 
 
 # 테스트 코드

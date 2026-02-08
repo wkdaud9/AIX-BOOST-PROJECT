@@ -13,8 +13,40 @@
 from .base_crawler import BaseCrawler
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from markdownify import markdownify as md
+import re
 import sys
 import os
+
+
+def clean_markdown(text: str) -> str:
+    """
+    markdownify 출력의 파편화된 서식을 정리합니다.
+
+    학교 홈페이지 HTML에서 <b>2026</b><b>년</b> 같이 태그가 파편화되어 있으면
+    markdownify가 **2026****년** 으로 변환하므로 이를 **2026년** 으로 병합합니다.
+    """
+    # 1. 연속된 bold 마커 병합: **text****text** → **texttext**
+    text = text.replace('****', '')
+    # 2. 인접한 bold 구간 병합: **text** **text** → **text text**
+    text = re.sub(r'\*\*(\s+)\*\*', r'\1', text)
+    # 3. 빈 bold 제거: **  ** → (빈 문자열)
+    text = re.sub(r'\*\*\s*\*\*', '', text)
+    # 4. 특수문자 주위 파편화된 bold 제거: **※** → ※, **‧** → ‧
+    text = re.sub(r'\*\*([^\w\s])\*\*', r'\1', text)
+    # 5. 짝이 맞지 않는 bold 마커 제거 (줄 단위로 ** 개수가 홀수면 제거)
+    lines = text.split('\n')
+    fixed_lines = []
+    for line in lines:
+        if line.count('**') % 2 != 0:
+            line = line.replace('**', '')
+        fixed_lines.append(line)
+    text = '\n'.join(fixed_lines)
+    # 6. 이스케이프된 asterisk 복원: \* → * (markdownify가 * 를 \* 로 이스케이프)
+    text = text.replace('\\*', '*')
+    # 7. 연속 빈 줄 정리 (3줄 이상 → 2줄)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
 
 # NoticeService import를 위해 경로 추가
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -493,7 +525,21 @@ class NoticeCrawler(BaseCrawler):
                 soup.select_one('.cont_box')
             )
 
-            content = self.clean_text(content_elem.get_text()) if content_elem else ""
+            # 본문을 Markdown으로 변환 (표/구조 보존)
+            if content_elem:
+                # 이미지 src 상대경로를 절대경로로 변환 (Markdown 변환 전)
+                for img in content_elem.select('img'):
+                    src = img.get('src', '')
+                    if src and not src.startswith('http'):
+                        img['src'] = self.BASE_URL + src
+
+                content = clean_markdown(md(
+                    str(content_elem),
+                    heading_style="ATX",
+                    strip=['script', 'style'],
+                ))
+            else:
+                content = ""
 
             # 본문 내 이미지 URL 추출 (이미지 공지 처리용)
             content_images = []
@@ -501,13 +547,11 @@ class NoticeCrawler(BaseCrawler):
                 for img in content_elem.select('img'):
                     src = img.get('src', '')
                     if src:
-                        # 상대 경로면 절대 경로로 변환
-                        if not src.startswith('http'):
-                            src = self.BASE_URL + src
                         content_images.append(src)
 
             # 본문이 너무 짧고 이미지가 있으면 이미지 공지로 표시
-            if len(content) < 50:
+            plain_text_len = len(content_elem.get_text().strip()) if content_elem else 0
+            if plain_text_len < 50:
                 if content_images:
                     print(f"    [INFO] 이미지 공지 감지: {len(content_images)}개 이미지 발견")
                 else:

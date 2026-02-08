@@ -134,7 +134,13 @@ class HybridSearchService:
             r for r in combined
             if r["total_score"] >= min_score
         ]
-        results.sort(key=lambda x: x["total_score"], reverse=True)
+
+        # 사용자 선택 카테고리에 해당하는 공지를 최상위에 배치
+        user_categories = user_profile.get("categories", [])
+        results.sort(key=lambda x: (
+            1 if x.get("category") in user_categories else 0,
+            x["total_score"]
+        ), reverse=True)
 
         return results[:limit]
 
@@ -754,7 +760,7 @@ class HybridSearchService:
             hard_score = weights["hard_filter"] if notice.get("hard_filter_match") else 0
 
             combined[notice_id] = {
-                "notice_id": notice_id,
+                "id": notice_id,
                 "title": notice.get("title"),
                 "ai_summary": notice.get("ai_summary"),
                 "category": notice.get("category"),
@@ -773,7 +779,7 @@ class HybridSearchService:
                 combined[notice_id]["total_score"] += vector_score
             else:
                 combined[notice_id] = {
-                    "notice_id": notice_id,
+                    "id": notice_id,
                     "title": result.get("title"),
                     "ai_summary": result.get("ai_summary"),
                     "category": result.get("category"),
