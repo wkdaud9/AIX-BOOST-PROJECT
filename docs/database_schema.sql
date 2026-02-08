@@ -42,6 +42,9 @@ CREATE TABLE IF NOT EXISTS notices (
     is_processed BOOLEAN DEFAULT FALSE,
     source_board TEXT,                          -- 원본 게시판 구분 (공지사항, 학사장학, 모집공고)
     board_seq INTEGER,                          -- 게시판 내 순번 (중복 크롤링 방지용)
+    content_images TEXT[],                      -- 본문 내 이미지 URL 배열
+    display_mode TEXT DEFAULT 'DOCUMENT',       -- AI가 판단한 표시 모드 (POSTER/DOCUMENT/HYBRID)
+    has_important_image BOOLEAN DEFAULT FALSE,  -- AI가 판단한 이미지 중요도
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
