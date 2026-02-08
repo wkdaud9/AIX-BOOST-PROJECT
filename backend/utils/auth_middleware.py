@@ -50,6 +50,7 @@ def login_required(f):
                 
             # Flask 전역 객체 g에 사용자 정보 저장
             g.user = user_response.user
+            g.user_id = user_response.user.id
             
         except Exception as e:
             # 토큰 만료, 서명 불일치 등

@@ -240,65 +240,54 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
             const SizedBox(height: AppSpacing.md),
           ],
 
-          // 추출된 일정 (있는 경우)
-          if (_notice!.extractedDates.isNotEmpty) ...[
+          // 마감일 표시 (있는 경우)
+          if (_notice!.deadline != null) ...[
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: _notice!.isDeadlineSoon ? Colors.red.shade50 : Colors.green.shade50,
                 borderRadius: BorderRadius.circular(AppRadius.md),
-                border: Border.all(color: Colors.green.shade200),
+                border: Border.all(
+                  color: _notice!.isDeadlineSoon ? Colors.red.shade200 : Colors.green.shade200,
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Icon(Icons.event, size: 18, color: Colors.green.shade700),
-                      const SizedBox(width: 6),
-                      Text(
-                        '추출된 일정',
-                        style: TextStyle(
-                          fontSize: 14,
+                  Icon(
+                    Icons.event,
+                    size: 18,
+                    color: _notice!.isDeadlineSoon ? Colors.red.shade700 : Colors.green.shade700,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '마감일: ${_notice!.deadline!.year}.${_notice!.deadline!.month.toString().padLeft(2, '0')}.${_notice!.deadline!.day.toString().padLeft(2, '0')}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: _notice!.isDeadlineSoon ? Colors.red.shade900 : Colors.green.shade900,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_notice!.daysUntilDeadline != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _notice!.isDeadlineSoon ? Colors.red : Colors.green,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                      child: Text(
+                        _notice!.daysUntilDeadline! > 0
+                            ? 'D-${_notice!.daysUntilDeadline}'
+                            : _notice!.daysUntilDeadline == 0
+                                ? 'D-Day'
+                                : '마감',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green.shade900,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.sm,
-                    children: _notice!.extractedDates.map((date) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade100,
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                          border: Border.all(color: Colors.green.shade300),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.calendar_today, size: 12, color: Colors.green.shade700),
-                            const SizedBox(width: 4),
-                            Text(
-                              date,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.green.shade900,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                    ),
                 ],
               ),
             ),

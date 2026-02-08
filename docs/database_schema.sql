@@ -33,13 +33,12 @@ CREATE TABLE IF NOT EXISTS notices (
     category TEXT NOT NULL,
     source_url TEXT NOT NULL,
     published_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    crawled_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     author TEXT,                                -- 작성자 또는 작성 부서명
     view_count INTEGER DEFAULT 0,              -- 원본 사이트의 조회수
     original_id TEXT UNIQUE,                   -- 원본 웹사이트의 게시물 고유 번호 (중복 체크용)
     attachments TEXT[],                        -- 첨부파일 다운로드 URL 배열
     ai_summary TEXT,
-    extracted_dates DATE[],
+    deadline DATE,                             -- AI가 판단한 최종 마감일
     is_processed BOOLEAN DEFAULT FALSE,
     source_board TEXT,                          -- 원본 게시판 구분 (공지사항, 학사장학, 모집공고)
     board_seq INTEGER,                          -- 게시판 내 순번 (중복 크롤링 방지용)
@@ -47,32 +46,13 @@ CREATE TABLE IF NOT EXISTS notices (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 추출된 이벤트 테이블
-CREATE TABLE IF NOT EXISTS extracted_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    notice_id UUID NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
-    title TEXT NOT NULL,
-    event_date DATE,
-    event_time TIME,
-    location TEXT,
-    description TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 캘린더 이벤트 테이블
-CREATE TABLE IF NOT EXISTS calendar_events (
+-- 사용자 북마크 테이블
+CREATE TABLE IF NOT EXISTS user_bookmarks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    notice_id UUID REFERENCES notices(id) ON DELETE SET NULL,
-    extracted_event_id UUID REFERENCES extracted_events(id) ON DELETE SET NULL,
-    title TEXT NOT NULL,
-    description TEXT,
-    start_date TIMESTAMP WITH TIME ZONE NOT NULL,
-    end_date TIMESTAMP WITH TIME ZONE,
-    location TEXT,
-    is_synced BOOLEAN DEFAULT FALSE,
+    notice_id UUID NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    UNIQUE(user_id, notice_id)
 );
 
 -- 푸시 알림 로그 테이블
@@ -94,14 +74,16 @@ CREATE INDEX idx_notices_original_id ON notices(original_id);
 CREATE INDEX idx_notices_author ON notices(author);
 CREATE INDEX idx_notices_source_board ON notices(source_board);
 CREATE INDEX idx_notices_board_seq ON notices(source_board, board_seq DESC);
-CREATE INDEX idx_calendar_events_user_id ON calendar_events(user_id);
-CREATE INDEX idx_calendar_events_start_date ON calendar_events(start_date);
+CREATE INDEX idx_notices_deadline ON notices(deadline);
+CREATE INDEX idx_user_bookmarks_user_id ON user_bookmarks(user_id);
+CREATE INDEX idx_user_bookmarks_notice_id ON user_bookmarks(notice_id);
+CREATE INDEX idx_user_bookmarks_created_at ON user_bookmarks(user_id, created_at DESC);
 CREATE INDEX idx_notification_logs_user_id ON notification_logs(user_id);
 
 -- RLS (Row Level Security) 활성화
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
-ALTER TABLE calendar_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_bookmarks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_logs ENABLE ROW LEVEL SECURITY;
 
 -- RLS 정책: 사용자는 자신의 데이터만 조회/수정 가능
@@ -117,10 +99,10 @@ CREATE POLICY "Users can view own preferences" ON user_preferences
 CREATE POLICY "Users can manage own preferences" ON user_preferences
     FOR ALL USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can view own calendar events" ON calendar_events
+CREATE POLICY "Users can view own bookmarks" ON user_bookmarks
     FOR SELECT USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can manage own calendar events" ON calendar_events
+CREATE POLICY "Users can manage own bookmarks" ON user_bookmarks
     FOR ALL USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can view own notifications" ON notification_logs
@@ -135,9 +117,11 @@ COMMENT ON COLUMN notices.author IS '작성자 또는 작성 부서명';
 COMMENT ON COLUMN notices.view_count IS '원본 사이트의 조회수';
 COMMENT ON COLUMN notices.original_id IS '원본 웹사이트의 게시물 고유 번호 (중복 체크용)';
 COMMENT ON COLUMN notices.attachments IS '첨부파일 다운로드 URL 배열';
+COMMENT ON COLUMN notices.deadline IS 'AI가 판단한 최종 마감일 (YYYY-MM-DD)';
 COMMENT ON COLUMN notices.category IS '공지사항 카테고리: 학사(수강신청,학적,성적,졸업), 장학(장학금,학자금대출,등록금), 취업(채용,인턴십,취업박람회), 행사(입학식,졸업식,축제,오리엔테이션), 교육(특강,교육프로그램,진로교육,세미나), 공모전(대회,경진대회,콘테스트)';
 COMMENT ON COLUMN notices.source_board IS '원본 게시판 구분: 공지사항, 학사장학, 모집공고';
 COMMENT ON COLUMN notices.board_seq IS '게시판 내 순번 (중복 크롤링 방지용)';
+COMMENT ON TABLE user_bookmarks IS '사용자별 공지사항 북마크(즐겨찾기)';
 
 -- 자동 업데이트 트리거 함수
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -158,14 +142,10 @@ CREATE TRIGGER update_user_preferences_updated_at BEFORE UPDATE ON user_preferen
 CREATE TRIGGER update_notices_updated_at BEFORE UPDATE ON notices
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_calendar_events_updated_at BEFORE UPDATE ON calendar_events
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
 -- 사용자 생성 시 user_preferences 자동 생성 트리거 함수
 CREATE OR REPLACE FUNCTION create_user_preferences()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- 새로운 사용자가 생성되면 user_preferences 테이블에 기본값으로 행 삽입
     INSERT INTO user_preferences (user_id, categories, keywords, notification_enabled)
     VALUES (NEW.id, '{}', '{}', TRUE);
     RETURN NEW;
@@ -182,7 +162,6 @@ CREATE TRIGGER trigger_create_user_preferences
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- auth.users에 새로운 사용자가 생성되면 users 테이블에도 행 삽입
     INSERT INTO public.users (id, email, created_at)
     VALUES (NEW.id, NEW.email, NOW());
     RETURN NEW;
@@ -191,7 +170,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- auth.users 테이블에 INSERT 시 users 테이블 자동 생성 트리거
 -- 주의: 이 트리거는 Supabase 대시보드의 SQL Editor에서 실행해야 합니다
--- (auth 스키마는 RLS가 적용되어 있어 SECURITY DEFINER 권한 필요)
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW

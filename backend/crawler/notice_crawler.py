@@ -128,6 +128,7 @@ class NoticeCrawler(BaseCrawler):
         self,
         last_board_seq: Optional[int] = None,
         max_pages: int = 1,
+        max_notices: int = 10,
         **kwargs  # 하위 호환성을 위해 existing_urls 등 무시
     ) -> List[Dict[str, Any]]:
         """
@@ -136,18 +137,20 @@ class NoticeCrawler(BaseCrawler):
         🎯 목적:
         1. DB에서 해당 게시판의 마지막 순번 조회
         2. 목록 페이지에서 마지막 순번보다 큰 공지만 크롤링
-        3. 학교 서버 부담 최소화 + DB 조회 비용 감소
+        3. 게시판당 최대 max_notices개까지만 크롤링
+        4. 학교 서버 부담 최소화 + DB 조회 비용 감소
 
         🔧 매개변수:
         - last_board_seq: DB에 저장된 마지막 순번 (없으면 내부에서 조회)
         - max_pages: 최대 페이지 수 (기본값: 1)
+        - max_notices: 게시판당 최대 크롤링 개수 (기본값: 10)
 
         📊 반환값:
         - 크롤링한 공지사항 리스트 (상세 정보 포함)
 
         💡 예시:
         crawler = NoticeCrawler()
-        notices = crawler.crawl_optimized(max_pages=1)
+        notices = crawler.crawl_optimized(max_pages=1, max_notices=10)
         print(f"새로운 공지: {len(notices)}개")
         """
         print(f"\n{'='*50}")
@@ -159,11 +162,17 @@ class NoticeCrawler(BaseCrawler):
             last_board_seq = self._get_last_board_seq()
 
         print(f"[정보] DB 마지막 순번: {last_board_seq if last_board_seq else '없음 (첫 크롤링)'}")
+        print(f"[정보] 최대 크롤링 개수: {max_notices}개")
 
         all_notices = []
 
         # 페이지별로 확인
         for page in range(1, max_pages + 1):
+            # 이미 최대 개수에 도달했으면 중단
+            if len(all_notices) >= max_notices:
+                print(f"[정보] 최대 크롤링 개수({max_notices}개) 도달 - 중단")
+                break
+
             print(f"\n[페이지 {page}/{max_pages}] 목록 확인 중...")
 
             # 목록 페이지 가져오기
@@ -205,6 +214,11 @@ class NoticeCrawler(BaseCrawler):
             if not new_notices:
                 print(f"[INFO] 페이지 {page}에 새 공지 없음")
                 break
+
+            # 남은 수용 가능 개수만큼만 자르기
+            remaining = max_notices - len(all_notices)
+            if len(new_notices) > remaining:
+                new_notices = new_notices[:remaining]
 
             print(f"[OK] 새 공지 {len(new_notices)}개 발견 - 상세 크롤링 시작")
 
@@ -272,35 +286,41 @@ class NoticeCrawler(BaseCrawler):
             print(f"[WARNING] 마지막 순번 조회 실패: {str(e)}")
             return None
 
-    def crawl(self, max_pages: int = 1) -> List[Dict[str, Any]]:
+    def crawl(self, max_pages: int = 1, max_notices: int = 10) -> List[Dict[str, Any]]:
         """
         공지사항을 크롤링합니다.
 
         🔧 매개변수:
         - max_pages: 크롤링할 최대 페이지 수 (기본값: 1)
+        - max_notices: 게시판당 최대 크롤링 개수 (기본값: 10)
 
         🎯 하는 일:
         1. 목록 페이지에서 공지사항 목록 가져오기
         2. 각 공지사항의 상세 페이지 접속
         3. 제목, 내용, 작성일 등 추출
-        4. 리스트로 정리해서 반환
+        4. 최대 max_notices개까지만 수집하여 반환
 
         💡 예시:
         crawler = NoticeCrawler()
-        notices = crawler.crawl(max_pages=2)
+        notices = crawler.crawl(max_pages=2, max_notices=10)
 
         for notice in notices:
             print(f"제목: {notice['title']}")
             print(f"작성일: {notice['published_at']}")
         """
         print(f"\n{'='*50}")
-        print(f"[크롤링] 공지사항 크롤링 시작 (최대 {max_pages}페이지)")
+        print(f"[크롤링] 공지사항 크롤링 시작 (최대 {max_pages}페이지, 최대 {max_notices}개)")
         print(f"{'='*50}\n")
 
         all_notices = []
 
         # 페이지별로 크롤링
         for page in range(1, max_pages + 1):
+            # 이미 최대 개수에 도달했으면 중단
+            if len(all_notices) >= max_notices:
+                print(f"[정보] 최대 크롤링 개수({max_notices}개) 도달 - 중단")
+                break
+
             print(f"\n[페이지 {page}/{max_pages}] 크롤링 중...")
 
             # 페이지 파라미터 추가
@@ -321,11 +341,15 @@ class NoticeCrawler(BaseCrawler):
                 print(f"[INFO] 페이지 {page}에서 공지사항을 찾지 못했습니다")
                 break
 
-            print(f"[OK] {len(notices)}개 공지사항 발견")
+            # 남은 수용 가능 개수만큼만 처리
+            remaining = max_notices - len(all_notices)
+            notices_to_crawl = notices[:remaining]
+
+            print(f"[OK] {len(notices)}개 발견, {len(notices_to_crawl)}개 상세 크롤링")
 
             # 각 공지사항의 상세 정보 가져오기
-            for i, notice_preview in enumerate(notices, 1):
-                print(f"  [{i}/{len(notices)}] {notice_preview['title'][:30]}...")
+            for i, notice_preview in enumerate(notices_to_crawl, 1):
+                print(f"  [{i}/{len(notices_to_crawl)}] {notice_preview['title'][:30]}...")
 
                 # 상세 페이지 크롤링
                 detail = self._crawl_notice_detail(notice_preview)
@@ -333,7 +357,7 @@ class NoticeCrawler(BaseCrawler):
                 if detail:
                     all_notices.append(detail)
 
-            print(f"[OK] 페이지 {page} 크롤링 완료: {len(notices)}개")
+            print(f"[OK] 페이지 {page} 크롤링 완료: {len(notices_to_crawl)}개")
 
         print(f"\n{'='*50}")
         print(f"[완료] 전체 크롤링 완료: 총 {len(all_notices)}개 공지사항")

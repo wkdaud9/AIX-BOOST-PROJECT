@@ -6,7 +6,7 @@ import '../providers/notice_provider.dart';
 import '../theme/app_theme.dart';
 import 'notice_detail_screen.dart';
 
-/// 캘린더 화면 - 공지사항 일정 표시
+/// 캘린더 화면 - 북마크된 공지사항의 마감일 표시 + D-day 마커
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
 
@@ -31,6 +31,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     _selectedDay = _focusedDay;
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleTabChange);
+
+    // 북마크 목록 동기화 (캘린더는 북마크된 공지의 마감일만 표시)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NoticeProvider>().fetchBookmarks();
+    });
   }
 
   @override
@@ -271,28 +276,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                   ),
                   const Spacer(),
                   if (notice.daysUntilDeadline != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: notice.isDeadlineSoon
-                            ? AppTheme.errorColor
-                            : AppTheme.infoColor,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                      child: Text(
-                        notice.daysUntilDeadline! > 0
-                            ? 'D-${notice.daysUntilDeadline}'
-                            : '마감',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                    _buildDDayBadge(notice.daysUntilDeadline!),
                 ],
               ),
 
@@ -347,6 +331,42 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
+  /// D-day 뱃지 위젯
+  Widget _buildDDayBadge(int daysLeft) {
+    String text;
+    Color bgColor;
+
+    if (daysLeft > 0) {
+      text = 'D-$daysLeft';
+      bgColor = daysLeft <= 3 ? AppTheme.errorColor : AppTheme.infoColor;
+    } else if (daysLeft == 0) {
+      text = 'D-Day';
+      bgColor = AppTheme.errorColor;
+    } else {
+      text = '마감';
+      bgColor = Colors.grey;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
   /// 캘린더 위젯
   Widget _buildCalendar() {
     return Consumer<NoticeProvider>(
@@ -381,10 +401,60 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               onPageChanged: (focusedDay) {
                 _focusedDay = focusedDay;
               },
-              // 이벤트 마커 표시
+              // 이벤트 로더: 북마크된 공지의 마감일만 매칭
               eventLoader: (day) {
-                return _getEventsForDay(day, provider.notices);
+                return _getEventsForDay(day, provider.bookmarkedNotices);
               },
+              // D-day 마커 커스텀 빌더
+              calendarBuilders: CalendarBuilders(
+                markerBuilder: (context, day, events) {
+                  if (events.isEmpty) return const SizedBox.shrink();
+
+                  // D-day 계산 (오늘 기준)
+                  final now = DateTime.now();
+                  final today = DateTime(now.year, now.month, now.day);
+                  final targetDay = DateTime(day.year, day.month, day.day);
+                  final daysLeft = targetDay.difference(today).inDays;
+
+                  String dDayText;
+                  Color bgColor;
+
+                  if (daysLeft > 0) {
+                    dDayText = 'D-$daysLeft';
+                    bgColor = daysLeft <= 3 ? AppTheme.errorColor : AppTheme.primaryColor;
+                  } else if (daysLeft == 0) {
+                    dDayText = 'D-Day';
+                    bgColor = AppTheme.errorColor;
+                  } else {
+                    dDayText = '마감';
+                    bgColor = Colors.grey;
+                  }
+
+                  // 여러 개면 개수 표시
+                  final label = events.length > 1
+                      ? '$dDayText(${events.length})'
+                      : dDayText;
+
+                  return Positioned(
+                    bottom: 1,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: bgColor,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
               // 스타일 설정
               calendarStyle: CalendarStyle(
                 todayDecoration: BoxDecoration(
@@ -395,15 +465,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                   color: AppTheme.primaryColor,
                   shape: BoxShape.circle,
                 ),
-                // 마감일 마커 스타일
-                markerDecoration: BoxDecoration(
-                  color: AppTheme.primaryColor,
-                  shape: BoxShape.circle,
-                ),
-                markerSize: 7.0, // 마커 크기
-                markerMargin: const EdgeInsets.symmetric(horizontal: 1.5), // 마커 간격
-                markersMaxCount: 3, // 최대 마커 개수
-                markersAlignment: Alignment.bottomCenter, // 마커 위치
+                // 커스텀 마커 빌더를 사용하므로 기본 마커 숨김
+                markersMaxCount: 0,
                 weekendTextStyle: const TextStyle(
                   color: AppTheme.errorColor,
                 ),
@@ -439,7 +502,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   Widget _buildEventList() {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
-        final events = _getEventsForDay(_selectedDay ?? _focusedDay, provider.notices);
+        final events = _getEventsForDay(
+          _selectedDay ?? _focusedDay,
+          provider.bookmarkedNotices,
+        );
 
         if (events.isEmpty) {
           return Center(
@@ -453,7 +519,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  '해당 날짜에 일정이 없습니다.',
+                  '해당 날짜에 마감 일정이 없습니다.',
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 16,
@@ -496,7 +562,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 카테고리와 마감일 뱃지
+              // 카테고리와 D-day 뱃지
               Row(
                 children: [
                   Container(
@@ -522,27 +588,10 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                       ),
                     ),
                   ),
-                  if (notice.deadline != null && notice.isDeadlineSoon) ...[
-                    const SizedBox(width: AppSpacing.sm),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.errorColor,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                      child: Text(
-                        'D-${notice.daysUntilDeadline}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
+                  const Spacer(),
+                  // D-day 항상 표시 (마감일이 있으면)
+                  if (notice.daysUntilDeadline != null)
+                    _buildDDayBadge(notice.daysUntilDeadline!),
                 ],
               ),
 
@@ -572,7 +621,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
               const SizedBox(height: AppSpacing.sm),
 
-              // 날짜 정보 및 조회수
+              // 마감일 정보
               Row(
                 children: [
                   Icon(
@@ -614,29 +663,22 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
-  /// 특정 날짜의 이벤트 가져오기
+  /// 특정 날짜의 이벤트 가져오기 (북마크된 공지의 마감일만 매칭)
   List<Notice> _getEventsForDay(DateTime day, List<Notice> notices) {
+    final targetDate = DateTime(day.year, day.month, day.day);
+
     return notices.where((notice) {
-      // 공지 날짜 또는 마감일이 해당 날짜와 일치하는 경우
-      final noticeDate = DateTime(
-        notice.date.year,
-        notice.date.month,
-        notice.date.day,
+      // 마감일이 없으면 캘린더에 표시하지 않음
+      if (notice.deadline == null) return false;
+
+      return isSameDay(
+        DateTime(
+          notice.deadline!.year,
+          notice.deadline!.month,
+          notice.deadline!.day,
+        ),
+        targetDate,
       );
-      final targetDate = DateTime(day.year, day.month, day.day);
-
-      bool matchesNoticeDate = isSameDay(noticeDate, targetDate);
-      bool matchesDeadline = notice.deadline != null &&
-          isSameDay(
-            DateTime(
-              notice.deadline!.year,
-              notice.deadline!.month,
-              notice.deadline!.day,
-            ),
-            targetDate,
-          );
-
-      return matchesNoticeDate || matchesDeadline;
     }).toList();
   }
 }

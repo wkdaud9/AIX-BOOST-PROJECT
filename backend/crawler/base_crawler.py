@@ -297,7 +297,6 @@ class BaseCrawler:
             "category": self.category,
             "published_at": published_at,
             "source_url": source_url,
-            "crawled_at": datetime.now(),
             **kwargs  # 추가 정보
         }
 

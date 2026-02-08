@@ -6,8 +6,22 @@ import '../theme/app_theme.dart';
 import 'notice_detail_screen.dart';
 
 /// mybro 추천 화면 - AI 기반 맞춤형 공지사항 추천
-class RecommendScreen extends StatelessWidget {
+class RecommendScreen extends StatefulWidget {
   const RecommendScreen({super.key});
+
+  @override
+  State<RecommendScreen> createState() => _RecommendScreenState();
+}
+
+class _RecommendScreenState extends State<RecommendScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // 화면 진입 시 AI 맞춤 추천 공지사항 로드
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NoticeProvider>().fetchRecommendedNotices();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +30,10 @@ class RecommendScreen extends StatelessWidget {
         builder: (context, provider, child) {
           return RefreshIndicator(
             onRefresh: () async {
-              await provider.fetchNotices();
+              await Future.wait([
+                provider.fetchNotices(),
+                provider.fetchRecommendedNotices(),
+              ]);
             },
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -143,15 +160,19 @@ class RecommendScreen extends StatelessWidget {
     );
   }
 
-  /// AI 추천 공지사항 목록
+  /// AI 추천 공지사항 목록 (백엔드 하이브리드 검색 결과 사용)
   Widget _buildAIRecommendList(BuildContext context) {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
-        // AI 추천 로직: 우선순위가 있고 최신 공지사항
-        final recommended = provider.notices
-            .where((n) => n.priority != null || n.aiSummary != null)
-            .take(10)
-            .toList();
+        // 로딩 중 표시
+        if (provider.isRecommendedLoading) {
+          return const Padding(
+            padding: EdgeInsets.all(32),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final recommended = provider.recommendedNotices;
 
         if (recommended.isEmpty) {
           return _buildEmptyView('추천할 공지사항이 없습니다', Icons.auto_awesome);

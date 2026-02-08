@@ -77,7 +77,6 @@ class SupabaseService:
                     "category": notice.get("category", "공지사항"),
                     "source_url": notice.get("source_url"),
                     "published_at": published_at,
-                    "crawled_at": datetime.now().isoformat(),
                     "is_processed": False,
                     "author": notice.get("author"),
                     "view_count": notice.get("views"),

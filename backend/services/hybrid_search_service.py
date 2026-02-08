@@ -46,10 +46,16 @@ class HybridSearchService:
     3. search_by_keyword: 키워드 기반 벡터 검색
     """
 
-    # 점수 가중치 기본값
+    # 점수 가중치 기본값 (사용자-공지 매칭용)
     DEFAULT_WEIGHTS = {
         "hard_filter": 0.3,   # 하드 필터 매칭 보너스
         "vector": 0.7         # 벡터 유사도 비중
+    }
+
+    # 키워드 검색용 가중치 (제목 + 벡터 결합용)
+    KEYWORD_SEARCH_WEIGHTS = {
+        "title": 0.5,         # 제목 매칭 보너스
+        "vector": 0.5         # 벡터 유사도 비중
     }
 
     def __init__(self):
@@ -209,7 +215,7 @@ class HybridSearchService:
         min_score: float = 0.3
     ) -> List[Dict[str, Any]]:
         """
-        키워드로 공지사항을 검색합니다 (벡터 검색).
+        키워드로 공지사항을 검색합니다 (제목 + 벡터 하이브리드 검색).
 
         매개변수:
         - query: 검색 키워드
@@ -217,27 +223,192 @@ class HybridSearchService:
         - min_score: 최소 유사도 점수
 
         반환값:
-        - 검색 결과 리스트 (공지사항 + 유사도 점수)
+        - 검색 결과 리스트 (공지사항 + 점수)
+
+        검색 과정:
+        1. 제목에서 키워드 포함 여부 확인 (ILIKE)
+        2. 벡터 유사도 검색
+        3. 두 결과 결합 (제목 매칭 보너스 + 벡터 점수)
         """
         if not query or len(query.strip()) < 2:
             return []
 
-        # 쿼리 임베딩 생성
-        query_embedding = self.embedding_service.create_query_embedding(query)
+        query = query.strip()
+        print(f"\n[검색] 하이브리드 키워드 검색: '{query}'")
 
-        # 벡터 검색
-        results = self._vector_search_notices(
+        # 1. 제목 검색 (ILIKE)
+        title_results = self._search_by_title(query, limit=limit * 2)
+        print(f"   - 제목 매칭: {len(title_results)}개")
+
+        # 2. 벡터 검색
+        query_embedding = self.embedding_service.create_query_embedding(query)
+        vector_results = self._vector_search_notices(
             query_embedding=query_embedding,
             limit=limit * 2
         )
+        print(f"   - 벡터 매칭: {len(vector_results)}개")
 
-        # 필터링
-        filtered = [
-            r for r in results
-            if r.get("similarity", 0) >= min_score
+        # 3. 결과 결합
+        combined = self._combine_keyword_search_results(
+            title_results=title_results,
+            vector_results=vector_results,
+            min_score=min_score
+        )
+
+        # 점수순 정렬 및 제한
+        combined.sort(key=lambda x: x.get("total_score", 0), reverse=True)
+        results = combined[:limit]
+
+        print(f"   - 최종 결과: {len(results)}개")
+
+        return results
+
+    def _search_by_title(
+        self,
+        query: str,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        제목에서 키워드를 검색합니다 (ILIKE).
+
+        매개변수:
+        - query: 검색 키워드
+        - limit: 최대 결과 수
+
+        반환값:
+        - 제목 매칭 결과 리스트
+        """
+        try:
+            # ILIKE 와일드카드 문자 이스케이프 (%, _ 는 ILIKE 특수 패턴 문자)
+            escaped_query = query.replace("%", "\\%").replace("_", "\\_")
+
+            # ILIKE 검색 (대소문자 무시)
+            result = self.supabase.table("notices")\
+                .select("id, title, content, ai_summary, category, source_url, published_at, view_count")\
+                .ilike("title", f"%{escaped_query}%")\
+                .order("published_at", desc=True)\
+                .limit(limit)\
+                .execute()
+
+            notices = result.data or []
+
+            # 제목 매칭 점수 추가
+            results = []
+            for notice in notices:
+                results.append({
+                    "id": notice["id"],
+                    "title": notice["title"],
+                    "content": notice.get("content", ""),
+                    "ai_summary": notice.get("ai_summary"),
+                    "category": notice.get("category"),
+                    "source_url": notice.get("source_url"),
+                    "published_at": notice.get("published_at"),
+                    "view_count": notice.get("view_count", 0),
+                    "title_match": True,
+                    "title_score": self.KEYWORD_SEARCH_WEIGHTS["title"]
+                })
+
+            return results
+
+        except Exception as e:
+            print(f"제목 검색 실패: {str(e)}")
+            return []
+
+    def _combine_keyword_search_results(
+        self,
+        title_results: List[Dict[str, Any]],
+        vector_results: List[Dict[str, Any]],
+        min_score: float = 0.3
+    ) -> List[Dict[str, Any]]:
+        """
+        제목 검색과 벡터 검색 결과를 결합합니다.
+
+        점수 계산:
+        - 제목 매칭: +0.5점
+        - 벡터 유사도: 0~1점 (0.5 가중치 적용)
+        - 최종 점수: 제목 점수 + 벡터 점수
+
+        매개변수:
+        - title_results: 제목 검색 결과
+        - vector_results: 벡터 검색 결과
+        - min_score: 최소 점수 (필터링용)
+
+        반환값:
+        - 결합된 검색 결과
+        """
+        combined = {}
+
+        # 제목 검색 결과 추가
+        for result in title_results:
+            notice_id = result["id"]
+            combined[notice_id] = {
+                "id": notice_id,
+                "title": result["title"],
+                "content": result.get("content", ""),
+                "ai_summary": result.get("ai_summary"),
+                "category": result.get("category"),
+                "source_url": result.get("source_url"),
+                "published_at": result.get("published_at"),
+                "view_count": result.get("view_count", 0),
+                "title_match": True,
+                "title_score": self.KEYWORD_SEARCH_WEIGHTS["title"],
+                "vector_score": 0.0,
+                "total_score": self.KEYWORD_SEARCH_WEIGHTS["title"]
+            }
+
+        # 벡터 검색 결과 추가/결합
+        vector_only_ids = []  # 벡터만 매칭된 공지 ID (추후 상세 정보 조회용)
+        for result in vector_results:
+            notice_id = result["id"]
+            vector_score = result.get("similarity", 0) * self.KEYWORD_SEARCH_WEIGHTS["vector"]
+
+            if notice_id in combined:
+                # 이미 제목 매칭된 결과에 벡터 점수 추가
+                combined[notice_id]["vector_score"] = vector_score
+                combined[notice_id]["total_score"] += vector_score
+            else:
+                # 벡터만 매칭된 새 결과
+                combined[notice_id] = {
+                    "id": notice_id,
+                    "title": result.get("title"),
+                    "content": "",
+                    "ai_summary": result.get("ai_summary"),
+                    "category": result.get("category"),
+                    "source_url": None,
+                    "published_at": None,
+                    "view_count": 0,
+                    "title_match": False,
+                    "title_score": 0.0,
+                    "vector_score": vector_score,
+                    "total_score": vector_score
+                }
+                vector_only_ids.append(notice_id)
+
+        # 벡터 전용 결과의 누락 필드를 DB에서 보완
+        if vector_only_ids:
+            try:
+                detail_result = self.supabase.table("notices")\
+                    .select("id, content, source_url, published_at, view_count")\
+                    .in_("id", vector_only_ids)\
+                    .execute()
+
+                for detail in (detail_result.data or []):
+                    nid = detail["id"]
+                    if nid in combined:
+                        combined[nid]["content"] = detail.get("content", "")
+                        combined[nid]["source_url"] = detail.get("source_url")
+                        combined[nid]["published_at"] = detail.get("published_at")
+                        combined[nid]["view_count"] = detail.get("view_count", 0)
+            except Exception as e:
+                print(f"벡터 전용 결과 상세 정보 조회 실패: {str(e)}")
+
+        # 최소 점수 필터링
+        results = [
+            r for r in combined.values()
+            if r["total_score"] >= min_score
         ]
 
-        return filtered[:limit]
+        return results
 
     # =========================================================================
     # 내부 메서드: 데이터 조회
@@ -340,7 +511,9 @@ class HybridSearchService:
                     notice["hard_filter_match"] = True
                     filtered.append(notice)
                 else:
-                    # 하드 필터 매칭 안 되어도 벡터 검색 대상에 포함
+                    # 의도적으로 매칭 안 된 공지도 포함 (벡터 검색 후보군 유지)
+                    # 하드 필터는 "제외"가 아닌 "보너스 점수 부여" 역할
+                    # _combine_notice_scores()에서 hard_filter_match=False이면 보너스 0점
                     notice["hard_filter_match"] = False
                     filtered.append(notice)
 
@@ -429,9 +602,10 @@ class HybridSearchService:
             ).execute()
 
             if result.data:
-                # notice_ids 필터 적용
+                # notice_ids 필터 적용 (set 변환으로 O(1) 조회)
                 if notice_ids:
-                    return [r for r in result.data if r["id"] in notice_ids]
+                    notice_ids_set = set(notice_ids)
+                    return [r for r in result.data if r["id"] in notice_ids_set]
                 return result.data
 
         except Exception as e:

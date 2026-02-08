@@ -10,14 +10,22 @@ class NoticeProvider with ChangeNotifier {
       : _apiService = apiService ?? ApiService();
 
   List<Notice> _notices = [];
+  List<Notice> _categoryNotices = [];
   List<Notice> _bookmarkedNotices = [];
+  List<Notice> _recommendedNotices = [];
   bool _isLoading = false;
+  bool _isRecommendedLoading = false;
   String? _error;
 
   // Getter
   List<Notice> get notices => _notices;
+  /// 카테고리별 공지사항 목록 (fetchNoticesByCategory 결과)
+  List<Notice> get categoryNotices => _categoryNotices;
   List<Notice> get bookmarkedNotices => _bookmarkedNotices;
+  /// AI 맞춤 추천 공지사항 목록 (백엔드 하이브리드 검색 결과)
+  List<Notice> get recommendedNotices => _recommendedNotices;
   bool get isLoading => _isLoading;
+  bool get isRecommendedLoading => _isRecommendedLoading;
   String? get error => _error;
 
   /// 맞춤 공지사항 가져오기 (사용자 관심사 기반)
@@ -35,6 +43,38 @@ class NoticeProvider with ChangeNotifier {
     final sorted = List<Notice>.from(_notices);
     sorted.sort((a, b) => b.views.compareTo(a.views));
     return sorted.take(5).toList();
+  }
+
+  /// AI 맞춤 추천 공지사항 가져오기 (백엔드 하이브리드 검색 API 호출)
+  Future<void> fetchRecommendedNotices() async {
+    _isRecommendedLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final results = await _apiService.getRecommendedNotices(
+        limit: 20,
+        minScore: 0.3,
+      );
+
+      _recommendedNotices = results.map((json) => Notice.fromJson(_convertSearchResult(json))).toList();
+      _isRecommendedLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isRecommendedLoading = false;
+      notifyListeners();
+
+      // API 에러 시 로컬 필터링으로 폴백 (개발용)
+      if (kDebugMode) {
+        print('AI 추천 API 에러, 로컬 필터링 사용: $e');
+        _recommendedNotices = _notices
+            .where((n) => n.priority != null || n.aiSummary != null)
+            .take(10)
+            .toList();
+        _error = null;
+        notifyListeners();
+      }
+    }
   }
 
   /// 카테고리별 공지사항 가져오기 (로컬 필터링)
@@ -55,11 +95,8 @@ class NoticeProvider with ChangeNotifier {
         limit: 100,
       );
 
-      // Notice 객체로 변환
-      _notices = noticesData.map((json) => Notice.fromJson(json)).toList();
-
-      // 북마크된 공지사항 필터링
-      _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
+      // 카테고리별 결과를 별도 상태에 저장 (_notices 전체 목록은 유지)
+      _categoryNotices = noticesData.map((json) => Notice.fromJson(json)).toList();
 
       _isLoading = false;
       notifyListeners();
@@ -71,15 +108,62 @@ class NoticeProvider with ChangeNotifier {
       // 에러 발생 시 로컬 필터링 사용 (개발용)
       if (kDebugMode) {
         print('API 에러 발생, 로컬 필터링 사용: $e');
-        _notices = _notices.where((n) => n.category == category).toList();
+        _categoryNotices = _notices.where((n) => n.category == category).toList();
         _error = null;
         notifyListeners();
       }
     }
   }
 
-  /// 공지사항 검색
-  List<Notice> searchNotices(String query) {
+  /// 공지사항 검색 (백엔드 API 호출 - 제목 + 벡터 하이브리드 검색)
+  ///
+  /// [query] 검색 키워드 (2자 이상)
+  /// 반환값: 검색 결과 리스트 (점수순 정렬)
+  Future<List<Notice>> searchNotices(String query) async {
+    // 2자 미만이면 로컬 필터링으로 폴백
+    if (query.length < 2) {
+      return _searchNoticesLocal(query);
+    }
+
+    try {
+      // 백엔드 API 호출
+      final results = await _apiService.searchNotices(
+        query: query,
+        limit: 50,
+        minScore: 0.2,
+      );
+
+      // Notice 객체로 변환
+      return results.map((json) => Notice.fromJson(_convertSearchResult(json))).toList();
+    } catch (e) {
+      // API 에러 시 로컬 필터링으로 폴백
+      if (kDebugMode) {
+        print('검색 API 에러, 로컬 검색 사용: $e');
+      }
+      return _searchNoticesLocal(query);
+    }
+  }
+
+  /// 검색 결과를 Notice.fromJson 형식으로 변환
+  /// 백엔드 응답 필드: total_score, title_score, vector_score (하위 호환: similarity)
+  Map<String, dynamic> _convertSearchResult(Map<String, dynamic> searchResult) {
+    return {
+      'id': searchResult['id'],
+      'title': searchResult['title'] ?? '',
+      'content': searchResult['content'] ?? '',
+      'category': searchResult['category'] ?? '공지사항',
+      'published_at': searchResult['published_at'],
+      'source_url': searchResult['source_url'],
+      'view_count': searchResult['view_count'] ?? 0,
+      'ai_summary': searchResult['ai_summary'],
+      // 검색 점수 정보 (total_score 우선, similarity 폴백)
+      'search_score': searchResult['total_score'] ?? searchResult['similarity'] ?? 0,
+      'title_match': searchResult['title_match'] ?? false,
+    };
+  }
+
+  /// 로컬 검색 (폴백용)
+  List<Notice> _searchNoticesLocal(String query) {
     final lowerQuery = query.toLowerCase();
     return _notices.where((notice) {
       return notice.title.toLowerCase().contains(lowerQuery) ||
@@ -122,25 +206,58 @@ class NoticeProvider with ChangeNotifier {
     }
   }
 
-  /// 공지사항 북마크 토글
+  /// 공지사항 북마크 토글 (백엔드 API 연동)
   Future<void> toggleBookmark(String noticeId) async {
-    try {
-      // TODO: 백엔드 API 호출
-      // await http.post(Uri.parse('$baseUrl/api/notices/$noticeId/bookmark'));
+    // 낙관적 업데이트: 먼저 로컬 상태 변경
+    final index = _notices.indexWhere((n) => n.id == noticeId);
+    final previousState = index != -1 ? _notices[index].isBookmarked : false;
 
-      final index = _notices.indexWhere((n) => n.id == noticeId);
+    if (index != -1) {
+      _notices[index] = _notices[index].copyWith(
+        isBookmarked: !_notices[index].isBookmarked,
+      );
+      _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
+      notifyListeners();
+    }
+
+    try {
+      // 백엔드 API 호출
+      await _apiService.toggleBookmark(noticeId);
+    } catch (e) {
+      // API 실패 시 로컬 상태 롤백
       if (index != -1) {
         _notices[index] = _notices[index].copyWith(
-          isBookmarked: !_notices[index].isBookmarked,
+          isBookmarked: previousState,
         );
-
-        // 북마크 목록 업데이트
         _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
         notifyListeners();
       }
-    } catch (e) {
-      _error = '북마크 처리에 실패했습니다: $e';
+
+      if (kDebugMode) {
+        print('북마크 API 에러 (로컬 유지): $e');
+      }
+    }
+  }
+
+  /// 백엔드에서 북마크 목록 가져오기
+  Future<void> fetchBookmarks() async {
+    try {
+      final bookmarks = await _apiService.getBookmarks();
+      final bookmarkIds = bookmarks.map((b) => b['id'] as String).toSet();
+
+      // 기존 공지사항의 북마크 상태 동기화
+      for (var i = 0; i < _notices.length; i++) {
+        final shouldBeBookmarked = bookmarkIds.contains(_notices[i].id);
+        if (_notices[i].isBookmarked != shouldBeBookmarked) {
+          _notices[i] = _notices[i].copyWith(isBookmarked: shouldBeBookmarked);
+        }
+      }
+      _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
       notifyListeners();
+    } catch (e) {
+      if (kDebugMode) {
+        print('북마크 목록 조회 에러: $e');
+      }
     }
   }
 
@@ -209,7 +326,6 @@ class NoticeProvider with ChangeNotifier {
         deadline: DateTime.now().add(const Duration(days: 2)),
         aiSummary: '2월 5일부터 학년별 수강신청 시작. 4학년부터 순차적으로 진행.',
         priority: '중요',
-        extractedDates: ['2024-02-05', '2024-02-06', '2024-02-07', '2024-02-08'],
       ),
       Notice(
         id: '2',
@@ -236,7 +352,6 @@ class NoticeProvider with ChangeNotifier {
         deadline: DateTime.now().add(const Duration(days: 5)),
         aiSummary: '1학기 국가장학금 2차 신청 마감 임박. 2월 1일까지 신청 가능.',
         priority: '중요',
-        extractedDates: ['2024-02-01'],
         author: '학생지원팀',
       ),
       Notice(

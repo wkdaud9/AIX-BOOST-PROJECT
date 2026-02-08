@@ -129,7 +129,12 @@ class CrawlAndNotifyPipeline:
             traceback.print_exc()
 
     def _step1_crawl(self) -> List[Dict[str, Any]]:
-        """1단계: 새 공지사항 크롤링 (순번 기반 중복 체크)"""
+        """
+        1단계: 새 공지사항 크롤링 (순번 기반 중복 체크)
+
+        - 첫 크롤링 (DB 비어있음): 게시판당 최대 10개씩 (총 30개)
+        - 정기 크롤링 (DB에 데이터 있음): 새 공지 전부 수집 (제한 없음)
+        """
         print("\n" + "-"*60)
         print("[1단계] 새 공지사항 크롤링 (순번 기반)")
         print("-"*60)
@@ -139,24 +144,29 @@ class CrawlAndNotifyPipeline:
         for category, crawler in self.crawlers.items():
             print(f"\n[검색] [{category}] 크롤링 중...")
 
-            # 최적화된 크롤링 (URL 기반 중복 체크)
+            # 최적화된 크롤링 (순번 기반 중복 체크)
             if hasattr(crawler, 'crawl_optimized'):
-                new_notices = crawler.crawl_optimized(max_pages=1)
+                # DB에 해당 게시판 데이터가 있는지 확인
+                last_seq = crawler._get_last_board_seq()
+                if last_seq is None:
+                    # 첫 크롤링: 게시판당 10개만
+                    print(f"  [정보] 첫 크롤링 - 최대 10개만 수집")
+                    new_notices = crawler.crawl_optimized(
+                        last_board_seq=None, max_pages=1, max_notices=10
+                    )
+                else:
+                    # 정기 크롤링: 새 공지 전부 수집
+                    new_notices = crawler.crawl_optimized(
+                        last_board_seq=last_seq, max_pages=1, max_notices=100
+                    )
             else:
-                # 기존 크롤러는 일반 크롤링
-                new_notices = crawler.crawl(max_pages=1)
+                new_notices = crawler.crawl(max_pages=1, max_notices=10)
 
             if new_notices:
                 print(f"  [완료] {len(new_notices)}개 새 공지 발견")
                 all_new_notices.extend(new_notices)
             else:
                 print(f"  [정보] 새 공지 없음")
-
-        # 테스트용: 최대 5개만 처리
-        TEST_LIMIT = 5
-        if len(all_new_notices) > TEST_LIMIT:
-            print(f"\n[테스트] {len(all_new_notices)}개 중 {TEST_LIMIT}개만 처리")
-            all_new_notices = all_new_notices[:TEST_LIMIT]
 
         print(f"\n[통계] 크롤링 완료: 총 {len(all_new_notices)}개 새 공지")
         return all_new_notices

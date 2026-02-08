@@ -123,16 +123,11 @@ class NoticeService:
             if "board_seq" in notice_data:
                 db_data["board_seq"] = notice_data["board_seq"]
 
-            # 날짜 정보 추출 (dates 객체에서 배열로 변환)
+            # 마감일 추출 (AI 분석 결과의 dates.deadline)
             dates = notice_data.get("dates", {})
-            extracted_dates = []
-            for date_key in ["start_date", "end_date", "deadline"]:
-                date_value = dates.get(date_key)
-                if date_value and date_value != "null":
-                    extracted_dates.append(date_value)
-
-            if extracted_dates:
-                db_data["extracted_dates"] = extracted_dates
+            deadline = dates.get("deadline")
+            if deadline and deadline != "null":
+                db_data["deadline"] = deadline
 
             # 추가 필드 (있으면 포함)
             if "author" in notice_data:
@@ -157,7 +152,6 @@ class NoticeService:
                 return notice_id
             else:
                 # 새로운 공지사항 -> INSERT
-                db_data["crawled_at"] = datetime.now().isoformat()
                 result = self.client.table("notices")\
                     .insert(db_data)\
                     .execute()
@@ -215,16 +209,11 @@ class NoticeService:
                 "updated_at": datetime.now().isoformat()
             }
 
-            # 날짜 정보 추출
+            # 마감일 추출
             dates = analysis_result.get("dates", {})
-            extracted_dates = []
-            for date_key in ["start_date", "end_date", "deadline"]:
-                date_value = dates.get(date_key)
-                if date_value and date_value != "null":
-                    extracted_dates.append(date_value)
-
-            if extracted_dates:
-                update_data["extracted_dates"] = extracted_dates
+            deadline = dates.get("deadline")
+            if deadline and deadline != "null":
+                update_data["deadline"] = deadline
 
             # DB 업데이트
             result = self.client.table("notices")\
@@ -265,7 +254,7 @@ class NoticeService:
         try:
             query = self.client.table("notices")\
                 .select("original_id")\
-                .order("crawled_at", desc=True)\
+                .order("created_at", desc=True)\
                 .limit(1)
 
             if category:
@@ -473,16 +462,11 @@ class NoticeService:
                 "updated_at": datetime.now().isoformat()
             }
 
-            # 날짜 정보 추출
+            # 마감일 추출
             dates = notice_data.get("dates", {})
-            extracted_dates = []
-            for date_key in ["start_date", "end_date", "deadline"]:
-                date_value = dates.get(date_key)
-                if date_value and date_value != "null":
-                    extracted_dates.append(date_value)
-
-            if extracted_dates:
-                db_data["extracted_dates"] = extracted_dates
+            deadline = dates.get("deadline")
+            if deadline and deadline != "null":
+                db_data["deadline"] = deadline
 
             # 추가 필드
             if "author" in notice_data:
@@ -517,7 +501,6 @@ class NoticeService:
                 print(f"[업데이트+임베딩] {db_data['title'][:40]}...")
                 return notice_id
             else:
-                db_data["crawled_at"] = datetime.now().isoformat()
                 result = self.client.table("notices")\
                     .insert(db_data)\
                     .execute()

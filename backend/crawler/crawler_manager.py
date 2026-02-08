@@ -58,21 +58,22 @@ class CrawlerManager:
         print(f"[목록] 관리 중인 크롤러: {', '.join(self.crawlers.keys())}")
         print("="*60 + "\n")
 
-    def crawl_all(self, max_pages: int = 1) -> Dict[str, List[Dict[str, Any]]]:
+    def crawl_all(self, max_pages: int = 1, max_notices: int = 10) -> Dict[str, List[Dict[str, Any]]]:
         """
         모든 게시판을 한번에 크롤링합니다.
 
         🔧 매개변수:
         - max_pages: 각 게시판당 크롤링할 최대 페이지 수
+        - max_notices: 각 게시판당 최대 크롤링 개수 (기본값: 10)
 
         🎯 하는 일:
         1. 공지사항, 학사/장학, 모집공고 게시판을 순서대로 크롤링
-        2. 각 카테고리별로 결과를 분류해서 저장
+        2. 각 카테고리별로 최대 max_notices개까지 수집
         3. 통합된 결과를 딕셔너리로 반환
 
         💡 예시:
         manager = CrawlerManager()
-        결과 = manager.crawl_all(max_pages=2)
+        결과 = manager.crawl_all(max_pages=2, max_notices=10)
 
         print(f"공지사항: {len(결과['공지사항'])}개")
         print(f"학사/장학: {len(결과['학사/장학'])}개")
@@ -93,7 +94,7 @@ class CrawlerManager:
             print(f"{'─'*60}")
 
             try:
-                results = crawler.crawl(max_pages=max_pages)
+                results = crawler.crawl(max_pages=max_pages, max_notices=max_notices)
                 all_results[category] = results
                 total_count += len(results)
 

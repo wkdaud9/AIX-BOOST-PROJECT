@@ -1492,7 +1492,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 'author': notice.author,
                 'aiSummary': notice.aiSummary,
                 'priority': notice.priority,
-                'extractedDates': notice.extractedDates,
+                'deadline': notice.deadline?.toIso8601String(),
                 'isBookmarked': notice.isBookmarked,
               });
             },
@@ -1538,7 +1538,7 @@ class _HomeScreenState extends State<HomeScreen> {
               'author': notice.author,
               'aiSummary': notice.aiSummary,
               'priority': notice.priority,
-              'extractedDates': notice.extractedDates,
+              'deadline': notice.deadline?.toIso8601String(),
               'isBookmarked': notice.isBookmarked,
             });
           }).toList(),
