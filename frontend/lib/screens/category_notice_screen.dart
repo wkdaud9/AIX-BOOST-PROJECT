@@ -236,15 +236,15 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
                             ),
                             const SizedBox(width: 16),
 
-                            // 캘린더 저장 횟수
+                            // 조회수
                             Icon(
-                              Icons.bookmark_border,
+                              Icons.visibility_outlined,
                               size: 16,
                               color: AppTheme.textSecondary,
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${(notice.views * 0.1).toInt()}',
+                              '${notice.views}',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: AppTheme.textSecondary,
@@ -399,10 +399,17 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
         notices.sort((a, b) => b.date.compareTo(a.date));
         break;
       case SortType.deadline:
+        // 마감 임박 순: 지난 마감일은 뒤로, 임박한 순서대로 표시
+        final now = DateTime.now();
         notices.sort((a, b) {
           if (a.deadline == null && b.deadline == null) return 0;
           if (a.deadline == null) return 1;
           if (b.deadline == null) return -1;
+          final aExpired = a.deadline!.isBefore(now);
+          final bExpired = b.deadline!.isBefore(now);
+          if (aExpired && !bExpired) return 1;
+          if (!aExpired && bExpired) return -1;
+          if (aExpired && bExpired) return b.deadline!.compareTo(a.deadline!);
           return a.deadline!.compareTo(b.deadline!);
         });
         break;

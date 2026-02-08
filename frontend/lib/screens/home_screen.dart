@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import '../models/notice.dart';
 import '../providers/notice_provider.dart';
 import '../theme/app_theme.dart';
 import 'notice_detail_screen.dart';
@@ -78,6 +79,11 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _selectedIndex = index;
     });
+
+    // mybro 탭 선택 시 추천 목록 갱신 (카테고리 변경 반영)
+    if (index == 2) {
+      context.read<NoticeProvider>().fetchRecommendedNotices();
+    }
   }
 
   @override
@@ -143,18 +149,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBody() {
-    switch (_selectedIndex) {
-      case 0:
-        return _buildHomeTab();
-      case 1:
-        return _buildCalendarTab();
-      case 2:
-        return _buildRecommendTab();
-      case 3:
-        return _buildProfileTab();
-      default:
-        return _buildHomeTab();
-    }
+    return IndexedStack(
+      index: _selectedIndex,
+      children: [
+        _buildHomeTab(),
+        _buildCalendarTab(),
+        _buildRecommendTab(),
+        _buildProfileTab(),
+      ],
+    );
   }
 
   // 홈 탭 UI
@@ -623,11 +626,21 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSavedEventsCard() {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
-        final bookmarkedWithDeadline = provider.bookmarkedNotices
-            .where((n) => n.deadline != null)
-            .toList();
-        bookmarkedWithDeadline.sort((a, b) => a.deadline!.compareTo(b.deadline!));
-        final topEvents = bookmarkedWithDeadline.take(5).toList();
+        // 북마크된 공지 전체 표시 (마감일 있는 것 우선, 임박한 순)
+        final bookmarked = List<Notice>.from(provider.bookmarkedNotices);
+        final now = DateTime.now();
+        bookmarked.sort((a, b) {
+          if (a.deadline == null && b.deadline == null) return 0;
+          if (a.deadline == null) return 1;
+          if (b.deadline == null) return -1;
+          final aExpired = a.deadline!.isBefore(now);
+          final bExpired = b.deadline!.isBefore(now);
+          if (aExpired && !bExpired) return 1;
+          if (!aExpired && bExpired) return -1;
+          if (aExpired && bExpired) return b.deadline!.compareTo(a.deadline!);
+          return a.deadline!.compareTo(b.deadline!);
+        });
+        final topEvents = bookmarked.take(5).toList();
 
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 8),

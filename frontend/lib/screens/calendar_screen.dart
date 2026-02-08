@@ -121,15 +121,25 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
   Widget _buildListView() {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
-        // 북마크된 공지사항 중 마감일이 있는 것만 필터링
-        var bookmarkedWithDeadline = provider.bookmarkedNotices
-            .where((n) => n.deadline != null)
-            .toList();
+        // 북마크된 공지사항 전체 (마감일 없는 것도 포함)
+        var bookmarkedWithDeadline = List<Notice>.from(provider.bookmarkedNotices);
 
         // 정렬
         if (_sortMode == SortMode.deadline) {
-          // 마감 임박 순 (마감일이 가까운 순)
-          bookmarkedWithDeadline.sort((a, b) => a.deadline!.compareTo(b.deadline!));
+          // 마감 임박 순: 마감일 있는 것 먼저, 지난 것은 뒤로
+          final now = DateTime.now();
+          bookmarkedWithDeadline.sort((a, b) {
+            // 마감일 없는 것은 맨 뒤로
+            if (a.deadline == null && b.deadline == null) return 0;
+            if (a.deadline == null) return 1;
+            if (b.deadline == null) return -1;
+            final aExpired = a.deadline!.isBefore(now);
+            final bExpired = b.deadline!.isBefore(now);
+            if (aExpired && !bExpired) return 1;
+            if (!aExpired && bExpired) return -1;
+            if (aExpired && bExpired) return b.deadline!.compareTo(a.deadline!);
+            return a.deadline!.compareTo(b.deadline!);
+          });
         } else {
           // 최신 저장순 (북마크 날짜가 없으므로 공지사항 날짜 기준)
           bookmarkedWithDeadline.sort((a, b) => b.date.compareTo(a.date));

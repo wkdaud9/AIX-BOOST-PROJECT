@@ -17,7 +17,11 @@ class _RecommendScreenState extends State<RecommendScreen> {
   @override
   void initState() {
     super.initState();
-    // 화면 진입 시 AI 맞춤 추천 공지사항 로드
+    _loadRecommendations();
+  }
+
+  /// AI 맞춤 추천 공지사항 로드
+  void _loadRecommendations() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<NoticeProvider>().fetchRecommendedNotices();
     });
@@ -56,19 +60,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
                     ),
                     const SizedBox(height: 16),
                     _buildAIRecommendList(context),
-
-                    const SizedBox(height: 32),
-
-                    // 우선순위 높은 공지사항
-                    _buildSection(
-                      context,
-                      title: '긴급 공지사항',
-                      icon: Icons.priority_high,
-                      color: Colors.red,
-                      description: '놓치면 안 되는 중요한 정보',
-                    ),
-                    const SizedBox(height: 16),
-                    _buildUrgentList(context),
 
                     const SizedBox(height: 32),
 
@@ -187,28 +178,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
-  /// 긴급 공지사항 목록
-  Widget _buildUrgentList(BuildContext context) {
-    return Consumer<NoticeProvider>(
-      builder: (context, provider, child) {
-        final urgent = provider.notices
-            .where((n) => n.priority == '긴급')
-            .take(5)
-            .toList();
-
-        if (urgent.isEmpty) {
-          return _buildEmptyView('긴급 공지사항이 없습니다', Icons.check_circle_outline);
-        }
-
-        return Column(
-          children: urgent
-              .map((notice) => _buildNoticeCard(context, notice))
-              .toList(),
-        );
-      },
-    );
-  }
-
   /// 마감 임박 공지사항 목록
   Widget _buildDeadlineSoonList(BuildContext context) {
     return Consumer<NoticeProvider>(
@@ -250,7 +219,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 카테고리, 우선순위, 북마크
+              // 카테고리, NEW 뱃지, 북마크
               Row(
                 children: [
                   Container(
@@ -276,27 +245,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
                       ),
                     ),
                   ),
-                  if (notice.priority != null) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getPriorityColor(notice.priority!),
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                      child: Text(
-                        notice.priority!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
                   if (notice.isNew) ...[
                     const SizedBox(width: 8),
                     Container(
@@ -476,16 +424,4 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
-  /// 우선순위 색상
-  Color _getPriorityColor(String priority) {
-    switch (priority) {
-      case '긴급':
-        return Colors.red.shade700;
-      case '중요':
-        return Colors.orange.shade700;
-      case '일반':
-      default:
-        return Colors.grey.shade600;
-    }
-  }
 }

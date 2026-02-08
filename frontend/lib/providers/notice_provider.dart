@@ -146,9 +146,10 @@ class NoticeProvider with ChangeNotifier {
 
   /// 검색 결과를 Notice.fromJson 형식으로 변환
   /// 백엔드 응답 필드: total_score, title_score, vector_score (하위 호환: similarity)
+  /// null 값에 대한 안전한 처리를 포함합니다.
   Map<String, dynamic> _convertSearchResult(Map<String, dynamic> searchResult) {
     return {
-      'id': searchResult['id'],
+      'id': searchResult['id'] ?? searchResult['notice_id'] ?? '',
       'title': searchResult['title'] ?? '',
       'content': searchResult['content'] ?? '',
       'category': searchResult['category'] ?? '공지사항',
@@ -156,6 +157,8 @@ class NoticeProvider with ChangeNotifier {
       'source_url': searchResult['source_url'],
       'view_count': searchResult['view_count'] ?? 0,
       'ai_summary': searchResult['ai_summary'],
+      'author': searchResult['author'],
+      'deadline': searchResult['deadline'],
       // 검색 점수 정보 (total_score 우선, similarity 폴백)
       'search_score': searchResult['total_score'] ?? searchResult['similarity'] ?? 0,
       'title_match': searchResult['title_match'] ?? false,
@@ -208,17 +211,36 @@ class NoticeProvider with ChangeNotifier {
 
   /// 공지사항 북마크 토글 (백엔드 API 연동)
   Future<void> toggleBookmark(String noticeId) async {
-    // 낙관적 업데이트: 먼저 로컬 상태 변경
+    // 낙관적 업데이트: _notices, _recommendedNotices, _categoryNotices 모두 동기화
     final index = _notices.indexWhere((n) => n.id == noticeId);
-    final previousState = index != -1 ? _notices[index].isBookmarked : false;
+    final recIndex = _recommendedNotices.indexWhere((n) => n.id == noticeId);
+    final catIndex = _categoryNotices.indexWhere((n) => n.id == noticeId);
+    final previousState = index != -1
+        ? _notices[index].isBookmarked
+        : recIndex != -1
+            ? _recommendedNotices[recIndex].isBookmarked
+            : false;
 
+    // _notices 업데이트
     if (index != -1) {
       _notices[index] = _notices[index].copyWith(
         isBookmarked: !_notices[index].isBookmarked,
       );
-      _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
-      notifyListeners();
     }
+    // _recommendedNotices 업데이트
+    if (recIndex != -1) {
+      _recommendedNotices[recIndex] = _recommendedNotices[recIndex].copyWith(
+        isBookmarked: !previousState,
+      );
+    }
+    // _categoryNotices 업데이트
+    if (catIndex != -1) {
+      _categoryNotices[catIndex] = _categoryNotices[catIndex].copyWith(
+        isBookmarked: !previousState,
+      );
+    }
+    _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
+    notifyListeners();
 
     try {
       // 백엔드 API 호출
@@ -229,9 +251,19 @@ class NoticeProvider with ChangeNotifier {
         _notices[index] = _notices[index].copyWith(
           isBookmarked: previousState,
         );
-        _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
-        notifyListeners();
       }
+      if (recIndex != -1) {
+        _recommendedNotices[recIndex] = _recommendedNotices[recIndex].copyWith(
+          isBookmarked: previousState,
+        );
+      }
+      if (catIndex != -1) {
+        _categoryNotices[catIndex] = _categoryNotices[catIndex].copyWith(
+          isBookmarked: previousState,
+        );
+      }
+      _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
+      notifyListeners();
 
       if (kDebugMode) {
         print('북마크 API 에러 (로컬 유지): $e');
@@ -268,10 +300,12 @@ class NoticeProvider with ChangeNotifier {
       final noticeData = await _apiService.getNoticeById(noticeId);
       final notice = Notice.fromJson(noticeData);
 
-      // 로컬 상태 업데이트
+      // 로컬 상태 업데이트 (기존 북마크 상태 유지)
       final index = _notices.indexWhere((n) => n.id == noticeId);
       if (index != -1) {
-        _notices[index] = notice;
+        final existingBookmarkState = _notices[index].isBookmarked;
+        _notices[index] = notice.copyWith(isBookmarked: existingBookmarkState);
+        _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
         notifyListeners();
       }
 

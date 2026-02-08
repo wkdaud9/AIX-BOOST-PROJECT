@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../providers/notice_provider.dart';
 
 /// 마이페이지 화면 - 사용자 설정 및 정보
 class ProfileScreen extends StatefulWidget {
@@ -436,13 +437,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   /// 카테고리 선택 다이얼로그
   void _showCategoryDialog(BuildContext context) {
+    // 백엔드 카테고리와 일치하는 목록
     final categories = [
-      '학사공지',
+      '학사',
       '장학',
       '취업',
-      '학생활동',
-      '시설',
-      '기타',
+      '행사',
+      '교육',
+      '공모전',
     ];
 
     // 현재 사용자의 선택된 카테고리로 초기화
@@ -523,6 +525,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                       // UI 갱신을 위해 프로필 다시 로드
                       await _loadUserProfile();
+
+                      // MYBRO 추천 목록도 갱신 (변경된 카테고리 반영)
+                      if (context.mounted) {
+                        context.read<NoticeProvider>().fetchRecommendedNotices();
+                      }
 
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(

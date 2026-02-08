@@ -1,4 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:carousel_slider/carousel_slider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import '../models/notice.dart';
 import '../providers/notice_provider.dart';
@@ -20,6 +24,8 @@ class NoticeDetailScreen extends StatefulWidget {
 class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
   Notice? _notice;
   bool _isLoading = true;
+  int _currentImageIndex = 0;
+  bool _isContentExpanded = false;
 
   @override
   void initState() {
@@ -30,7 +36,13 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
   /// 공지사항 상세 정보 로드
   Future<void> _loadNoticeDetail() async {
     final provider = context.read<NoticeProvider>();
+
+    // getNoticeDetail 내부에서 북마크 상태를 처리하므로 별도 호출 불필요
     final notice = await provider.getNoticeDetail(widget.noticeId);
+
+    if (kDebugMode) {
+      debugPrint('[NoticeDetail] contentImages: ${notice?.contentImages}');
+    }
 
     if (mounted) {
       setState(() {
@@ -49,19 +61,17 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
           if (_notice != null)
             Consumer<NoticeProvider>(
               builder: (context, provider, child) {
+                // Provider의 북마크 상태를 기준으로 표시 (캘린더/목록과 동기화)
+                final isBookmarked = provider.bookmarkedNotices
+                    .any((n) => n.id == _notice!.id);
                 return IconButton(
                   icon: Icon(
-                    _notice!.isBookmarked
+                    isBookmarked
                         ? Icons.bookmark
                         : Icons.bookmark_outline,
                   ),
                   onPressed: () {
                     provider.toggleBookmark(_notice!.id);
-                    setState(() {
-                      _notice = _notice!.copyWith(
-                        isBookmarked: !_notice!.isBookmarked,
-                      );
-                    });
                   },
                 );
               },
@@ -357,69 +367,270 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
             ],
           ),
 
-          // 마감일 (있는 경우)
-          if (_notice!.deadline != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: _notice!.isDeadlineSoon
-                    ? AppTheme.errorColor.withOpacity(0.1)
-                    : AppTheme.infoColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.access_time,
-                    size: 16,
-                    color: _notice!.isDeadlineSoon
-                        ? AppTheme.errorColor
-                        : AppTheme.infoColor,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '마감일: ${_notice!.deadline!.year}.${_notice!.deadline!.month.toString().padLeft(2, '0')}.${_notice!.deadline!.day.toString().padLeft(2, '0')}',
-                    style: TextStyle(
-                      color: _notice!.isDeadlineSoon
-                          ? AppTheme.errorColor
-                          : AppTheme.infoColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (_notice!.daysUntilDeadline != null) ...[
-                    const SizedBox(width: 4),
-                    Text(
-                      '(D-${_notice!.daysUntilDeadline})',
-                      style: TextStyle(
-                        color: _notice!.isDeadlineSoon
-                            ? AppTheme.errorColor
-                            : AppTheme.infoColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
+          // 마감일은 상단 섹션(line 244)에서 이미 표시됨
+        ],
+      ),
+    );
+  }
+
+  /// 학교 서버 이미지를 백엔드 프록시를 통해 로드하기 위한 URL 변환
+  String _getProxyImageUrl(String originalUrl) {
+    final backendUrl = dotenv.env['BACKEND_URL'] ?? 'http://localhost:5000';
+    return '$backendUrl/api/notices/image-proxy?url=${Uri.encodeComponent(originalUrl)}';
+  }
+
+  /// 본문 영역 (AI가 판단한 display_mode에 따라 레이아웃 분기)
+  /// - POSTER: 이미지 캐러셀 -> 원문 접기
+  /// - DOCUMENT: Markdown 본문 -> 이미지(하단)
+  /// - HYBRID: 이미지 캐러셀 -> 원문 접기
+  Widget _buildBody() {
+    switch (_notice!.displayMode) {
+      case 'POSTER':
+        return _buildPosterLayout();
+      case 'HYBRID':
+        return _buildHybridLayout();
+      case 'DOCUMENT':
+      default:
+        return _buildDocumentLayout();
+    }
+  }
+
+  /// POSTER 레이아웃: 이미지 중심 (이미지 -> 원문 접기)
+  Widget _buildPosterLayout() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_notice!.hasImages)
+            _buildImageCarousel(),
+          // 원문이 제목과 다른 경우에만 접기 표시
+          if (_notice!.content.isNotEmpty && _notice!.content != _notice!.title)
+            _buildCollapsibleContent(),
+        ],
+      ),
+    );
+  }
+
+  /// DOCUMENT 레이아웃: 텍스트 중심 (Markdown 본문 -> 이미지 하단)
+  Widget _buildDocumentLayout() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_notice!.content.isNotEmpty)
+            _buildMarkdownContent(),
+          if (_notice!.hasImages) ...[
+            const SizedBox(height: AppSpacing.md),
+            _buildImageCarousel(),
           ],
         ],
       ),
     );
   }
 
-  /// 본문 영역
-  Widget _buildBody() {
+  /// HYBRID 레이아웃: 이미지+텍스트 모두 중요 (이미지 -> 원문 접기)
+  Widget _buildHybridLayout() {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
-      child: SelectableText(
-        _notice!.content,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              height: 1.6,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_notice!.hasImages)
+            _buildImageCarousel(),
+          if (_notice!.content.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            _buildCollapsibleContent(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 이미지 캐러셀 (1장: 단일 이미지, 2장+: 스와이프 캐러셀)
+  Widget _buildImageCarousel() {
+    final images = _notice!.contentImages;
+
+    if (images.length == 1) {
+      // 이미지 1장: 전체 너비 단일 이미지
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Image.network(
+          _getProxyImageUrl(images.first),
+          width: double.infinity,
+          fit: BoxFit.fitWidth,
+          loadingBuilder: _imageLoadingBuilder,
+          errorBuilder: _imageErrorBuilder,
+        ),
+      );
+    }
+
+    // 이미지 2장+: 캐러셀 슬라이더
+    return Column(
+      children: [
+        CarouselSlider.builder(
+          itemCount: images.length,
+          options: CarouselOptions(
+            height: 300.0,
+            enlargeCenterPage: true,
+            enlargeFactor: 0.2,
+            viewportFraction: 0.92,
+            enableInfiniteScroll: images.length > 2,
+            onPageChanged: (index, reason) {
+              setState(() => _currentImageIndex = index);
+            },
+          ),
+          itemBuilder: (context, index, realIndex) {
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              child: Image.network(
+                _getProxyImageUrl(images[index]),
+                width: double.infinity,
+                fit: BoxFit.contain,
+                loadingBuilder: _imageLoadingBuilder,
+                errorBuilder: _imageErrorBuilder,
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        // 하단 dot indicator
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: images.asMap().entries.map((entry) {
+            final isActive = _currentImageIndex == entry.key;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: isActive ? 28.0 : 8.0,
+              height: 8.0,
+              margin: const EdgeInsets.symmetric(horizontal: 4.0),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                color: isActive
+                    ? AppTheme.primaryColor
+                    : AppTheme.primaryColor.withOpacity(0.2),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  /// 접기/펼치기 원문 (POSTER/HYBRID 모드용)
+  Widget _buildCollapsibleContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(),
+        InkWell(
+          onTap: () {
+            setState(() => _isContentExpanded = !_isContentExpanded);
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: Row(
+              children: [
+                Text(
+                  '원문 보기',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+                const Spacer(),
+                Icon(
+                  _isContentExpanded
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  color: AppTheme.primaryColor,
+                ),
+              ],
             ),
+          ),
+        ),
+        if (_isContentExpanded)
+          _buildMarkdownContent(),
+      ],
+    );
+  }
+
+  /// 이미지 로딩 상태 표시
+  Widget _imageLoadingBuilder(BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+    if (loadingProgress == null) return child;
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: const Center(
+        child: CircularProgressIndicator(strokeWidth: 2),
+      ),
+    );
+  }
+
+  /// 이미지 로드 에러 표시
+  Widget _imageErrorBuilder(BuildContext context, Object error, StackTrace? stackTrace) {
+    if (kDebugMode) {
+      debugPrint('[NoticeDetail] 이미지 로드 에러: $error');
+    }
+    return Container(
+      height: 120,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.broken_image, size: 36, color: Colors.grey.shade400),
+          const SizedBox(height: 8),
+          Text(
+            '이미지를 불러올 수 없습니다',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Markdown 본문 렌더링 (표, 볼드, 리스트 등 구조 보존)
+  Widget _buildMarkdownContent() {
+    // Markdown 내 이미지 문법(![](url))을 제거하여 텍스트만 표시
+    var cleaned = _notice!.content
+        .replaceAll(RegExp(r'!\[.*?\]\(.*?\)'), '');
+    // 짝이 맞지 않는 ** 마커 제거 (줄 단위로 ** 개수가 홀수면 제거)
+    cleaned = cleaned.split('\n').map((line) {
+      if ('**'.allMatches(line).length % 2 != 0) {
+        return line.replaceAll('**', '');
+      }
+      return line;
+    }).join('\n');
+    final contentWithoutImages = cleaned
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
+
+    return MarkdownBody(
+      data: contentWithoutImages,
+      selectable: true,
+      styleSheet: MarkdownStyleSheet(
+        p: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6),
+        h1: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+        h2: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        h3: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        tableHead: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        tableBody: const TextStyle(fontSize: 14),
+        tableBorder: TableBorder.all(color: Colors.grey.shade300, width: 1),
+        tableCellsPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        blockquoteDecoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          border: Border(left: BorderSide(color: Colors.grey.shade400, width: 3)),
+        ),
+        listBullet: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6),
       ),
     );
   }

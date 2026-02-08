@@ -14,6 +14,9 @@ class Notice {
   final String? author; // 작성자 또는 작성 부서
   final String? aiSummary; // AI 요약
   final String? priority; // 중요도 (긴급/중요/일반)
+  final List<String> contentImages; // 본문 내 이미지 URL 목록
+  final String displayMode; // AI가 판단한 표시 모드 (POSTER/DOCUMENT/HYBRID)
+  final bool hasImportantImage; // AI가 판단한 이미지 중요도
 
   Notice({
     required this.id,
@@ -30,9 +33,13 @@ class Notice {
     this.author,
     this.aiSummary,
     this.priority,
+    this.contentImages = const [],
+    this.displayMode = 'DOCUMENT',
+    this.hasImportantImage = false,
   });
 
   /// JSON에서 Notice 객체 생성 (Backend API 응답 매핑)
+  /// null 값에 대한 안전한 처리를 포함합니다.
   factory Notice.fromJson(Map<String, dynamic> json) {
     // Backend API 응답 필드:
     // - published_at → date
@@ -42,32 +49,50 @@ class Notice {
     // - ai_summary → aiSummary
     // - priority → priority
     // - deadline → deadline
+    // - content_images → contentImages
 
-    final publishedAt = json['published_at'] != null
-        ? DateTime.parse(json['published_at'] as String)
-        : DateTime.now();
+    // published_at null 안전 처리
+    DateTime publishedAt;
+    try {
+      publishedAt = json['published_at'] != null
+          ? DateTime.parse(json['published_at'].toString())
+          : DateTime.now();
+    } catch (_) {
+      publishedAt = DateTime.now();
+    }
 
     // 게시일 기준 3일 이내면 새 공지사항으로 표시
     final daysSincePublished = DateTime.now().difference(publishedAt).inDays;
     final isNew = daysSincePublished <= 3;
 
+    // deadline null 안전 처리
+    DateTime? deadline;
+    try {
+      deadline = json['deadline'] != null
+          ? DateTime.parse(json['deadline'].toString())
+          : null;
+    } catch (_) {
+      deadline = null;
+    }
+
     return Notice(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      content: json['content'] as String,
-      category: json['category'] as String,
+      id: (json['id'] ?? '').toString(), // null 안전 처리
+      title: (json['title'] ?? '').toString(), // null 안전 처리
+      content: (json['content'] ?? '').toString(), // null 안전 처리
+      category: (json['category'] ?? '공지사항').toString(), // null 안전 처리 (기본값: 공지사항)
       date: publishedAt,
-      url: json['source_url'] as String?,
+      url: json['source_url']?.toString(), // null 안전 처리
       isNew: isNew,
-      views: json['view_count'] as int? ?? 0, // DB의 view_count 필드 사용
+      views: (json['view_count'] as int?) ?? 0, // DB의 view_count 필드 사용
       tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
       isBookmarked: json['is_bookmarked'] as bool? ?? false,
-      deadline: json['deadline'] != null
-          ? DateTime.parse(json['deadline'] as String)
-          : null,
-      author: json['author'] as String?, // 작성자 필드 추가
-      aiSummary: json['ai_summary'] as String?, // AI 요약 추가
-      priority: json['priority'] as String?, // 중요도 추가
+      deadline: deadline,
+      author: json['author']?.toString(), // null 안전 처리
+      aiSummary: json['ai_summary']?.toString(), // null 안전 처리
+      priority: json['priority']?.toString(), // null 안전 처리
+      contentImages: (json['content_images'] as List<dynamic>?)?.cast<String>() ?? [],
+      displayMode: (json['display_mode'] ?? 'DOCUMENT').toString(),
+      hasImportantImage: json['has_important_image'] as bool? ?? false,
     );
   }
 
@@ -87,6 +112,9 @@ class Notice {
       'deadline': deadline?.toIso8601String(),
       'ai_summary': aiSummary,
       'priority': priority,
+      'content_images': contentImages,
+      'display_mode': displayMode,
+      'has_important_image': hasImportantImage,
     };
   }
 
@@ -106,6 +134,9 @@ class Notice {
     String? author,
     String? aiSummary,
     String? priority,
+    List<String>? contentImages,
+    String? displayMode,
+    bool? hasImportantImage,
   }) {
     return Notice(
       id: id ?? this.id,
@@ -122,6 +153,9 @@ class Notice {
       author: author ?? this.author,
       aiSummary: aiSummary ?? this.aiSummary,
       priority: priority ?? this.priority,
+      contentImages: contentImages ?? this.contentImages,
+      displayMode: displayMode ?? this.displayMode,
+      hasImportantImage: hasImportantImage ?? this.hasImportantImage,
     );
   }
 
@@ -143,4 +177,16 @@ class Notice {
     final days = daysUntilDeadline;
     return days != null && days >= 0 && days <= 3;
   }
+
+  /// POSTER 모드 여부 (이미지 중심 레이아웃)
+  bool get isPosterMode => displayMode == 'POSTER';
+
+  /// DOCUMENT 모드 여부 (텍스트 중심 레이아웃)
+  bool get isDocumentMode => displayMode == 'DOCUMENT';
+
+  /// HYBRID 모드 여부 (이미지+텍스트 혼합 레이아웃)
+  bool get isHybridMode => displayMode == 'HYBRID';
+
+  /// 이미지가 있는지 여부
+  bool get hasImages => contentImages.isNotEmpty;
 }

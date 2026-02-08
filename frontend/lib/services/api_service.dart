@@ -267,9 +267,23 @@ class ApiService {
     }
 
     if (statusCode >= 200 && statusCode < 300) {
+      if (response.data is! Map<String, dynamic>) {
+        throw Exception('API Error: 예상치 못한 응답 형식');
+      }
       final data = response.data as Map<String, dynamic>;
       if (data['status'] == 'success') {
-        return data['data'] as Map<String, dynamic>;
+        final responseData = data['data'];
+        // data가 List인 경우 첫 번째 요소 반환 (Supabase .single() 호환)
+        if (responseData is List) {
+          if (responseData.isNotEmpty) {
+            return Map<String, dynamic>.from(responseData.first);
+          }
+          return {};
+        }
+        if (responseData is Map<String, dynamic>) {
+          return responseData;
+        }
+        return {};
       } else {
         throw Exception('API Error: ${data['message'] ?? 'Unknown error'}');
       }
@@ -284,6 +298,9 @@ class ApiService {
     final statusCode = response.statusCode ?? 0;
 
     if (statusCode >= 200 && statusCode < 300) {
+      if (response.data is! Map<String, dynamic>) {
+        return [];
+      }
       final responseData = response.data as Map<String, dynamic>;
       if (responseData['status'] == 'success' && responseData.containsKey('data')) {
         final data = responseData['data'];
