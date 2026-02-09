@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/notice.dart';
 import '../providers/notice_provider.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/modals/full_list_modal.dart';
 import 'notice_detail_screen.dart';
 
 /// mybro 추천 화면 - AI 기반 맞춤형 공지사항 추천
@@ -52,7 +54,32 @@ class _RecommendScreenState extends State<RecommendScreen> {
                     _buildHeroHeader(context, isDark),
                     const SizedBox(height: AppSpacing.lg),
 
-                    // AI 추천 섹션
+                    // 1. 오늘 꼭 봐야 할 공지 섹션
+                    Builder(
+                      builder: (context) {
+                        final todayMustSee = provider.todayMustSeeNotices;
+                        if (todayMustSee.isEmpty) return const SizedBox.shrink();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSectionHeader(
+                              context,
+                              isDark: isDark,
+                              title: '오늘 꼭 봐야 할 공지',
+                              icon: Icons.push_pin_rounded,
+                              color: AppTheme.errorColor,
+                              description: '긴급/마감임박/최신 종합 추천',
+                              count: todayMustSee.length,
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            _buildTodayMustSeeList(context, isDark, todayMustSee),
+                            const SizedBox(height: AppSpacing.xl),
+                          ],
+                        );
+                      },
+                    ),
+
+                    // 2. AI 추천 섹션
                     _buildSectionHeader(
                       context,
                       isDark: isDark,
@@ -67,7 +94,10 @@ class _RecommendScreenState extends State<RecommendScreen> {
 
                     const SizedBox(height: AppSpacing.xl),
 
-                    // 마감 임박 섹션
+                    // 3. 학과/학년 인기 공지 섹션
+                    _buildDepartmentPopularSection(context, isDark, provider),
+
+                    // 4. 마감 임박 섹션
                     Builder(
                       builder: (context) {
                         final deadlineSoon = provider.notices
@@ -245,7 +275,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
-  /// AI 추천 공지사항 목록
+  /// AI 추천 공지사항 목록 (최대 5개 미리보기 + 전체보기)
   Widget _buildAIRecommendList(BuildContext context, bool isDark) {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
@@ -263,16 +293,130 @@ class _RecommendScreenState extends State<RecommendScreen> {
           );
         }
 
+        // 최대 5개만 미리보기
+        const previewCount = 5;
+        final previewItems = recommended.take(previewCount).toList();
+        final hasMore = recommended.length > previewCount;
+
         return Column(
-          children: recommended
-              .map((notice) => _buildNoticeCard(context, notice, isDark))
-              .toList(),
+          children: [
+            ...previewItems
+                .map((notice) => _buildNoticeCard(context, notice, isDark)),
+            // 전체보기 버튼 (5개 초과 시)
+            if (hasMore)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.sm),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => FullListModal.showAIRecommend(context),
+                    icon: const Icon(Icons.list_alt_rounded, size: 18),
+                    label: Text('전체보기 (${recommended.length}건)'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                      side: BorderSide(
+                        color: AppTheme.primaryColor.withOpacity(0.4),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.lg),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
   }
 
-  /// 마감 임박 공지사항 목록
+  /// 오늘 꼭 봐야 할 공지 목록 (최대 5개 + 전체보기)
+  Widget _buildTodayMustSeeList(BuildContext context, bool isDark, List<Notice> notices) {
+    return Column(
+      children: [
+        ...notices.map((notice) => _buildNoticeCard(context, notice, isDark)),
+        if (notices.length >= 5)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => FullListModal.showTodayMustSee(context),
+                icon: const Icon(Icons.list_alt_rounded, size: 18),
+                label: Text('전체보기 (${notices.length}건)'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.errorColor,
+                  side: BorderSide(
+                    color: AppTheme.errorColor.withOpacity(0.4),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// 학과/학년 인기 공지 섹션
+  Widget _buildDepartmentPopularSection(BuildContext context, bool isDark, NoticeProvider provider) {
+    final authService = context.watch<AuthService>();
+    final department = authService.department;
+    final grade = authService.grade;
+
+    final notices = provider.getDepartmentPopularNotices(department, grade);
+    if (notices.isEmpty) return const SizedBox.shrink();
+
+    final deptLabel = department ?? '전체';
+    final gradeLabel = grade != null ? ' $grade학년' : '';
+    final sectionTitle = '$deptLabel$gradeLabel 학생들이 많이 본 공지';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader(
+          context,
+          isDark: isDark,
+          title: sectionTitle,
+          icon: Icons.star_rounded,
+          color: AppTheme.infoColor,
+          description: '조회수 + 관련도 기준 인기 공지',
+          count: notices.length,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        ...notices.map((notice) => _buildNoticeCard(context, notice, isDark)),
+        if (notices.length >= 5)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => FullListModal.showDepartmentPopular(context, department, grade),
+                icon: const Icon(Icons.list_alt_rounded, size: 18),
+                label: Text('전체보기 (${notices.length}건)'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.infoColor,
+                  side: BorderSide(
+                    color: AppTheme.infoColor.withOpacity(0.4),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        const SizedBox(height: AppSpacing.xl),
+      ],
+    );
+  }
+
+  /// 마감 임박 공지사항 목록 (최대 5개 + 전체보기)
   Widget _buildDeadlineSoonList(BuildContext context, bool isDark) {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
@@ -291,9 +435,32 @@ class _RecommendScreenState extends State<RecommendScreen> {
         }
 
         return Column(
-          children: top5
-              .map((notice) => _buildNoticeCard(context, notice, isDark))
-              .toList(),
+          children: [
+            ...top5.map((notice) => _buildNoticeCard(context, notice, isDark)),
+            // 전체보기 버튼 (5개 초과 시)
+            if (deadlineSoon.length > 5)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.sm),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => FullListModal.showDeadlineSoon(context),
+                    icon: const Icon(Icons.list_alt_rounded, size: 18),
+                    label: Text('전체보기 (${deadlineSoon.length}건)'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.warningColor,
+                      side: BorderSide(
+                        color: AppTheme.warningColor.withOpacity(0.4),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.lg),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );

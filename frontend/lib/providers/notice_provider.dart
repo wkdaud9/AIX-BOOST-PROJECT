@@ -45,6 +45,77 @@ class NoticeProvider with ChangeNotifier {
     return sorted.take(5).toList();
   }
 
+  /// 학과/학년 관련 인기 공지 (조회수+북마크 기준 상위 5개)
+  /// 학과 카테고리에 매칭되는 공지에 부스트 점수 부여
+  List<Notice> getDepartmentPopularNotices(String? department, int? grade) {
+    if (_notices.isEmpty) return [];
+
+    final scored = _notices.map((notice) {
+      double score = notice.views + (notice.bookmarkCount * 3).toDouble();
+
+      // 학과 관련 공지 부스트 (카테고리, 태그, 제목에 학과명 포함 시)
+      if (department != null && department.isNotEmpty) {
+        final deptLower = department.toLowerCase();
+        if (notice.category.toLowerCase().contains(deptLower) ||
+            notice.title.toLowerCase().contains(deptLower) ||
+            notice.tags.any((tag) => tag.toLowerCase().contains(deptLower))) {
+          score += 50;
+        }
+      }
+
+      // 학년 관련 공지 부스트
+      if (grade != null) {
+        final gradeStr = '$grade학년';
+        if (notice.title.contains(gradeStr) || notice.content.contains(gradeStr)) {
+          score += 30;
+        }
+      }
+
+      return MapEntry(notice, score);
+    }).toList();
+
+    scored.sort((a, b) => b.value.compareTo(a.value));
+    return scored.take(5).map((e) => e.key).toList();
+  }
+
+  /// 오늘 꼭 봐야 할 공지 (priority + 마감임박 + 최신 + 조회수 종합 점수)
+  List<Notice> get todayMustSeeNotices {
+    if (_notices.isEmpty) return [];
+
+    // 조회수 상위 20% 기준값 계산
+    final sortedByViews = List<Notice>.from(_notices)
+      ..sort((a, b) => b.views.compareTo(a.views));
+    final top20Index = (_notices.length * 0.2).ceil().clamp(1, _notices.length);
+    final viewsThreshold = sortedByViews[top20Index - 1].views;
+
+    final scored = _notices.map((notice) {
+      double score = 0;
+
+      // 우선순위 점수
+      if (notice.priority == '긴급') {
+        score += 10;
+      } else if (notice.priority == '중요') {
+        score += 5;
+      }
+
+      // 마감 임박 점수
+      if (notice.isDeadlineSoon) score += 8;
+
+      // 최신 공지 점수 (3일 이내)
+      if (notice.isNew) score += 5;
+
+      // 조회수 상위 20% 점수
+      if (notice.views >= viewsThreshold) score += 3;
+
+      return MapEntry(notice, score);
+    }).toList();
+
+    // 점수 0인 공지 제외하고 정렬
+    scored.removeWhere((e) => e.value <= 0);
+    scored.sort((a, b) => b.value.compareTo(a.value));
+    return scored.take(5).map((e) => e.key).toList();
+  }
+
   /// AI 맞춤 추천 공지사항 가져오기 (백엔드 하이브리드 검색 API 호출)
   Future<void> fetchRecommendedNotices() async {
     _isRecommendedLoading = true;

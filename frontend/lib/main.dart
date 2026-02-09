@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
-import 'screens/auth_wrapper.dart';
+import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 import 'providers/notice_provider.dart';
 import 'providers/settings_provider.dart';
@@ -38,7 +38,7 @@ class AIXBoostApp extends StatelessWidget {
         // 2. AuthService 생성 (ApiService 의존)
         ChangeNotifierProxyProvider<ApiService, AuthService>(
           create: (context) => AuthService(context.read<ApiService>()),
-          update: (_, apiService, __) => AuthService(apiService),
+          update: (_, apiService, previous) => previous ?? AuthService(apiService),
         ),
         // 3. NoticeProvider 생성 (ApiService 의존)
         ChangeNotifierProxyProvider<ApiService, NoticeProvider>(
@@ -58,12 +58,12 @@ class AIXBoostApp extends StatelessWidget {
       child: Consumer<SettingsProvider>(
         builder: (context, settings, child) {
           return MaterialApp(
-            title: 'AIX-Boost',
+            title: 'Hey bro',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: settings.themeMode,
-            home: const AuthWrapper(),
+            home: const SplashScreen(),
           );
         },
       ),

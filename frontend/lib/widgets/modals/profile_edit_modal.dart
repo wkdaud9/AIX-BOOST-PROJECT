@@ -642,6 +642,9 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
       }
 
       if (mounted) {
+        // AppBar 사용자 이름 즉시 반영
+        authService.updateUserName(_nameController.text.trim());
+
         Navigator.pop(context);
         widget.onSaved?.call();
 

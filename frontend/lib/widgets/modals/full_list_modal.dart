@@ -99,6 +99,79 @@ class FullListModal extends StatelessWidget {
     );
   }
 
+  /// 학과/학년 인기 공지 전체보기 모달
+  static void showDepartmentPopular(BuildContext context, String? department, int? grade) {
+    final provider = context.read<NoticeProvider>();
+    final notices = provider.getDepartmentPopularNotices(department, grade);
+
+    final deptLabel = department ?? '전체';
+    final gradeLabel = grade != null ? ' $grade학년' : '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FullListModal(
+        title: '$deptLabel$gradeLabel 인기 공지',
+        subtitle: '조회수 + 관련도 기준',
+        notices: notices,
+        themeColor: AppTheme.infoColor,
+        icon: Icons.star_rounded,
+        listType: FullListType.departmentPopular,
+      ),
+    );
+  }
+
+  /// 오늘 꼭 봐야 할 공지 전체보기 모달
+  static void showTodayMustSee(BuildContext context) {
+    final provider = context.read<NoticeProvider>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FullListModal(
+        title: '오늘 꼭 봐야 할 공지',
+        subtitle: '긴급/마감임박/최신 종합',
+        notices: provider.todayMustSeeNotices,
+        themeColor: AppTheme.errorColor,
+        icon: Icons.push_pin_rounded,
+        listType: FullListType.todayMustSee,
+      ),
+    );
+  }
+
+  /// 마감 임박 전체보기 모달
+  static void showDeadlineSoon(BuildContext context) {
+    final provider = context.read<NoticeProvider>();
+
+    final deadlineSoonNotices = provider.notices
+        .where((n) => n.isDeadlineSoon)
+        .toList();
+
+    // 마감일 임박한 순 정렬
+    deadlineSoonNotices.sort((a, b) {
+      if (a.deadline == null && b.deadline == null) return 0;
+      if (a.deadline == null) return 1;
+      if (b.deadline == null) return -1;
+      return a.deadline!.compareTo(b.deadline!);
+    });
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FullListModal(
+        title: '마감 임박 공지',
+        subtitle: '마감일 순 정렬',
+        notices: deadlineSoonNotices,
+        themeColor: AppTheme.warningColor,
+        icon: Icons.timer,
+        listType: FullListType.deadlineSoon,
+      ),
+    );
+  }
+
   /// 이번 주 일정 전체보기 모달
   static void showWeeklySchedule(BuildContext context) {
     final provider = context.read<NoticeProvider>();
@@ -266,6 +339,12 @@ class FullListModal extends StatelessWidget {
         return '추천 공지사항이 없습니다';
       case FullListType.weekly:
         return '이번 주 일정이 없습니다';
+      case FullListType.departmentPopular:
+        return '관련 인기 공지가 없습니다';
+      case FullListType.todayMustSee:
+        return '오늘 꼭 봐야 할 공지가 없습니다';
+      case FullListType.deadlineSoon:
+        return '마감 임박 공지가 없습니다';
     }
   }
 
@@ -440,6 +519,93 @@ class FullListModal extends StatelessWidget {
           );
         }
         return const SizedBox.shrink();
+
+      case FullListType.departmentPopular:
+        return Row(
+          children: [
+            Icon(
+              Icons.visibility,
+              size: 12,
+              color: isDark ? Colors.white38 : AppTheme.textHint,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '${notice.views}',
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark ? Colors.white38 : AppTheme.textHint,
+              ),
+            ),
+            if (notice.bookmarkCount > 0) ...[
+              const SizedBox(width: 8),
+              Icon(
+                Icons.bookmark,
+                size: 12,
+                color: isDark ? Colors.white38 : AppTheme.textHint,
+              ),
+              const SizedBox(width: 2),
+              Text(
+                '${notice.bookmarkCount}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? Colors.white38 : AppTheme.textHint,
+                ),
+              ),
+            ],
+          ],
+        );
+
+      case FullListType.todayMustSee:
+        return Row(
+          children: [
+            if (notice.priority != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: notice.priority == '긴급'
+                      ? Colors.red.withOpacity(0.15)
+                      : AppTheme.warningColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Text(
+                  notice.priority!,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: notice.priority == '긴급'
+                        ? Colors.red
+                        : AppTheme.warningColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+            if (notice.isDeadlineSoon) ...[
+              Text(
+                'D-${notice.daysUntilDeadline}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.red,
+                ),
+              ),
+            ],
+          ],
+        );
+
+      case FullListType.deadlineSoon:
+        if (notice.deadline != null) {
+          final daysLeft = notice.deadline!.difference(DateTime.now()).inDays;
+          return Text(
+            'D-$daysLeft',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: daysLeft <= 3 ? Colors.red : themeColor,
+            ),
+          );
+        }
+        return const SizedBox.shrink();
     }
   }
 
@@ -465,8 +631,11 @@ class FullListModal extends StatelessWidget {
 
 /// 전체보기 리스트 타입
 enum FullListType {
-  popular,      // 인기 게시물
-  savedEvents,  // 저장한 일정
-  aiRecommend,  // AI 추천
-  weekly,       // 이번 주 일정
+  popular,            // 인기 게시물
+  savedEvents,        // 저장한 일정
+  aiRecommend,        // AI 추천
+  weekly,             // 이번 주 일정
+  departmentPopular,  // 학과/학년 인기
+  todayMustSee,       // 오늘 꼭 봐야 할 공지
+  deadlineSoon,       // 마감 임박
 }

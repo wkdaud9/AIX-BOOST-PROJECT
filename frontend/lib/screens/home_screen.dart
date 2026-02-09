@@ -4,6 +4,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import '../models/notice.dart';
 import '../providers/notice_provider.dart';
 import '../providers/notification_provider.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/modals/full_list_modal.dart';
 import 'notice_detail_screen.dart';
@@ -98,9 +99,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'AIX-Boost',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Consumer<AuthService>(
+          builder: (context, authService, child) {
+            final name = authService.userName;
+            if (authService.isAuthenticated && name != null && name.isNotEmpty) {
+              return Text(
+                '$name님!',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              );
+            }
+            return const Text(
+              'Hey bro',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            );
+          },
         ),
         actions: [
           // 알림 아이콘 (읽지 않은 알림 개수 뱃지)
@@ -582,7 +594,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary,
+                              color: isDark ? Colors.white : AppTheme.textPrimary,
                               letterSpacing: -0.3,
                             ),
                           ),
@@ -603,7 +615,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         '전체보기',
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.textSecondary,
+                          color: isDark ? Colors.white54 : AppTheme.textSecondary,
                         ),
                       ),
                     ),
@@ -752,7 +764,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         '전체보기',
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.textSecondary,
+                          color: isDark ? Colors.white54 : AppTheme.textSecondary,
                         ),
                       ),
                     ),
@@ -895,7 +907,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         '전체보기',
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.textSecondary,
+                          color: isDark ? Colors.white54 : AppTheme.textSecondary,
                         ),
                       ),
                     ),
@@ -1049,7 +1061,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         '전체보기',
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.textSecondary,
+                          color: isDark ? Colors.white54 : AppTheme.textSecondary,
                         ),
                       ),
                     ),
@@ -1072,96 +1084,95 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       )
-                    : Padding(
+                    : ListView.separated(
                         padding: const EdgeInsets.all(12),
-                        child: Column(
-                          children: weeklyNotices.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final notice = entry.value;
-                            return Expanded(
-                              child: InkWell(
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) => NoticeDetailScreen(noticeId: notice.id),
-                                    ),
-                                  );
-                                },
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  margin: EdgeInsets.only(bottom: index < weeklyNotices.length - 1 ? 4 : 0),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              notice.title,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              '마감: ${notice.deadline!.month}/${notice.deadline!.day}',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: isDark ? Colors.white54 : AppTheme.textSecondary,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.getCategoryColor(notice.category).withOpacity(isDark ? 0.2 : 0.12),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          notice.category,
+                        itemCount: weeklyNotices.length,
+                        separatorBuilder: (context, index) => Divider(
+                          height: 1,
+                          color: isDark ? Colors.white10 : Colors.grey.shade200,
+                        ),
+                        itemBuilder: (context, index) {
+                          final notice = weeklyNotices[index];
+                          return InkWell(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => NoticeDetailScreen(noticeId: notice.id),
+                                ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          notice.title,
                                           style: TextStyle(
-                                            fontSize: 10,
+                                            fontSize: 13,
                                             fontWeight: FontWeight.w600,
-                                            color: AppTheme.getCategoryColor(notice.category),
+                                            color: isDark ? Colors.white : AppTheme.textPrimary,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '마감: ${notice.deadline!.month}/${notice.deadline!.day}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: isDark ? Colors.white54 : AppTheme.textSecondary,
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // 북마크 아이콘
-                                      IconButton(
-                                        icon: Icon(
-                                          notice.isBookmarked
-                                              ? Icons.bookmark
-                                              : Icons.bookmark_border,
-                                          size: 18,
-                                        ),
-                                        color: notice.isBookmarked
-                                            ? Theme.of(context).colorScheme.primary
-                                            : (isDark ? Colors.white54 : AppTheme.textSecondary),
-                                        onPressed: () {
-                                          context.read<NoticeProvider>().toggleBookmark(notice.id);
-                                        },
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                        tooltip: notice.isBookmarked ? '북마크 해제' : '북마크 추가',
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.getCategoryColor(notice.category).withOpacity(isDark ? 0.2 : 0.12),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      notice.category,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.getCategoryColor(notice.category),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // 북마크 아이콘
+                                  IconButton(
+                                    icon: Icon(
+                                      notice.isBookmarked
+                                          ? Icons.bookmark
+                                          : Icons.bookmark_border,
+                                      size: 18,
+                                    ),
+                                    color: notice.isBookmarked
+                                        ? Theme.of(context).colorScheme.primary
+                                        : (isDark ? Colors.white54 : AppTheme.textSecondary),
+                                    onPressed: () {
+                                      context.read<NoticeProvider>().toggleBookmark(notice.id);
+                                    },
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    tooltip: notice.isBookmarked ? '북마크 해제' : '북마크 추가',
+                                  ),
+                                ],
                               ),
-                            );
-                          }).toList(),
-                        ),
+                            ),
+                          );
+                        },
                       ),
               ),
             ],
@@ -1230,14 +1241,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             categoryName,
                             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimary,
+                                  color: isDark ? Colors.white : AppTheme.textPrimary,
                                 ),
                           ),
                           Text(
                             '카테고리별 공지사항',
                             style: TextStyle(
                               fontSize: 14,
-                              color: AppTheme.textSecondary,
+                              color: isDark ? Colors.white54 : AppTheme.textSecondary,
                             ),
                           ),
                         ],
