@@ -231,6 +231,71 @@ class ApiService {
     }
   }
 
+  /// FCM 디바이스 토큰 등록
+  Future<void> registerFCMToken({
+    required String token,
+    required String deviceType,
+  }) async {
+    try {
+      await _dio.post('/api/notifications/token', data: {
+        'token': token,
+        'device_type': deviceType,
+      });
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// FCM 디바이스 토큰 해제 (로그아웃 시)
+  Future<void> unregisterFCMToken({required String token}) async {
+    try {
+      await _dio.delete('/api/notifications/token', data: {
+        'token': token,
+      });
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 알림 내역 조회
+  Future<Map<String, dynamic>> getNotifications({
+    int limit = 20,
+    int offset = 0,
+    bool unreadOnly = false,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/api/notifications',
+        queryParameters: {
+          'limit': limit,
+          'offset': offset,
+          'unread_only': unreadOnly.toString(),
+        },
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 알림 읽음 처리
+  Future<void> markNotificationAsRead(String notificationId) async {
+    try {
+      await _dio.put('/api/notifications/$notificationId/read');
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 전체 알림 읽음 처리
+  Future<void> markAllNotificationsAsRead() async {
+    try {
+      await _dio.put('/api/notifications/read-all');
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// 키워드로 공지사항 검색 (제목 + 벡터 하이브리드 검색)
   ///
   /// [query] 검색 키워드 (2자 이상)

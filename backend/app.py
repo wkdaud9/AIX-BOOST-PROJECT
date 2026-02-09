@@ -28,12 +28,14 @@ from routes.crawl import crawl_bp
 from routes.search import search_bp
 from routes.calendar import calendar_bp
 from routes.bookmarks import bookmarks_bp
+from routes.notifications import notifications_bp
 app.register_blueprint(notices_bp)
 app.register_blueprint(users_bp)
 app.register_blueprint(crawl_bp)
 app.register_blueprint(search_bp)
 app.register_blueprint(calendar_bp)
 app.register_blueprint(bookmarks_bp)
+app.register_blueprint(notifications_bp)
 
 # 스케줄러 초기화 (1시간마다 자동 크롤링)
 from services.scheduler_service import SchedulerService

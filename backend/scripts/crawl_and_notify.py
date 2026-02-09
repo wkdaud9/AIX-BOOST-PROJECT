@@ -37,6 +37,7 @@ from ai.enrichment_service import EnrichmentService
 from services.notice_service import NoticeService
 from services.hybrid_search_service import HybridSearchService
 from services.reranking_service import RerankingService
+from services.fcm_service import FCMService
 from supabase import create_client
 
 
@@ -79,6 +80,14 @@ class CrawlAndNotifyPipeline:
             "학사/장학": ScholarshipCrawler(),
             "모집공고": RecruitmentCrawler()
         }
+
+        # FCM 서비스 초기화 (설정되지 않으면 None)
+        try:
+            self.fcm_service = FCMService()
+            print("[완료] FCM 서비스 초기화 완료")
+        except Exception as e:
+            self.fcm_service = None
+            print(f"[경고] FCM 서비스 초기화 실패 (푸시 알림 미발송): {str(e)}")
 
         print("[완료] 파이프라인 초기화 완료\n")
 
@@ -319,12 +328,13 @@ class CrawlAndNotifyPipeline:
         self,
         relevance_results: Dict[str, List[Dict[str, Any]]]
     ) -> int:
-        """6단계: 푸시 알림 발송 (메모리의 관련 사용자 리스트 사용)"""
+        """6단계: 푸시 알림 발송 (device_tokens 테이블 기반 FCM 발송)"""
         print("\n" + "-"*60)
         print("[6단계] 푸시 알림 발송")
         print("-"*60)
 
         notification_count = 0
+        fcm_sent_count = 0
 
         try:
             for notice_id, relevant_users in relevance_results.items():
@@ -340,6 +350,7 @@ class CrawlAndNotifyPipeline:
 
                 notice = notice_result.data if notice_result.data else {}
                 notice_title = notice.get("title", "새 공지사항")
+                notice_body = notice.get("ai_summary", "")
 
                 print(f"\n[알림] 공지 {notice_id[:8]}... 알림 발송 중 ({len(relevant_users)}명)")
 
@@ -347,42 +358,55 @@ class CrawlAndNotifyPipeline:
                     user_id = user_data.get("user_id")
                     relevance_score = user_data.get("total_score", user_data.get("score", 0.5))
 
-                    # 사용자 정보 조회 (FCM 토큰 등)
-                    user_result = self.supabase.table("users")\
-                        .select("id, name, fcm_token")\
-                        .eq("id", user_id)\
-                        .single()\
-                        .execute()
-
-                    user = user_result.data if user_result.data else {}
-                    fcm_token = user.get("fcm_token")
-
-                    if not fcm_token:
-                        print(f"  [경고] {user.get('name', 'Unknown')} - FCM 토큰 없음")
-                        continue
-
-                    # TODO: FCM 푸시 알림 발송 (나중에 구현)
-                    # send_fcm_notification(fcm_token, notice_title, ...)
-
-                    # 알림 로그 저장 (notification_logs 테이블)
+                    # 알림 로그 저장 (notification_logs 테이블) - FCM 발송 전에 저장
                     try:
                         self.supabase.table("notification_logs").insert({
                             "user_id": user_id,
                             "notice_id": notice_id,
                             "title": notice_title,
-                            "body": notice.get("ai_summary", ""),
+                            "body": notice_body,
                             "sent_at": datetime.now().isoformat(),
                             "is_read": False
                         }).execute()
-
                         notification_count += 1
-                        print(f"  [완료] {user.get('name', 'Unknown')} (관련도: {relevance_score:.2f})")
-
                     except Exception as e:
                         print(f"  [오류] 알림 로그 저장 실패: {str(e)}")
+                        continue
 
-            print(f"\n[통계] 알림 로그 저장 완료: {notification_count}건")
-            print("[주의] FCM 미구현으로 실제 푸시 알림은 발송되지 않았습니다")
+                    # FCM 푸시 알림 발송
+                    if self.fcm_service:
+                        try:
+                            result = self.fcm_service.send_to_user(
+                                user_id=user_id,
+                                title=notice_title,
+                                body=notice_body,
+                                data={
+                                    "notice_id": notice_id,
+                                    "category": notice.get("category", ""),
+                                    "type": "new_notice"
+                                }
+                            )
+                            if result["sent"] > 0:
+                                fcm_sent_count += result["sent"]
+                                print(f"  [완료] user {user_id[:8]}... "
+                                      f"(관련도: {relevance_score:.2f}, "
+                                      f"FCM: {result['sent']}건 발송)")
+                            else:
+                                print(f"  [완료] user {user_id[:8]}... "
+                                      f"(관련도: {relevance_score:.2f}, "
+                                      f"FCM 토큰 없음 - 로그만 저장)")
+                        except Exception as e:
+                            print(f"  [경고] FCM 발송 실패 (로그는 저장됨): {str(e)}")
+                    else:
+                        print(f"  [완료] user {user_id[:8]}... "
+                              f"(관련도: {relevance_score:.2f}, "
+                              f"FCM 미설정 - 로그만 저장)")
+
+            print(f"\n[통계] 알림 로그 저장: {notification_count}건")
+            if self.fcm_service:
+                print(f"[통계] FCM 푸시 발송: {fcm_sent_count}건")
+            else:
+                print("[주의] FCM 미설정으로 실제 푸시 알림은 발송되지 않았습니다")
 
         except Exception as e:
             print(f"\n[오류] 알림 발송 실패: {str(e)}")

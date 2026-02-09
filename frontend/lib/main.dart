@@ -10,8 +10,11 @@ import 'providers/notification_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'services/auth_service.dart';
 import 'services/api_service.dart';
+import 'services/fcm_service.dart';
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   // .env 파일 로드
   await dotenv.load(fileName: ".env");
 
@@ -53,6 +56,12 @@ class AIXBoostApp extends StatelessWidget {
         // 5. NotificationProvider 생성 (알림 목록 관리)
         ChangeNotifierProvider<NotificationProvider>(
           create: (_) => NotificationProvider()..initialize(),
+        ),
+        // 6. FCMService 생성 (ApiService 의존, 푸시 알림 처리)
+        ProxyProvider<ApiService, FCMService>(
+          create: (context) => FCMService(context.read<ApiService>()),
+          update: (_, apiService, previous) =>
+              previous ?? FCMService(apiService),
         ),
       ],
       child: Consumer<SettingsProvider>(
