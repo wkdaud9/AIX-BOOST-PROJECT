@@ -136,10 +136,8 @@ class FCMService:
                 message_kwargs["webpush"] = messaging.WebpushConfig(
                     notification=messaging.WebpushNotification(
                         icon="/icons/icon-192x192.png"
-                    ),
-                    fcm_options=messaging.WebpushFCMOptions(
-                        link="/notifications"
                     )
+                    # fcm_options는 HTTPS URL이 필요하므로 제거
                 )
 
             message = messaging.Message(**message_kwargs)
@@ -150,9 +148,13 @@ class FCMService:
         except messaging.UnregisteredError:
             # 토큰이 만료/해제됨 -> 삭제 대상
             return False, "UNREGISTERED"
-        except messaging.InvalidArgumentError:
-            # 토큰 형식이 잘못됨 -> 삭제 대상
-            return False, "INVALID_TOKEN"
+        except ValueError as e:
+            # 토큰 형식이 잘못됨 또는 파라미터 오류 -> 삭제 대상
+            error_msg = str(e)
+            if "token" in error_msg.lower() or "invalid" in error_msg.lower():
+                return False, "INVALID_TOKEN"
+            print(f"[FCM] 발송 실패 (ValueError): {error_msg}")
+            return False, error_msg
         except Exception as e:
             print(f"[FCM] 발송 실패: {str(e)}")
             return False, str(e)
