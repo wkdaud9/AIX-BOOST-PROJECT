@@ -63,9 +63,11 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _cardPageController = PageController(viewportFraction: 0.9);
     // 공지사항 데이터 로드
-    Future.microtask(
-      () => context.read<NoticeProvider>().fetchNotices(),
-    );
+    final provider = context.read<NoticeProvider>();
+    Future.microtask(() {
+      provider.fetchNotices();
+      provider.fetchRecommendedNotices(); // AI 추천 데이터 로드
+    });
   }
 
   @override
@@ -164,7 +166,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHomeTab() {
     return RefreshIndicator(
       onRefresh: () async {
-        await context.read<NoticeProvider>().fetchNotices();
+        final provider = context.read<NoticeProvider>();
+        await Future.wait([
+          provider.fetchNotices(),
+          provider.fetchRecommendedNotices(),
+        ]);
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -801,11 +807,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildAIRecommendCard() {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
-        // AI 추천 로직: 우선순위가 있는 게시물 우선
-        final aiRecommended = provider.notices
-            .where((n) => n.priority != null)
-            .take(5)
-            .toList();
+        // AI 추천: 백엔드 하이브리드 검색 기반 맞춤 추천
+        final aiRecommended = provider.recommendedNotices.take(5).toList();
 
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -860,99 +863,115 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const Divider(height: 1),
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: aiRecommended.map((notice) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: InkWell(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => NoticeDetailScreen(noticeId: notice.id),
-                              ),
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Row(
+                child: provider.isRecommendedLoading && aiRecommended.isEmpty
+                    ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                    : aiRecommended.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        notice.title,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      if (notice.aiSummary != null)
-                                        Text(
-                                          notice.aiSummary!,
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                if (notice.priority != null) ...[
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _getPriorityColor(notice.priority!),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      notice.priority!,
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                ],
-                                // 북마크 아이콘
-                                IconButton(
-                                  icon: Icon(
-                                    notice.isBookmarked
-                                        ? Icons.bookmark
-                                        : Icons.bookmark_border,
-                                    size: 18,
-                                  ),
-                                  color: notice.isBookmarked
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Colors.grey.shade600,
-                                  onPressed: () {
-                                    context.read<NoticeProvider>().toggleBookmark(notice.id);
-                                  },
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  tooltip: notice.isBookmarked ? '북마크 해제' : '북마크 추가',
+                                Icon(Icons.auto_awesome, size: 40, color: Colors.grey.shade400),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '추천 공지사항이 없습니다',
+                                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                                 ),
                               ],
                             ),
+                          )
+                        : SingleChildScrollView(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              children: aiRecommended.map((notice) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: InkWell(
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) => NoticeDetailScreen(noticeId: notice.id),
+                                        ),
+                                      );
+                                    },
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  notice.title,
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                const SizedBox(height: 4),
+                                                if (notice.aiSummary != null)
+                                                  Text(
+                                                    notice.aiSummary!,
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: Colors.grey.shade600,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                          if (notice.category.isNotEmpty) ...[
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 3,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.purple.shade100,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                notice.category,
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.purple.shade700,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                          ],
+                                          // 북마크 아이콘
+                                          IconButton(
+                                            icon: Icon(
+                                              notice.isBookmarked
+                                                  ? Icons.bookmark
+                                                  : Icons.bookmark_border,
+                                              size: 18,
+                                            ),
+                                            color: notice.isBookmarked
+                                                ? Theme.of(context).colorScheme.primary
+                                                : Colors.grey.shade600,
+                                            onPressed: () {
+                                              context.read<NoticeProvider>().toggleBookmark(notice.id);
+                                            },
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            tooltip: notice.isBookmarked ? '북마크 해제' : '북마크 추가',
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
                           ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
               ),
             ],
           ),

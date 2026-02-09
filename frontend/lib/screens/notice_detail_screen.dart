@@ -250,8 +250,78 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
             const SizedBox(height: AppSpacing.md),
           ],
 
-          // 마감일 표시 (있는 경우)
-          if (_notice!.deadline != null) ...[
+          // 마감일 표시 — 복수 마감일 지원
+          if (_notice!.deadlines.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: _notice!.isDeadlineSoon ? Colors.red.shade50 : Colors.green.shade50,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(
+                  color: _notice!.isDeadlineSoon ? Colors.red.shade200 : Colors.green.shade200,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 헤더
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.event,
+                        size: 18,
+                        color: _notice!.isDeadlineSoon ? Colors.red.shade700 : Colors.green.shade700,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _notice!.hasMultipleDeadlines ? '마감일 목록' : '마감일',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: _notice!.isDeadlineSoon ? Colors.red.shade900 : Colors.green.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // 각 마감일 항목
+                  ..._notice!.deadlines.map((dl) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${dl.label}: ~ ${dl.date.month.toString().padLeft(2, '0')}.${dl.date.day.toString().padLeft(2, '0')}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _notice!.isDeadlineSoon ? Colors.red.shade800 : Colors.green.shade800,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: dl.isSoon ? Colors.red : Colors.green,
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                          ),
+                          child: Text(
+                            dl.dDayText,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ] else if (_notice!.deadline != null) ...[
+            // 기존 단일 마감일 호환 (deadlines 배열이 비어있는 경우)
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
@@ -610,6 +680,9 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
       }
       return line;
     }).join('\n');
+    // 줄바꿈 보존: Markdown에서 단일 \n은 공백으로 처리되므로
+    // trailing 2 spaces를 추가하여 hard line break로 변환
+    cleaned = cleaned.replaceAll('\n', '  \n');
     final contentWithoutImages = cleaned
         .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
