@@ -182,13 +182,11 @@ class NoticeProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // 실제 백엔드 API 호출
+      // 백엔드 API 호출 (is_bookmarked, bookmark_count 포함)
       final noticesData = await _apiService.getNotices(limit: 100);
 
-      // Notice 객체로 변환
+      // Notice 객체로 변환 (API가 is_bookmarked, bookmark_count 직접 반환)
       _notices = noticesData.map((json) => Notice.fromJson(json)).toList();
-
-      // 북마크된 공지사항 필터링
       _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
 
       _isLoading = false;
@@ -203,7 +201,7 @@ class NoticeProvider with ChangeNotifier {
         print('API 에러 발생, 더미 데이터 사용: $e');
         _notices = _getDummyNotices();
         _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
-        _error = null; // 더미 데이터 사용 시 에러 초기화
+        _error = null;
         notifyListeners();
       }
     }
@@ -215,31 +213,43 @@ class NoticeProvider with ChangeNotifier {
     final index = _notices.indexWhere((n) => n.id == noticeId);
     final recIndex = _recommendedNotices.indexWhere((n) => n.id == noticeId);
     final catIndex = _categoryNotices.indexWhere((n) => n.id == noticeId);
+
+    // 현재 북마크 상태를 어떤 리스트에서든 가져옴
     final previousState = index != -1
         ? _notices[index].isBookmarked
-        : recIndex != -1
-            ? _recommendedNotices[recIndex].isBookmarked
-            : false;
+        : catIndex != -1
+            ? _categoryNotices[catIndex].isBookmarked
+            : recIndex != -1
+                ? _recommendedNotices[recIndex].isBookmarked
+                : false;
+    final newState = !previousState;
+    final countDelta = newState ? 1 : -1;
 
     // _notices 업데이트
     if (index != -1) {
       _notices[index] = _notices[index].copyWith(
-        isBookmarked: !_notices[index].isBookmarked,
+        isBookmarked: newState,
+        bookmarkCount: _notices[index].bookmarkCount + countDelta,
       );
     }
     // _recommendedNotices 업데이트
     if (recIndex != -1) {
       _recommendedNotices[recIndex] = _recommendedNotices[recIndex].copyWith(
-        isBookmarked: !previousState,
+        isBookmarked: newState,
+        bookmarkCount: _recommendedNotices[recIndex].bookmarkCount + countDelta,
       );
     }
     // _categoryNotices 업데이트
     if (catIndex != -1) {
       _categoryNotices[catIndex] = _categoryNotices[catIndex].copyWith(
-        isBookmarked: !previousState,
+        isBookmarked: newState,
+        bookmarkCount: _categoryNotices[catIndex].bookmarkCount + countDelta,
       );
     }
-    _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
+    _bookmarkedNotices = [
+      ..._notices.where((n) => n.isBookmarked),
+      ..._categoryNotices.where((n) => n.isBookmarked && _notices.every((m) => m.id != n.id)),
+    ];
     notifyListeners();
 
     try {
@@ -250,19 +260,25 @@ class NoticeProvider with ChangeNotifier {
       if (index != -1) {
         _notices[index] = _notices[index].copyWith(
           isBookmarked: previousState,
+          bookmarkCount: _notices[index].bookmarkCount - countDelta,
         );
       }
       if (recIndex != -1) {
         _recommendedNotices[recIndex] = _recommendedNotices[recIndex].copyWith(
           isBookmarked: previousState,
+          bookmarkCount: _recommendedNotices[recIndex].bookmarkCount - countDelta,
         );
       }
       if (catIndex != -1) {
         _categoryNotices[catIndex] = _categoryNotices[catIndex].copyWith(
           isBookmarked: previousState,
+          bookmarkCount: _categoryNotices[catIndex].bookmarkCount - countDelta,
         );
       }
-      _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
+      _bookmarkedNotices = [
+        ..._notices.where((n) => n.isBookmarked),
+        ..._categoryNotices.where((n) => n.isBookmarked && _notices.every((m) => m.id != n.id)),
+      ];
       notifyListeners();
 
       if (kDebugMode) {

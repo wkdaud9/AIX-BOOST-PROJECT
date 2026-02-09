@@ -129,7 +129,8 @@ class SupabaseService:
         self,
         category: Optional[str] = None,
         limit: int = 20,
-        offset: int = 0
+        offset: int = 0,
+        user_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         공지사항 목록을 조회합니다
@@ -138,13 +139,10 @@ class SupabaseService:
         - category: 카테고리 필터 (선택)
         - limit: 가져올 개수 (기본 20)
         - offset: 건너뛸 개수 (페이지네이션)
+        - user_id: 사용자 ID (있으면 is_bookmarked 포함)
 
         반환값:
-        - 공지사항 리스트
-
-        예시:
-        service = SupabaseService()
-        notices = service.get_notices(category="공지사항", limit=10)
+        - 공지사항 리스트 (bookmark_count, is_bookmarked 포함)
         """
         try:
             query = self.client.table("notices")\
@@ -156,7 +154,21 @@ class SupabaseService:
                 query = query.eq("category", category)
 
             result = query.execute()
-            return result.data if result.data else []
+            notices = result.data if result.data else []
+
+            # 로그인한 사용자면 is_bookmarked 표시
+            if notices and user_id:
+                notice_ids = [n["id"] for n in notices]
+                bookmark_result = self.client.table("user_bookmarks")\
+                    .select("notice_id")\
+                    .eq("user_id", user_id)\
+                    .in_("notice_id", notice_ids)\
+                    .execute()
+                bookmarked_ids = {b["notice_id"] for b in (bookmark_result.data or [])}
+                for notice in notices:
+                    notice["is_bookmarked"] = notice["id"] in bookmarked_ids
+
+            return notices
 
         except Exception as e:
             print(f"[ERROR] 조회 에러: {str(e)}")

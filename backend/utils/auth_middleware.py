@@ -8,6 +8,32 @@ from functools import wraps
 from flask import request, jsonify, g
 from services.supabase_service import SupabaseService
 
+def optional_login(f):
+    """
+    로그인이 선택적인 엔드포인트에 적용하는 데코레이터
+    토큰이 있으면 g.user_id를 설정하고, 없으면 None으로 설정합니다.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        g.user_id = None
+        g.user = None
+        auth_header = request.headers.get('Authorization')
+        if auth_header:
+            try:
+                parts = auth_header.split()
+                if parts[0].lower() == "bearer" and len(parts) == 2:
+                    token = parts[1]
+                    supabase = SupabaseService()
+                    user_response = supabase.client.auth.get_user(token)
+                    if user_response and user_response.user:
+                        g.user = user_response.user
+                        g.user_id = user_response.user.id
+            except Exception:
+                pass
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 def login_required(f):
     """
     로그인이 필요한 엔드포인트에 적용하는 데코레이터

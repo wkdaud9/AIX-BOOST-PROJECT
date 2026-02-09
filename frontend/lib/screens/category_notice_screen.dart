@@ -236,15 +236,15 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
                             ),
                             const SizedBox(width: 16),
 
-                            // 조회수
+                            // 북마크 수
                             Icon(
-                              Icons.visibility_outlined,
+                              Icons.bookmark_outlined,
                               size: 16,
                               color: AppTheme.textSecondary,
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${notice.views}',
+                              '${notice.bookmarkCount}',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: AppTheme.textSecondary,
@@ -392,6 +392,12 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
   void _sortNotices(List<Notice> notices) {
     switch (_sortType) {
       case SortType.popularity:
+        // 인기순: 북마크 수 기준 (동일하면 조회수로 2차 정렬)
+        notices.sort((a, b) {
+          final cmp = b.bookmarkCount.compareTo(a.bookmarkCount);
+          return cmp != 0 ? cmp : b.views.compareTo(a.views);
+        });
+        break;
       case SortType.views:
         notices.sort((a, b) => b.views.compareTo(a.views));
         break;

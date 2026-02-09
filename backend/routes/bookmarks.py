@@ -75,13 +75,25 @@ def toggle_bookmark(notice_id):
                 .eq("notice_id", notice_id)\
                 .execute()
 
-            print(f"[북마크] 제거: user={user_id[:8]}..., notice={notice_id[:8]}...")
+            # notices 테이블의 bookmark_count 감소
+            supabase.rpc("decrement_bookmark_count", {"nid": notice_id}).execute()
+
+            # 변경된 bookmark_count 조회
+            count_result = supabase.table("notices")\
+                .select("bookmark_count")\
+                .eq("id", notice_id)\
+                .single()\
+                .execute()
+            new_count = count_result.data.get("bookmark_count", 0) if count_result.data else 0
+
+            print(f"[북마크] 제거: user={user_id[:8]}..., notice={notice_id[:8]}... (count={new_count})")
 
             return jsonify({
                 "status": "success",
                 "data": {
                     "bookmarked": False,
-                    "notice_id": notice_id
+                    "notice_id": notice_id,
+                    "bookmark_count": new_count
                 }
             }), 200
         else:
@@ -93,13 +105,25 @@ def toggle_bookmark(notice_id):
                 })\
                 .execute()
 
-            print(f"[북마크] 추가: user={user_id[:8]}..., notice={notice_id[:8]}...")
+            # notices 테이블의 bookmark_count 증가
+            supabase.rpc("increment_bookmark_count", {"nid": notice_id}).execute()
+
+            # 변경된 bookmark_count 조회
+            count_result = supabase.table("notices")\
+                .select("bookmark_count")\
+                .eq("id", notice_id)\
+                .single()\
+                .execute()
+            new_count = count_result.data.get("bookmark_count", 0) if count_result.data else 0
+
+            print(f"[북마크] 추가: user={user_id[:8]}..., notice={notice_id[:8]}... (count={new_count})")
 
             return jsonify({
                 "status": "success",
                 "data": {
                     "bookmarked": True,
-                    "notice_id": notice_id
+                    "notice_id": notice_id,
+                    "bookmark_count": new_count
                 }
             }), 200
 

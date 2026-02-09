@@ -6,12 +6,12 @@
 공지사항 관련 API 엔드포인트를 제공합니다.
 """
 
-from flask import Blueprint, request, jsonify, Response
+from flask import Blueprint, request, jsonify, Response, g
 from typing import Dict, Any
 import requests as http_requests
 from services.supabase_service import SupabaseService
 from crawler.crawler_manager import CrawlerManager
-from utils.auth_middleware import login_required
+from utils.auth_middleware import login_required, optional_login
 
 # Blueprint 생성 (URL 접두사: /api/notices)
 notices_bp = Blueprint('notices', __name__, url_prefix='/api/notices')
@@ -111,6 +111,7 @@ def crawl_and_save():
 
 
 @notices_bp.route('/', methods=['GET'])
+@optional_login
 def get_notices():
     """
     공지사항 목록을 조회합니다
@@ -132,6 +133,8 @@ def get_notices():
                 "content": "내용",
                 "category": "공지사항",
                 "published_at": "2024-01-01T00:00:00",
+                "bookmark_count": 5,
+                "is_bookmarked": true,
                 ...
             }
         ],
@@ -147,13 +150,15 @@ def get_notices():
         category = request.args.get('category', None)
         limit = int(request.args.get('limit', 20))
         offset = int(request.args.get('offset', 0))
+        user_id = g.user_id  # optional_login으로 설정됨 (없으면 None)
 
         # Supabase에서 조회
         supabase = SupabaseService()
         notices = supabase.get_notices(
             category=category,
             limit=limit,
-            offset=offset
+            offset=offset,
+            user_id=user_id
         )
 
         return jsonify({
