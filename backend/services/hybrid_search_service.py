@@ -25,6 +25,7 @@
 
 import os
 from typing import List, Dict, Any, Optional, Tuple
+from datetime import datetime, timedelta
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
@@ -485,9 +486,10 @@ class HybridSearchService:
         """
         try:
             # 최근 공지사항 조회 (30일 이내)
+            thirty_days_ago = (datetime.utcnow() - timedelta(days=30)).isoformat()
             result = self.supabase.table("notices")\
                 .select("id, title, ai_summary, category, enriched_metadata, content_embedding")\
-                .gte("published_at", "now() - interval '30 days'")\
+                .gte("published_at", thirty_days_ago)\
                 .order("published_at", desc=True)\
                 .limit(200)\
                 .execute()

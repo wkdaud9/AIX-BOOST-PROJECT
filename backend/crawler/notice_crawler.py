@@ -514,8 +514,20 @@ class NoticeCrawler(BaseCrawler):
             return None
 
         try:
-            # 제목 추출
-            title = notice_preview.get('title', '')
+            # 제목 추출 - 상세 페이지에서 완전한 제목 가져오기
+            title_elem = (
+                soup.select_one('div.bv_title') or
+                soup.select_one('.board-view-title') or
+                soup.select_one('.view-title') or
+                soup.select_one('h3.title') or
+                soup.select_one('h2.title')
+            )
+
+            if title_elem:
+                title = self.clean_text(title_elem.get_text())
+            else:
+                # 상세 페이지에서 제목을 찾지 못하면 목록 제목 사용
+                title = notice_preview.get('title', '')
 
             # 본문 내용 추출 (div.bv_content_text에서만 추출)
             content_elem = (
