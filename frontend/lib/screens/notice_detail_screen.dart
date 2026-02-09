@@ -4,6 +4,7 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/notice.dart';
 import '../providers/notice_provider.dart';
 import '../theme/app_theme.dart';
@@ -830,12 +831,38 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     );
   }
 
-  /// 공지사항 공유
-  void _shareNotice() {
-    // TODO: 공유 기능 구현 (share_plus 패키지 사용)
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('공유 기능은 준비 중입니다.')),
-    );
+  /// 공지사항 공유 (시스템 공유 시트 사용)
+  Future<void> _shareNotice() async {
+    if (_notice == null) return;
+
+    final title = _notice!.title;
+    final url = _notice!.url ?? '';
+    final category = _notice!.category;
+    final deadline = _notice!.deadline != null
+        ? '마감: ${_notice!.deadline!.month}/${_notice!.deadline!.day}'
+        : '';
+
+    // 공유 텍스트 구성
+    final shareText = '''
+[$category] $title
+${deadline.isNotEmpty ? '\n$deadline' : ''}
+${url.isNotEmpty ? '\n$url' : ''}
+
+AIX-Boost 앱에서 확인하세요!
+''';
+
+    try {
+      await Share.share(
+        shareText.trim(),
+        subject: title,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('공유 실패: $e')),
+        );
+      }
+    }
   }
 
   /// 중요도에 따른 색상 반환

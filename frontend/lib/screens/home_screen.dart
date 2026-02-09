@@ -5,6 +5,7 @@ import '../models/notice.dart';
 import '../providers/notice_provider.dart';
 import '../providers/notification_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/modals/full_list_modal.dart';
 import 'notice_detail_screen.dart';
 import 'calendar_screen.dart';
 import 'recommend_screen.dart';
@@ -64,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _cardPageController = PageController(viewportFraction: 0.9);
+    _cardPageController = PageController(viewportFraction: 1.0);
     // 공지사항 데이터 로드
     final provider = context.read<NoticeProvider>();
     Future.microtask(() {
@@ -240,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
 
             // 추천 정보 섹션 (그레이 배경)
             Container(
@@ -467,81 +468,89 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 슬라이드 카드 섹션 (트렌디한 디자인)
   Widget _buildSlideCards() {
-    return Column(
-      children: [
-        SizedBox(
-          height: 340,
-          child: PageView.builder(
-            controller: _cardPageController,
-            physics: const BouncingScrollPhysics(),
-            itemCount: 4,
-            padEnds: false,
-            onPageChanged: (index) {
-              setState(() {
-                _currentCardIndex = index;
-              });
-            },
-            itemBuilder: (context, index) {
-              switch (index) {
-                case 0:
-                  return _buildPopularCard();
-                case 1:
-                  return _buildSavedEventsCard();
-                case 2:
-                  return _buildAIRecommendCard();
-                case 3:
-                  return _buildWeeklyInfoCard();
-                default:
-                  return const SizedBox();
-              }
-            },
+    return SizedBox(
+      height: 340,
+      child: PageView.builder(
+        controller: _cardPageController,
+        physics: const BouncingScrollPhysics(),
+        itemCount: 4,
+        padEnds: false,
+        onPageChanged: (index) {
+          setState(() {
+            _currentCardIndex = index;
+          });
+        },
+        itemBuilder: (context, index) {
+          switch (index) {
+            case 0:
+              return _buildCardWithIndicator(_buildPopularCardContent());
+            case 1:
+              return _buildCardWithIndicator(_buildSavedEventsCardContent());
+            case 2:
+              return _buildCardWithIndicator(_buildAIRecommendCardContent());
+            case 3:
+              return _buildCardWithIndicator(_buildWeeklyInfoCardContent());
+            default:
+              return const SizedBox();
+          }
+        },
+      ),
+    );
+  }
+
+  /// 카드 + 우하단 인디케이터 래퍼
+  Widget _buildCardWithIndicator(Widget cardContent) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-        ),
-        const SizedBox(height: 16),
-        // 카드 인디케이터 (세련된 애니메이션)
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(4, (index) {
-            final isActive = _currentCardIndex == index;
-            return AnimatedContainer(
-              duration: AppDuration.normal,
-              curve: Curves.easeInOut,
-              width: isActive ? 28.0 : 8.0,
-              height: 8.0,
-              margin: const EdgeInsets.symmetric(horizontal: 4.0),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-                color: isActive
-                    ? AppTheme.primaryColor
-                    : AppTheme.primaryColor.withOpacity(0.2),
-              ),
-            );
-          }),
-        ),
-      ],
+        ],
+      ),
+      child: Stack(
+        children: [
+          // 카드 내용
+          cardContent,
+          // 우하단 인디케이터
+          Positioned(
+            right: 16,
+            bottom: 12,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(4, (index) {
+                final isActive = _currentCardIndex == index;
+                return Container(
+                  width: 6.0,
+                  height: 6.0,
+                  margin: const EdgeInsets.symmetric(horizontal: 3.0),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isActive
+                        ? AppTheme.primaryColor
+                        : AppTheme.primaryColor.withOpacity(0.25),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   // 카드 1: 인기 게시물 (미니멀 디자인)
-  Widget _buildPopularCard() {
+  Widget _buildPopularCardContent() {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
         final popularNotices = provider.popularNotices.take(5).toList();
 
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
+        return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
@@ -566,38 +575,53 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '인기 게시물',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary,
-                            letterSpacing: -0.3,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '인기 게시물',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimary,
+                              letterSpacing: -0.3,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '조회수 기준 상위 5개',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
+                          Text(
+                            '조회수 기준 상위 5개',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
                           ),
+                        ],
+                      ),
+                    ),
+                    // 전체보기 버튼
+                    GestureDetector(
+                      onTap: () => FullListModal.showPopular(context),
+                      child: Text(
+                        '전체보기',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.withOpacity(0.7),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
               ),
               const Divider(height: 1),
+              // 고정 레이아웃 (스크롤 없음)
               Expanded(
-                child: SingleChildScrollView(
+                child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
-                    children: popularNotices.map((notice) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
+                    children: popularNotices.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final notice = entry.value;
+                      return Expanded(
                         child: InkWell(
                           onTap: () {
                             Navigator.of(context).push(
@@ -608,62 +632,44 @@ class _HomeScreenState extends State<HomeScreen> {
                           },
                           borderRadius: BorderRadius.circular(8),
                           child: Padding(
-                            padding: const EdgeInsets.all(8.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2.0),
                             child: Row(
                               children: [
+                                // 순위 표시
+                                Container(
+                                  width: 20,
+                                  child: Text(
+                                    '${index + 1}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: index < 3 ? AppTheme.warningColor : Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        notice.title,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        notice.category,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
-                                    ],
+                                  child: Text(
+                                    notice.title,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.visibility, size: 14, color: Colors.grey.shade600),
-                                    const SizedBox(width: 4),
+                                    Icon(Icons.visibility, size: 12, color: Colors.grey.shade500),
+                                    const SizedBox(width: 2),
                                     Text(
                                       '${notice.views}',
                                       style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
+                                        fontSize: 11,
+                                        color: Colors.grey.shade500,
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    // 북마크 아이콘
-                                    IconButton(
-                                      icon: Icon(
-                                        notice.isBookmarked
-                                            ? Icons.bookmark
-                                            : Icons.bookmark_border,
-                                        size: 18,
-                                      ),
-                                      color: notice.isBookmarked
-                                          ? Theme.of(context).colorScheme.primary
-                                          : Colors.grey.shade600,
-                                      onPressed: () {
-                                        context.read<NoticeProvider>().toggleBookmark(notice.id);
-                                      },
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      tooltip: notice.isBookmarked ? '북마크 해제' : '북마크 추가',
                                     ),
                                   ],
                                 ),
@@ -677,14 +683,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ],
-          ),
-        );
+          );
       },
     );
   }
 
   // 카드 2: 저장한 일정
-  Widget _buildSavedEventsCard() {
+  Widget _buildSavedEventsCardContent() {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
         // 북마크된 공지 전체 표시 (마감일 있는 것 우선, 임박한 순)
@@ -703,20 +708,7 @@ class _HomeScreenState extends State<HomeScreen> {
         });
         final topEvents = bookmarked.take(5).toList();
 
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
+        return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
@@ -732,29 +724,43 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Icon(Icons.event, color: Colors.blue.shade700),
                     ),
                     const SizedBox(width: 12),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '저장한 일정',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '저장한 일정',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '마감 임박 순',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
+                          Text(
+                            '마감 임박 순',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
                           ),
+                        ],
+                      ),
+                    ),
+                    // 전체보기 버튼
+                    GestureDetector(
+                      onTap: () => FullListModal.showSavedEvents(context),
+                      child: Text(
+                        '전체보기',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.withOpacity(0.7),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
               ),
               const Divider(height: 1),
+              // 고정 레이아웃 (스크롤 없음)
               Expanded(
                 child: topEvents.isEmpty
                     ? Center(
@@ -770,12 +776,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       )
-                    : SingleChildScrollView(
+                    : Padding(
                         padding: const EdgeInsets.all(12),
                         child: Column(
-                          children: topEvents.map((notice) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
+                          children: topEvents.asMap().entries.map((entry) {
+                            final notice = entry.value;
+                            return Expanded(
                               child: InkWell(
                                 onTap: () {
                                   Navigator.of(context).push(
@@ -786,62 +792,41 @@ class _HomeScreenState extends State<HomeScreen> {
                                 },
                                 borderRadius: BorderRadius.circular(8),
                                 child: Padding(
-                                  padding: const EdgeInsets.all(8.0),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2.0),
                                   child: Row(
                                     children: [
                                       Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              notice.title,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              notice.category,
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.grey.shade600,
-                                              ),
-                                            ),
-                                          ],
+                                        child: Text(
+                                          notice.title,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                       if (notice.daysUntilDeadline != null) ...[
-                                        Text(
-                                          'D-${notice.daysUntilDeadline}',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.red.shade600,
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: notice.daysUntilDeadline! <= 3
+                                                ? Colors.red.shade100
+                                                : Colors.blue.shade100,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            'D-${notice.daysUntilDeadline}',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: notice.daysUntilDeadline! <= 3
+                                                  ? Colors.red.shade700
+                                                  : Colors.blue.shade700,
+                                            ),
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
                                       ],
-                                      // 북마크 아이콘
-                                      IconButton(
-                                        icon: Icon(
-                                          notice.isBookmarked
-                                              ? Icons.bookmark
-                                              : Icons.bookmark_border,
-                                          size: 18,
-                                        ),
-                                        color: notice.isBookmarked
-                                            ? Theme.of(context).colorScheme.primary
-                                            : Colors.grey.shade600,
-                                        onPressed: () {
-                                          context.read<NoticeProvider>().toggleBookmark(notice.id);
-                                        },
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                        tooltip: notice.isBookmarked ? '북마크 해제' : '북마크 추가',
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -852,33 +837,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
               ),
             ],
-          ),
-        );
+          );
       },
     );
   }
 
   // 카드 3: AI 추천
-  Widget _buildAIRecommendCard() {
+  Widget _buildAIRecommendCardContent() {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
         // AI 추천: 백엔드 하이브리드 검색 기반 맞춤 추천
         final aiRecommended = provider.recommendedNotices.take(5).toList();
 
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
+        return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
@@ -894,29 +865,43 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Icon(Icons.auto_awesome, color: Colors.purple.shade700),
                     ),
                     const SizedBox(width: 12),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'AI 추천',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'AI 추천',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '맞춤 공지사항',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
+                          Text(
+                            '맞춤 공지사항',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
                           ),
+                        ],
+                      ),
+                    ),
+                    // 전체보기 버튼
+                    GestureDetector(
+                      onTap: () => FullListModal.showAIRecommend(context),
+                      child: Text(
+                        '전체보기',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.withOpacity(0.7),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
               ),
               const Divider(height: 1),
+              // 고정 레이아웃 (스크롤 없음)
               Expanded(
                 child: provider.isRecommendedLoading && aiRecommended.isEmpty
                     ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
@@ -934,12 +919,12 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                           )
-                        : SingleChildScrollView(
+                        : Padding(
                             padding: const EdgeInsets.all(12),
                             child: Column(
-                              children: aiRecommended.map((notice) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
+                              children: aiRecommended.asMap().entries.map((entry) {
+                                final notice = entry.value;
+                                return Expanded(
                                   child: InkWell(
                                     onTap: () {
                                       Navigator.of(context).push(
@@ -950,41 +935,25 @@ class _HomeScreenState extends State<HomeScreen> {
                                     },
                                     borderRadius: BorderRadius.circular(8),
                                     child: Padding(
-                                      padding: const EdgeInsets.all(8.0),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2.0),
                                       child: Row(
                                         children: [
                                           Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  notice.title,
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                                const SizedBox(height: 4),
-                                                if (notice.aiSummary != null)
-                                                  Text(
-                                                    notice.aiSummary!,
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Colors.grey.shade600,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                              ],
+                                            child: Text(
+                                              notice.title,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
                                           if (notice.category.isNotEmpty) ...[
                                             Container(
                                               padding: const EdgeInsets.symmetric(
                                                 horizontal: 6,
-                                                vertical: 3,
+                                                vertical: 2,
                                               ),
                                               decoration: BoxDecoration(
                                                 color: Colors.purple.shade100,
@@ -999,26 +968,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 ),
                                               ),
                                             ),
-                                            const SizedBox(width: 8),
                                           ],
-                                          // 북마크 아이콘
-                                          IconButton(
-                                            icon: Icon(
-                                              notice.isBookmarked
-                                                  ? Icons.bookmark
-                                                  : Icons.bookmark_border,
-                                              size: 18,
-                                            ),
-                                            color: notice.isBookmarked
-                                                ? Theme.of(context).colorScheme.primary
-                                                : Colors.grey.shade600,
-                                            onPressed: () {
-                                              context.read<NoticeProvider>().toggleBookmark(notice.id);
-                                            },
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(),
-                                            tooltip: notice.isBookmarked ? '북마크 해제' : '북마크 추가',
-                                          ),
                                         ],
                                       ),
                                     ),
@@ -1029,14 +979,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
               ),
             ],
-          ),
-        );
+          );
       },
     );
   }
 
   // 카드 4: 이번 주 주요 정보
-  Widget _buildWeeklyInfoCard() {
+  Widget _buildWeeklyInfoCardContent() {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
         final now = DateTime.now();
@@ -1053,20 +1002,7 @@ class _HomeScreenState extends State<HomeScreen> {
             .take(5)
             .toList();
 
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
+        return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
@@ -1082,24 +1018,36 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Icon(Icons.calendar_today, color: Colors.green.shade700),
                     ),
                     const SizedBox(width: 12),
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '이번 주 일정',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '이번 주 일정',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '마감 예정 공지사항',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
+                          Text(
+                            '마감 예정 공지사항',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
                           ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => FullListModal.showWeeklySchedule(context),
+                      child: Text(
+                        '전체보기',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.withOpacity(0.7),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -1120,12 +1068,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       )
-                    : SingleChildScrollView(
+                    : Padding(
                         padding: const EdgeInsets.all(12),
                         child: Column(
-                          children: weeklyNotices.map((notice) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
+                          children: weeklyNotices.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final notice = entry.value;
+                            return Expanded(
                               child: InkWell(
                                 onTap: () {
                                   Navigator.of(context).push(
@@ -1135,13 +1084,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                   );
                                 },
                                 borderRadius: BorderRadius.circular(8),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8.0),
+                                child: Container(
+                                  margin: EdgeInsets.only(bottom: index < weeklyNotices.length - 1 ? 4 : 0),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   child: Row(
                                     children: [
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.center,
                                           children: [
                                             Text(
                                               notice.title,
@@ -1152,7 +1103,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
-                                            const SizedBox(height: 4),
+                                            const SizedBox(height: 2),
                                             Text(
                                               '마감: ${notice.deadline!.month}/${notice.deadline!.day}',
                                               style: TextStyle(
@@ -1210,8 +1161,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
               ),
             ],
-          ),
-        );
+          );
       },
     );
   }
