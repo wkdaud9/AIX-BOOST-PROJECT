@@ -37,29 +37,15 @@ class SettingsScreen extends StatelessWidget {
 
                 const SizedBox(height: AppSpacing.lg),
 
-                // 알림 설정 섹션
+                // 알림 설정 섹션 (드롭다운 방식)
                 _buildSection(
                   context,
                   title: '알림',
                   children: [
-                    _buildSwitchTile(
-                      context,
-                      icon: Icons.notifications_outlined,
-                      title: '푸시 알림',
-                      subtitle: '새로운 공지사항 알림 받기',
-                      value: settings.pushNotificationEnabled,
-                      onChanged: (value) => settings.setPushNotificationEnabled(value),
-                    ),
-                    _buildDivider(context),
-                    _buildSwitchTile(
-                      context,
-                      icon: Icons.event_outlined,
-                      title: '일정 알림',
-                      subtitle: '마감일 ${settings.deadlineReminderDays}일 전 알림',
-                      value: settings.scheduleNotificationEnabled,
-                      onChanged: (value) => settings.setScheduleNotificationEnabled(value),
-                    ),
-                    if (settings.scheduleNotificationEnabled) ...[
+                    _buildNotificationDropdown(context, settings),
+                    if (settings.notificationMode != NotificationMode.allOff &&
+                        (settings.notificationMode == NotificationMode.scheduleOnly ||
+                         settings.notificationMode == NotificationMode.allOn)) ...[
                       _buildDivider(context),
                       _buildReminderDaysSelector(context, settings),
                     ],
@@ -87,55 +73,6 @@ class SettingsScreen extends StatelessWidget {
                       title: '설정 초기화',
                       subtitle: '모든 설정을 기본값으로 되돌리기',
                       onTap: () => _showResetSettingsDialog(context, settings),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: AppSpacing.lg),
-
-                // 지원 섹션
-                _buildSection(
-                  context,
-                  title: '지원',
-                  children: [
-                    _buildActionTile(
-                      context,
-                      icon: Icons.help_outline,
-                      title: '고객센터',
-                      subtitle: 'aix.boost@kunsan.ac.kr',
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _showContactDialog(context),
-                    ),
-                    _buildDivider(context),
-                    _buildActionTile(
-                      context,
-                      icon: Icons.description_outlined,
-                      title: '오픈소스 라이선스',
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _showLicensesDialog(context),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: AppSpacing.lg),
-
-                // 앱 정보 섹션
-                _buildSection(
-                  context,
-                  title: '정보',
-                  children: [
-                    _buildInfoTile(
-                      context,
-                      icon: Icons.info_outline,
-                      title: '앱 버전',
-                      value: 'v1.0.0 (Build 1)',
-                    ),
-                    _buildDivider(context),
-                    _buildInfoTile(
-                      context,
-                      icon: Icons.code_outlined,
-                      title: '개발',
-                      value: 'AIX-Boost Team',
                     ),
                   ],
                 ),
@@ -295,21 +232,14 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  /// 스위치 타일
-  Widget _buildSwitchTile(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    String? subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
+  /// 알림 드롭다운
+  Widget _buildNotificationDropdown(BuildContext context, SettingsProvider settings) {
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Row(
         children: [
           Icon(
-            icon,
+            Icons.notifications_outlined,
             size: 22,
             color: Theme.of(context).brightness == Brightness.dark
                 ? Colors.white70
@@ -320,24 +250,76 @@ class SettingsScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 16)),
-                if (subtitle != null)
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white60
-                          : AppTheme.textSecondary,
-                    ),
+                const Text('알림 설정', style: TextStyle(fontSize: 16)),
+                Text(
+                  '공지사항 및 일정 알림',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white60
+                        : AppTheme.textSecondary,
                   ),
+                ),
               ],
             ),
           ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeColor: AppTheme.primaryColor,
+          PopupMenuButton<NotificationMode>(
+            initialValue: settings.notificationMode,
+            position: PopupMenuPosition.under,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            onSelected: (value) {
+              settings.setNotificationMode(value);
+            },
+            itemBuilder: (context) => NotificationMode.values.map((mode) {
+              String label;
+              switch (mode) {
+                case NotificationMode.allOff:
+                  label = '모두 끔';
+                  break;
+                case NotificationMode.scheduleOnly:
+                  label = '일정만';
+                  break;
+                case NotificationMode.noticeOnly:
+                  label = '공지만';
+                  break;
+                case NotificationMode.allOn:
+                  label = '모두 켬';
+                  break;
+              }
+              return PopupMenuItem(
+                value: mode,
+                child: Text(label),
+              );
+            }).toList(),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(
+                  color: AppTheme.primaryColor.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    settings.notificationModeDisplayText,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.keyboard_arrow_down, size: 20),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -361,20 +343,42 @@ class SettingsScreen extends StatelessWidget {
           const Expanded(
             child: Text('알림 시점', style: TextStyle(fontSize: 16)),
           ),
-          DropdownButton<int>(
-            value: settings.deadlineReminderDays,
-            underline: const SizedBox(),
-            items: [1, 2, 3, 5, 7].map((days) {
-              return DropdownMenuItem(
+          PopupMenuButton<int>(
+            initialValue: settings.deadlineReminderDays,
+            position: PopupMenuPosition.under,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            onSelected: (value) {
+              settings.setDeadlineReminderDays(value);
+            },
+            itemBuilder: (context) => [1, 2, 3, 5, 7].map((days) {
+              return PopupMenuItem(
                 value: days,
                 child: Text('D-$days'),
               );
             }).toList(),
-            onChanged: (value) {
-              if (value != null) {
-                settings.setDeadlineReminderDays(value);
-              }
-            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'D-${settings.deadlineReminderDays}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.keyboard_arrow_down, size: 20),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -435,42 +439,6 @@ class SettingsScreen extends StatelessWidget {
               ),
           ],
         ),
-      ),
-    );
-  }
-
-  /// 정보 타일 (읽기 전용)
-  Widget _buildInfoTile(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required String value,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 22,
-            color: Theme.of(context).brightness == Brightness.dark
-                ? Colors.white70
-                : AppTheme.textSecondary,
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(title, style: const TextStyle(fontSize: 16)),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white60
-                  : AppTheme.textSecondary,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -540,54 +508,4 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  /// 고객센터 다이얼로그
-  void _showContactDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('고객센터'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('문의사항이 있으시면 아래 이메일로 연락해주세요.'),
-            const SizedBox(height: AppSpacing.md),
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.email_outlined, size: 20),
-                  SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'aix.boost@kunsan.ac.kr',
-                    style: TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 오픈소스 라이선스 다이얼로그
-  void _showLicensesDialog(BuildContext context) {
-    showLicensePage(
-      context: context,
-      applicationName: 'AIX-Boost',
-      applicationVersion: 'v1.0.0',
-      applicationLegalese: '© 2025 AIX-Boost Team. All rights reserved.',
-    );
-  }
 }

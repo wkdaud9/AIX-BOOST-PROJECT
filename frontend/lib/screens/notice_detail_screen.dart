@@ -123,9 +123,11 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
 
   /// 헤더 영역 (제목, 카테고리, 날짜 등)
   Widget _buildHeader() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
-      color: AppTheme.surfaceColor,
+      color: isDark ? const Color(0xFF25253D) : AppTheme.surfaceColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -215,23 +217,23 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: AppTheme.primaryColor.withOpacity(isDark ? 0.15 : 0.08),
                 borderRadius: BorderRadius.circular(AppRadius.md),
-                border: Border.all(color: Colors.blue.shade200),
+                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.auto_awesome, size: 18, color: Colors.blue.shade700),
+                      Icon(Icons.auto_awesome, size: 18, color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor),
                       const SizedBox(width: 6),
                       Text(
                         'AI 요약',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade900,
+                          color: isDark ? Colors.white : AppTheme.primaryDark,
                         ),
                       ),
                     ],
@@ -241,7 +243,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                     _notice!.aiSummary!,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.blue.shade900,
+                      color: isDark ? Colors.white70 : AppTheme.primaryDark,
                       height: 1.5,
                     ),
                   ),
@@ -256,10 +258,14 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: _notice!.isDeadlineSoon ? Colors.red.shade50 : Colors.green.shade50,
+                color: _notice!.isDeadlineSoon
+                    ? AppTheme.errorColor.withOpacity(isDark ? 0.15 : 0.08)
+                    : AppTheme.successColor.withOpacity(isDark ? 0.15 : 0.08),
                 borderRadius: BorderRadius.circular(AppRadius.md),
                 border: Border.all(
-                  color: _notice!.isDeadlineSoon ? Colors.red.shade200 : Colors.green.shade200,
+                  color: _notice!.isDeadlineSoon
+                      ? AppTheme.errorColor.withOpacity(0.3)
+                      : AppTheme.successColor.withOpacity(0.3),
                 ),
               ),
               child: Column(
@@ -271,7 +277,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                       Icon(
                         Icons.event,
                         size: 18,
-                        color: _notice!.isDeadlineSoon ? Colors.red.shade700 : Colors.green.shade700,
+                        color: _notice!.isDeadlineSoon ? AppTheme.errorColor : AppTheme.successColor,
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -279,7 +285,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: _notice!.isDeadlineSoon ? Colors.red.shade900 : Colors.green.shade900,
+                          color: isDark ? Colors.white : (_notice!.isDeadlineSoon ? AppTheme.errorColor : AppTheme.successColor),
                         ),
                       ),
                     ],
@@ -295,14 +301,14 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                             '${dl.label}: ~ ${dl.date.month.toString().padLeft(2, '0')}.${dl.date.day.toString().padLeft(2, '0')}',
                             style: TextStyle(
                               fontSize: 13,
-                              color: _notice!.isDeadlineSoon ? Colors.red.shade800 : Colors.green.shade800,
+                              color: isDark ? Colors.white70 : (_notice!.isDeadlineSoon ? AppTheme.errorColor : AppTheme.successColor),
                             ),
                           ),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: dl.isSoon ? Colors.red : Colors.green,
+                            color: dl.isSoon ? AppTheme.errorColor : AppTheme.successColor,
                             borderRadius: BorderRadius.circular(AppRadius.sm),
                           ),
                           child: Text(
@@ -326,10 +332,14 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: _notice!.isDeadlineSoon ? Colors.red.shade50 : Colors.green.shade50,
+                color: _notice!.isDeadlineSoon
+                    ? AppTheme.errorColor.withOpacity(isDark ? 0.15 : 0.08)
+                    : AppTheme.successColor.withOpacity(isDark ? 0.15 : 0.08),
                 borderRadius: BorderRadius.circular(AppRadius.md),
                 border: Border.all(
-                  color: _notice!.isDeadlineSoon ? Colors.red.shade200 : Colors.green.shade200,
+                  color: _notice!.isDeadlineSoon
+                      ? AppTheme.errorColor.withOpacity(0.3)
+                      : AppTheme.successColor.withOpacity(0.3),
                 ),
               ),
               child: Row(
@@ -337,7 +347,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                   Icon(
                     Icons.event,
                     size: 18,
-                    color: _notice!.isDeadlineSoon ? Colors.red.shade700 : Colors.green.shade700,
+                    color: _notice!.isDeadlineSoon ? AppTheme.errorColor : AppTheme.successColor,
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -345,7 +355,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: _notice!.isDeadlineSoon ? Colors.red.shade900 : Colors.green.shade900,
+                      color: isDark ? Colors.white : (_notice!.isDeadlineSoon ? AppTheme.errorColor : AppTheme.successColor),
                     ),
                   ),
                   const Spacer(),
@@ -353,7 +363,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: _notice!.isDeadlineSoon ? Colors.red : Colors.green,
+                        color: _notice!.isDeadlineSoon ? AppTheme.errorColor : AppTheme.successColor,
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                       ),
                       child: Text(
@@ -631,10 +641,11 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
   /// 이미지 로딩 상태 표시
   Widget _imageLoadingBuilder(BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
     if (loadingProgress == null) return child;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: 200,
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: isDark ? const Color(0xFF2D2D44) : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: const Center(
@@ -648,21 +659,22 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     if (kDebugMode) {
       debugPrint('[NoticeDetail] 이미지 로드 에러: $error');
     }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: 120,
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: isDark ? const Color(0xFF2D2D44) : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.broken_image, size: 36, color: Colors.grey.shade400),
+          Icon(Icons.broken_image, size: 36, color: isDark ? Colors.white38 : AppTheme.textHint),
           const SizedBox(height: 8),
           Text(
             '이미지를 불러올 수 없습니다',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : AppTheme.textSecondary),
           ),
         ],
       ),
@@ -688,6 +700,8 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
         .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return MarkdownBody(
       data: contentWithoutImages,
       selectable: true,
@@ -696,13 +710,13 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
         h1: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
         h2: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         h3: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-        tableHead: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        tableBody: const TextStyle(fontSize: 14),
-        tableBorder: TableBorder.all(color: Colors.grey.shade300, width: 1),
+        tableHead: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : AppTheme.textPrimary),
+        tableBody: TextStyle(fontSize: 14, color: isDark ? Colors.white : AppTheme.textPrimary),
+        tableBorder: TableBorder.all(color: isDark ? Colors.white24 : Colors.grey.shade300, width: 1),
         tableCellsPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         blockquoteDecoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          border: Border(left: BorderSide(color: Colors.grey.shade400, width: 3)),
+          color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade50,
+          border: Border(left: BorderSide(color: isDark ? Colors.white38 : Colors.grey.shade400, width: 3)),
         ),
         listBullet: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6),
       ),
@@ -869,12 +883,12 @@ AIX-Boost 앱에서 확인하세요!
   Color _getPriorityColor(String priority) {
     switch (priority) {
       case '긴급':
-        return Colors.red.shade700;
+        return AppTheme.errorColor;
       case '중요':
-        return Colors.orange.shade700;
+        return AppTheme.warningColor;
       case '일반':
       default:
-        return Colors.grey.shade600;
+        return AppTheme.textSecondary;
     }
   }
 }

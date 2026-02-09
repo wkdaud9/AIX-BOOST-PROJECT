@@ -352,14 +352,23 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
 
   /// 빈 북마크 뷰
   Widget _buildEmptyView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.bookmark_outline,
-            size: 80,
-            color: Colors.grey[400],
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white12 : AppTheme.textHint.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.bookmark_outline,
+              size: 48,
+              color: isDark ? Colors.white38 : AppTheme.textHint,
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
@@ -367,7 +376,7 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
+              color: isDark ? Colors.white70 : AppTheme.textPrimary,
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -375,7 +384,7 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
             '관심있는 공지사항을 북마크에 저장해보세요',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[600],
+              color: isDark ? Colors.white54 : AppTheme.textSecondary,
             ),
             textAlign: TextAlign.center,
           ),

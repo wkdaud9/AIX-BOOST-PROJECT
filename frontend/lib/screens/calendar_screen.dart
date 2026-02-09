@@ -55,17 +55,18 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
           '일정',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimary,
+            color: isDark ? Colors.white : AppTheme.textPrimary,
           ),
         ),
         elevation: 0,
-        backgroundColor: AppTheme.surfaceColor,
         actions: [
           // 보기 모드 전환 버튼 (세련된 디자인)
           Container(
@@ -119,6 +120,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   /// 리스트 뷰
   Widget _buildListView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
         // 북마크된 공지사항 전체 (마감일 없는 것도 포함)
@@ -161,13 +164,13 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                           Icon(
                             Icons.event_busy,
                             size: 64,
-                            color: Colors.grey[400],
+                            color: isDark ? Colors.white38 : AppTheme.textHint,
                           ),
                           const SizedBox(height: AppSpacing.md),
                           Text(
                             '저장된 일정이 없습니다.',
                             style: TextStyle(
-                              color: Colors.grey[600],
+                              color: isDark ? Colors.white54 : AppTheme.textSecondary,
                               fontSize: 16,
                             ),
                           ),
@@ -175,7 +178,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                           Text(
                             '공지사항을 북마크에 저장하면\n여기에 일정이 표시됩니다.',
                             style: TextStyle(
-                              color: Colors.grey[500],
+                              color: isDark ? Colors.white38 : AppTheme.textSecondary,
                               fontSize: 14,
                             ),
                             textAlign: TextAlign.center,
@@ -200,12 +203,14 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   /// 정렬 옵션 (탭 방식)
   Widget _buildSortOptions() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: Colors.grey.shade300,
+            color: isDark ? Colors.white12 : Colors.grey.shade300,
             width: 1,
           ),
         ),
@@ -213,7 +218,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       child: TabBar(
         controller: _tabController,
         labelColor: AppTheme.primaryColor,
-        unselectedLabelColor: Colors.grey.shade600,
+        unselectedLabelColor: isDark ? Colors.white54 : AppTheme.textSecondary,
         labelStyle: const TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.bold,
@@ -510,6 +515,8 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   /// 선택된 날짜의 공지사항 목록 (복수 마감일 라벨 포함)
   Widget _buildEventList() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
         final deadlineEvents = _getDeadlineEventsForDay(
@@ -525,13 +532,13 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 Icon(
                   Icons.event_busy,
                   size: 64,
-                  color: Colors.grey[400],
+                  color: isDark ? Colors.white38 : AppTheme.textHint,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
                   '해당 날짜에 마감 일정이 없습니다.',
                   style: TextStyle(
-                    color: Colors.grey[600],
+                    color: isDark ? Colors.white54 : AppTheme.textSecondary,
                     fontSize: 16,
                   ),
                 ),

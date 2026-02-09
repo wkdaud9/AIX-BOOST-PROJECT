@@ -95,6 +95,8 @@ class NotificationScreen extends StatelessWidget {
 
   /// 빈 상태 UI
   Widget _buildEmptyState(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -102,17 +104,13 @@ class NotificationScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(AppSpacing.xl),
             decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white12
-                  : Colors.grey.shade100,
+              color: isDark ? Colors.white12 : AppTheme.textHint.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.notifications_off_outlined,
               size: 48,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white38
-                  : Colors.grey.shade400,
+              color: isDark ? Colors.white38 : AppTheme.textHint,
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -121,9 +119,7 @@ class NotificationScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white70
-                  : AppTheme.textPrimary,
+              color: isDark ? Colors.white70 : AppTheme.textPrimary,
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -131,9 +127,7 @@ class NotificationScreen extends StatelessWidget {
             '새로운 알림이 오면 여기에 표시됩니다',
             style: TextStyle(
               fontSize: 14,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white54
-                  : AppTheme.textSecondary,
+              color: isDark ? Colors.white54 : AppTheme.textSecondary,
             ),
           ),
           const SizedBox(height: AppSpacing.xl),

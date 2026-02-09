@@ -446,37 +446,51 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
 
   /// 학년 드롭다운 (아래로 펼쳐지는 방식)
   Widget _buildGradeDropdown(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2D2D44) : AppTheme.surfaceLight,
+    return PopupMenuButton<String>(
+      initialValue: _selectedGrade,
+      position: PopupMenuPosition.under,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(
-          color: isDark
-              ? Colors.white24
-              : AppTheme.textHint.withOpacity(0.3),
-        ),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedGrade,
-          isExpanded: true,
-          icon: Icon(
-            Icons.keyboard_arrow_down,
-            color: isDark ? Colors.white54 : AppTheme.textSecondary,
+      color: isDark ? const Color(0xFF2D2D44) : Colors.white,
+      onSelected: (value) {
+        setState(() => _selectedGrade = value);
+      },
+      itemBuilder: (context) => AppData.grades.map((grade) {
+        return PopupMenuItem(
+          value: grade,
+          child: Text(grade),
+        );
+      }).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: 14,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2D2D44) : AppTheme.surfaceLight,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(
+            color: isDark
+                ? Colors.white24
+                : AppTheme.textHint.withOpacity(0.3),
           ),
-          dropdownColor: isDark ? const Color(0xFF2D2D44) : Colors.white,
-          items: AppData.grades.map((grade) {
-            return DropdownMenuItem(
-              value: grade,
-              child: Text(grade),
-            );
-          }).toList(),
-          onChanged: (value) {
-            if (value != null) {
-              setState(() => _selectedGrade = value);
-            }
-          },
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                _selectedGrade,
+                style: TextStyle(
+                  color: isDark ? Colors.white : AppTheme.textPrimary,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.keyboard_arrow_down,
+              color: isDark ? Colors.white54 : AppTheme.textSecondary,
+            ),
+          ],
         ),
       ),
     );

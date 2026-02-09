@@ -7,7 +7,7 @@ import 'notice_detail_screen.dart';
 
 /// 정렬 타입
 enum SortType {
-  popularity, // 인기순 (조회수)
+  popularity, // 인기순 (북마크 수)
   latest, // 최신순
   deadline, // 마감순
   views, // 조회순
@@ -33,64 +33,91 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: _buildAppBar(),
-      body: Consumer<NoticeProvider>(
-        builder: (context, provider, child) {
-          // 카테고리 필터링
-          var categoryNotices = provider.notices
-              .where((n) => n.category == widget.categoryName)
-              .toList();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-          // 정렬 적용
-          _sortNotices(categoryNotices);
+    return Consumer<NoticeProvider>(
+      builder: (context, provider, child) {
+        // 카테고리 필터링
+        var categoryNotices = provider.notices
+            .where((n) => n.category == widget.categoryName)
+            .toList();
 
-          if (categoryNotices.isEmpty) {
-            return _buildEmptyView();
-          }
+        // 정렬 적용
+        _sortNotices(categoryNotices);
 
-          return RefreshIndicator(
-            onRefresh: () async {
-              await provider.fetchNotices();
-            },
-            child: ListView.builder(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              itemCount: categoryNotices.length,
-              itemBuilder: (context, index) {
-                return _buildNoticeCard(categoryNotices[index]);
-              },
-            ),
-          );
-        },
-      ),
+        return Scaffold(
+          appBar: _buildAppBar(categoryNotices.length, isDark),
+          body: categoryNotices.isEmpty
+              ? _buildEmptyView(isDark)
+              : RefreshIndicator(
+                  onRefresh: () async {
+                    await provider.fetchNotices();
+                  },
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    itemCount: categoryNotices.length,
+                    itemBuilder: (context, index) {
+                      return _buildNoticeCard(
+                          categoryNotices[index], isDark);
+                    },
+                  ),
+                ),
+        );
+      },
     );
   }
 
-  /// AppBar 구성
-  PreferredSizeWidget _buildAppBar() {
+  /// AppBar 구성 (카테고리명 + 건수 + 정렬)
+  PreferredSizeWidget _buildAppBar(int resultCount, bool isDark) {
     return AppBar(
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
         onPressed: () => Navigator.pop(context),
       ),
-      title: Text(
-        widget.categoryName,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          color: AppTheme.textPrimary,
-        ),
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            widget.categoryName,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          // 결과 건수 뱃지
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 2,
+            ),
+            decoration: BoxDecoration(
+              color: widget.categoryColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(AppRadius.round),
+            ),
+            child: Text(
+              '$resultCount건',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: widget.categoryColor,
+              ),
+            ),
+          ),
+        ],
       ),
       centerTitle: true,
       elevation: 0,
-      backgroundColor: AppTheme.surfaceColor,
+      backgroundColor:
+          isDark ? Theme.of(context).scaffoldBackgroundColor : AppTheme.surfaceColor,
       actions: [
-        _buildSortDropdown(),
+        _buildSortDropdown(isDark),
       ],
     );
   }
 
   /// 정렬 드롭다운
-  Widget _buildSortDropdown() {
+  Widget _buildSortDropdown(bool isDark) {
     return PopupMenuButton<SortType>(
       icon: Row(
         mainAxisSize: MainAxisSize.min,
@@ -111,16 +138,25 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
           ),
         ],
       ),
+      color: isDark ? const Color(0xFF2D2D44) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      position: PopupMenuPosition.under,
       onSelected: (SortType type) {
         setState(() {
           _sortType = type;
         });
       },
       itemBuilder: (BuildContext context) => <PopupMenuEntry<SortType>>[
-        _buildSortMenuItem(SortType.popularity, '인기순', Icons.trending_up),
-        _buildSortMenuItem(SortType.latest, '최신순', Icons.schedule),
-        _buildSortMenuItem(SortType.deadline, '마감순', Icons.alarm),
-        _buildSortMenuItem(SortType.views, '조회순', Icons.visibility),
+        _buildSortMenuItem(
+            SortType.popularity, '인기순', Icons.trending_up, isDark),
+        _buildSortMenuItem(
+            SortType.latest, '최신순', Icons.schedule, isDark),
+        _buildSortMenuItem(
+            SortType.deadline, '마감순', Icons.alarm, isDark),
+        _buildSortMenuItem(
+            SortType.views, '조회순', Icons.visibility, isDark),
       ],
     );
   }
@@ -130,6 +166,7 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
     SortType type,
     String label,
     IconData icon,
+    bool isDark,
   ) {
     final isSelected = _sortType == type;
     return PopupMenuItem<SortType>(
@@ -139,14 +176,18 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
           Icon(
             icon,
             size: 18,
-            color: isSelected ? widget.categoryColor : AppTheme.textSecondary,
+            color: isSelected
+                ? widget.categoryColor
+                : (isDark ? Colors.white54 : AppTheme.textSecondary),
           ),
           const SizedBox(width: 12),
           Text(
             label,
             style: TextStyle(
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? widget.categoryColor : AppTheme.textPrimary,
+              color: isSelected
+                  ? widget.categoryColor
+                  : (isDark ? Colors.white : AppTheme.textPrimary),
             ),
           ),
           if (isSelected) ...[
@@ -162,216 +203,324 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
     );
   }
 
-  /// 공지사항 카드
-  Widget _buildNoticeCard(Notice notice) {
-    return Card(
+  /// 공지사항 카드 - Row 기반 레이아웃 (Stack/Positioned 제거)
+  Widget _buildNoticeCard(Notice notice, bool isDark) {
+    // D-day 표시 로직: 미만료 건만 표시
+    final showDDay = notice.deadline != null &&
+        notice.daysUntilDeadline != null &&
+        notice.daysUntilDeadline! >= 0;
+    final dDayColor =
+        (notice.daysUntilDeadline != null && notice.daysUntilDeadline! <= 3)
+            ? AppTheme.errorColor
+            : AppTheme.infoColor;
+
+    return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => NoticeDetailScreen(noticeId: notice.id),
-            ),
-          );
-        },
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF25253D) : Colors.white,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Stack(
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 왼쪽 영역 (제목, 메타 정보)
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // D-day 표시 (빨간색 텍스트만)
-                        if (notice.deadline != null &&
-                            notice.daysUntilDeadline != null) ...[
-                          Text(
-                            'D-${notice.daysUntilDeadline}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.red.shade600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-
-                        // 제목
-                        Padding(
-                          padding: const EdgeInsets.only(right: 60), // 우선순위 뱃지 공간 확보
-                          child: Text(
-                            notice.title,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textPrimary,
-                                ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // 메타 정보 (조회수, 저장 횟수)
-                        Row(
-                          children: [
-                            // 조회수
-                            Icon(
-                              Icons.visibility_outlined,
-                              size: 16,
-                              color: AppTheme.textSecondary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${notice.views}',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-
-                            // 북마크 수
-                            Icon(
-                              Icons.bookmark_outlined,
-                              size: 16,
-                              color: AppTheme.textSecondary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${notice.bookmarkCount}',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppTheme.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const Spacer(),
-
-                            // 날짜 정보
-                            Text(
-                              notice.formattedDate,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.textHint,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-
-                  // 오른쪽 영역 (썸네일)
-                  _buildThumbnail(notice),
-                ],
+        boxShadow: isDark ? null : AppShadow.soft,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) =>
+                    NoticeDetailScreen(noticeId: notice.id),
               ),
-              // 우선순위 + NEW 뱃지 (오른쪽 상단)
-              Positioned(
-                top: 0,
-                right: 90,
-                child: Row(
-                  children: [
-                    if (notice.priority != null) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+            );
+          },
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 좌측: 콘텐츠 영역
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 인라인 뱃지 행 (우선순위 + NEW + D-day)
+                      _buildInlineBadges(
+                          notice, showDDay, dDayColor, isDark),
+
+                      const SizedBox(height: AppSpacing.sm),
+
+                      // 제목 (매직넘버 padding 제거)
+                      Text(
+                        notice.title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? Colors.white
+                              : AppTheme.textPrimary,
+                          height: 1.3,
                         ),
-                        decoration: BoxDecoration(
-                          color: _getPriorityColor(notice.priority!),
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                        ),
-                        child: Text(
-                          notice.priority!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: 4),
+
+                      const SizedBox(height: AppSpacing.sm),
+
+                      // 메타 정보 행
+                      _buildMetaRow(notice, isDark),
                     ],
-                    if (notice.isNew)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.errorColor,
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                        ),
-                        child: const Text(
-                          'NEW',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+                  ),
+                ),
+
+                const SizedBox(width: AppSpacing.md),
+
+                // 우측: 썸네일 + 북마크
+                Column(
+                  children: [
+                    _buildThumbnail(notice, isDark),
+                    const SizedBox(height: AppSpacing.sm),
+                    _buildBookmarkButton(notice, isDark),
                   ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  /// 썸네일 이미지
-  Widget _buildThumbnail(Notice notice) {
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        color: widget.categoryColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(
-          color: widget.categoryColor.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // 기본 아이콘 (플레이스홀더)
-            Icon(
-              Icons.article_outlined,
-              size: 36,
-              color: widget.categoryColor.withOpacity(0.4),
+  /// 인라인 뱃지 행 (우선순위 + NEW + D-day)
+  Widget _buildInlineBadges(
+    Notice notice,
+    bool showDDay,
+    Color dDayColor,
+    bool isDark,
+  ) {
+    final hasBadges = (notice.priority != null && notice.priority != '일반') ||
+        notice.isNew ||
+        showDDay;
+
+    if (!hasBadges) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.xs,
+        children: [
+          // 우선순위 뱃지
+          if (notice.priority != null && notice.priority != '일반')
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 3,
+              ),
+              decoration: BoxDecoration(
+                color: _getPriorityColor(notice.priority!, isDark),
+                borderRadius: BorderRadius.circular(AppRadius.xs),
+              ),
+              child: Text(
+                notice.priority!,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-            // 향후 이미지 URL이 있으면 표시
-            // notice.imageUrl != null
-            //   ? Image.network(notice.imageUrl!, fit: BoxFit.cover)
-            //   : SizedBox.shrink(),
-          ],
-        ),
+
+          // NEW 뱃지
+          if (notice.isNew)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 3,
+              ),
+              decoration: BoxDecoration(
+                color: AppTheme.errorColor,
+                borderRadius: BorderRadius.circular(AppRadius.xs),
+              ),
+              child: const Text(
+                'NEW',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
+          // D-day 뱃지
+          if (showDDay)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 3,
+              ),
+              decoration: BoxDecoration(
+                color: dDayColor.withOpacity(isDark ? 0.2 : 0.1),
+                borderRadius: BorderRadius.circular(AppRadius.xs),
+                border: Border.all(
+                  color: dDayColor.withOpacity(0.4),
+                ),
+              ),
+              child: Text(
+                notice.daysUntilDeadline == 0
+                    ? 'D-Day'
+                    : 'D-${notice.daysUntilDeadline}',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: dDayColor,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
+  /// 메타 정보 행 (조회수 + 북마크 수 + 날짜)
+  Widget _buildMetaRow(Notice notice, bool isDark) {
+    final metaColor = isDark ? Colors.white38 : AppTheme.textSecondary;
+    final hintColor = isDark ? Colors.white24 : AppTheme.textHint;
+
+    return Row(
+      children: [
+        // 조회수
+        Icon(Icons.visibility_outlined, size: 14, color: metaColor),
+        const SizedBox(width: 4),
+        Text(
+          '${notice.views}',
+          style: TextStyle(
+            fontSize: 12,
+            color: metaColor,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+
+        // 북마크 수
+        Icon(Icons.bookmark_outlined, size: 14, color: metaColor),
+        const SizedBox(width: 4),
+        Text(
+          '${notice.bookmarkCount}',
+          style: TextStyle(
+            fontSize: 12,
+            color: metaColor,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+
+        const Spacer(),
+
+        // 날짜
+        Text(
+          notice.formattedDate,
+          style: TextStyle(
+            fontSize: 12,
+            color: hintColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 카테고리별 아이콘 매핑
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case '학사':
+      case '학사공지':
+        return Icons.school_rounded;
+      case '장학':
+        return Icons.attach_money_rounded;
+      case '취업':
+        return Icons.work_rounded;
+      case '행사':
+      case '학생활동':
+        return Icons.event_rounded;
+      case '교육':
+        return Icons.menu_book_rounded;
+      case '공모전':
+        return Icons.emoji_events_rounded;
+      case '시설':
+        return Icons.apartment_rounded;
+      default:
+        return Icons.article_outlined;
+    }
+  }
+
+  /// 썸네일 (카테고리 아이콘)
+  Widget _buildThumbnail(Notice notice, bool isDark) {
+    final categoryIcon = _getCategoryIcon(notice.category);
+
+    return Container(
+      width: 72,
+      height: 72,
+      decoration: BoxDecoration(
+        color: isDark
+            ? widget.categoryColor.withOpacity(0.15)
+            : widget.categoryColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Icon(
+        categoryIcon,
+        size: 32,
+        color: widget.categoryColor.withOpacity(isDark ? 0.7 : 0.5),
+      ),
+    );
+  }
+
+  /// 북마크 토글 버튼
+  Widget _buildBookmarkButton(Notice notice, bool isDark) {
+    return Consumer<NoticeProvider>(
+      builder: (context, provider, child) {
+        return InkWell(
+          borderRadius: BorderRadius.circular(AppRadius.round),
+          onTap: () => provider.toggleBookmark(notice.id),
+          child: Container(
+            width: 44,
+            height: 36,
+            alignment: Alignment.center,
+            child: Icon(
+              notice.isBookmarked
+                  ? Icons.bookmark_rounded
+                  : Icons.bookmark_border_rounded,
+              size: 22,
+              color: notice.isBookmarked
+                  ? widget.categoryColor
+                  : (isDark ? Colors.white38 : AppTheme.textSecondary),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// 빈 화면
-  Widget _buildEmptyView() {
+  Widget _buildEmptyView(bool isDark) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.inbox_outlined,
-            size: 80,
-            color: Colors.grey.shade400,
+          // 카테고리별 아이콘 + 원형 배경
+          Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withOpacity(0.05)
+                  : widget.categoryColor.withOpacity(0.08),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _getCategoryIcon(widget.categoryName),
+              size: 44,
+              color: isDark
+                  ? Colors.white24
+                  : widget.categoryColor.withOpacity(0.4),
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
@@ -380,7 +529,7 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              color: isDark ? Colors.white54 : AppTheme.textSecondary,
             ),
           ),
         ],
@@ -415,7 +564,9 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
           final bExpired = b.deadline!.isBefore(now);
           if (aExpired && !bExpired) return 1;
           if (!aExpired && bExpired) return -1;
-          if (aExpired && bExpired) return b.deadline!.compareTo(a.deadline!);
+          if (aExpired && bExpired) {
+            return b.deadline!.compareTo(a.deadline!);
+          }
           return a.deadline!.compareTo(b.deadline!);
         });
         break;
@@ -437,13 +588,15 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
   }
 
   /// 우선순위 색상
-  Color _getPriorityColor(String priority) {
+  Color _getPriorityColor(String priority, bool isDark) {
     switch (priority) {
+      case '긴급':
+        return AppTheme.errorColor;
       case '중요':
-        return Colors.orange.shade700;
+        return AppTheme.warningColor;
       case '일반':
       default:
-        return Colors.grey.shade600;
+        return isDark ? Colors.white38 : AppTheme.textSecondary;
     }
   }
 }

@@ -30,34 +30,34 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 카테고리 목록 (아이콘 포함)
   final List<Map<String, dynamic>> _categories = [
-    {'name': '학사', 'icon': Icons.school, 'color': Colors.blue},
-    {'name': '장학', 'icon': Icons.attach_money, 'color': Colors.green},
-    {'name': '취업', 'icon': Icons.work, 'color': Colors.orange},
-    {'name': '행사', 'icon': Icons.event, 'color': Colors.purple},
-    {'name': '교육', 'icon': Icons.menu_book, 'color': Colors.teal},
-    {'name': '공모전', 'icon': Icons.emoji_events, 'color': Colors.amber},
+    {'name': '학사', 'icon': Icons.school, 'color': AppTheme.getCategoryColor('학사')},
+    {'name': '장학', 'icon': Icons.attach_money, 'color': AppTheme.getCategoryColor('장학')},
+    {'name': '취업', 'icon': Icons.work, 'color': AppTheme.getCategoryColor('취업')},
+    {'name': '행사', 'icon': Icons.event, 'color': AppTheme.getCategoryColor('행사')},
+    {'name': '교육', 'icon': Icons.menu_book, 'color': AppTheme.getCategoryColor('교육')},
+    {'name': '공모전', 'icon': Icons.emoji_events, 'color': AppTheme.getCategoryColor('공모전')},
   ];
 
-  // 배너 더미 데이터 (색상 기반)
+  // 배너 더미 데이터 (AppTheme 색상 기반)
   final List<Map<String, dynamic>> _banners = [
     {
       'title': '2024학년도 1학기 수강신청 안내',
-      'color': Colors.blue.shade400,
+      'color': AppTheme.getCategoryColor('학사'),
       'icon': Icons.school,
     },
     {
       'title': '국가장학금 신청 기간 안내',
-      'color': Colors.green.shade400,
+      'color': AppTheme.getCategoryColor('장학'),
       'icon': Icons.attach_money,
     },
     {
       'title': '취업 박람회 개최 안내',
-      'color': Colors.orange.shade400,
+      'color': AppTheme.getCategoryColor('취업'),
       'icon': Icons.work,
     },
     {
       'title': '도서관 열람실 예약 안내',
-      'color': Colors.purple.shade400,
+      'color': AppTheme.getCategoryColor('행사'),
       'icon': Icons.library_books,
     },
   ];
@@ -94,6 +94,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -172,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onTap: _onItemTapped,
           type: BottomNavigationBarType.fixed,
           selectedItemColor: Theme.of(context).colorScheme.primary,
-          unselectedItemColor: Colors.grey,
+          unselectedItemColor: isDark ? Colors.white54 : AppTheme.textSecondary,
           elevation: 8,
           items: const [
             BottomNavigationBarItem(
@@ -215,6 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 홈 탭 UI
   Widget _buildHomeTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return RefreshIndicator(
       onRefresh: () async {
         final provider = context.read<NoticeProvider>();
@@ -228,9 +231,9 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 배너 + 카테고리 영역 (흰색 배경 통일)
+            // 배너 + 카테고리 영역
             Container(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF25253D) : Colors.white,
               child: Column(
                 children: [
                   // 배너 슬라이드
@@ -243,9 +246,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 8),
 
-            // 추천 정보 섹션 (그레이 배경)
+            // 추천 정보 섹션
             Container(
-              color: Colors.grey.shade100,
+              color: isDark ? const Color(0xFF1E1E35) : Colors.grey.shade100,
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,22 +363,20 @@ class _HomeScreenState extends State<HomeScreen> {
           }).toList(),
         ),
         const SizedBox(height: 12),
-        // 인디케이터 (세련된 디자인)
+        // 인디케이터 (동일 크기, 색상만 변경)
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: _banners.asMap().entries.map((entry) {
             final isActive = _currentBannerIndex == entry.key;
-            return AnimatedContainer(
-              duration: AppDuration.normal,
-              curve: Curves.easeInOut,
-              width: isActive ? 28.0 : 8.0,
+            return Container(
+              width: 8.0,
               height: 8.0,
               margin: const EdgeInsets.symmetric(horizontal: 4.0),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppRadius.sm),
+                shape: BoxShape.circle,
                 color: isActive
                     ? AppTheme.primaryColor
-                    : AppTheme.primaryColor.withOpacity(0.2),
+                    : AppTheme.primaryColor.withOpacity(0.25),
               ),
             );
           }).toList(),
@@ -387,6 +388,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 카테고리 필터 UI (6개 한 줄 배치, 미니멀 디자인)
   Widget _buildCategoryFilter() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
       child: Row(
@@ -430,7 +432,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: BoxDecoration(
                         color: isSelected
                             ? categoryColor.withOpacity(0.15)
-                            : Colors.grey.shade200,
+                            : isDark ? const Color(0xFF2D2D44) : AppTheme.textHint.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
@@ -438,7 +440,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         size: 24,
                         color: isSelected
                             ? categoryColor
-                            : Colors.grey.shade600,
+                            : isDark ? Colors.white54 : AppTheme.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -450,7 +452,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                         color: isSelected
                             ? categoryColor
-                            : Colors.grey.shade700,
+                            : isDark ? Colors.white70 : AppTheme.textPrimary,
                       ),
                       textAlign: TextAlign.center,
                       maxLines: 1,
@@ -500,18 +502,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// 카드 + 우하단 인디케이터 래퍼
   Widget _buildCardWithIndicator(Widget cardContent) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF25253D) : Colors.white,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: isDark ? null : AppShadow.soft,
       ),
       child: Stack(
         children: [
@@ -548,6 +545,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildPopularCardContent() {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         final popularNotices = provider.popularNotices.take(5).toList();
 
         return Column(
@@ -592,7 +590,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             '조회수 기준 상위 5개',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey,
+                              color: isDark ? Colors.white54 : AppTheme.textSecondary,
                             ),
                           ),
                         ],
@@ -605,7 +603,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         '전체보기',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.withOpacity(0.7),
+                          color: AppTheme.textSecondary,
                         ),
                       ),
                     ),
@@ -643,7 +641,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
-                                      color: index < 3 ? AppTheme.warningColor : Colors.grey,
+                                      color: index < 3 ? AppTheme.warningColor : (isDark ? Colors.white54 : AppTheme.textSecondary),
                                     ),
                                   ),
                                 ),
@@ -662,13 +660,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.visibility, size: 12, color: Colors.grey.shade500),
+                                    Icon(Icons.visibility, size: 12, color: isDark ? Colors.white38 : AppTheme.textSecondary),
                                     const SizedBox(width: 2),
                                     Text(
                                       '${notice.views}',
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: Colors.grey.shade500,
+                                        color: isDark ? Colors.white38 : AppTheme.textSecondary,
                                       ),
                                     ),
                                   ],
@@ -692,6 +690,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSavedEventsCardContent() {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         // 북마크된 공지 전체 표시 (마감일 있는 것 우선, 임박한 순)
         final bookmarked = List<Notice>.from(provider.bookmarkedNotices);
         final now = DateTime.now();
@@ -718,13 +717,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade100,
+                        color: AppTheme.infoColor.withOpacity(isDark ? 0.2 : 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(Icons.event, color: Colors.blue.shade700),
+                      child: Icon(Icons.event, color: AppTheme.infoColor),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -733,13 +732,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : AppTheme.textPrimary,
                             ),
                           ),
                           Text(
                             '마감 임박 순',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey,
+                              color: isDark ? Colors.white54 : AppTheme.textSecondary,
                             ),
                           ),
                         ],
@@ -752,7 +752,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         '전체보기',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.withOpacity(0.7),
+                          color: AppTheme.textSecondary,
                         ),
                       ),
                     ),
@@ -767,11 +767,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.event_busy, size: 48, color: Colors.grey.shade400),
+                            Icon(Icons.event_busy, size: 48, color: isDark ? Colors.white38 : AppTheme.textHint),
                             const SizedBox(height: 8),
                             Text(
                               '저장된 일정이 없습니다',
-                              style: TextStyle(color: Colors.grey.shade600),
+                              style: TextStyle(color: isDark ? Colors.white54 : AppTheme.textSecondary),
                             ),
                           ],
                         ),
@@ -811,8 +811,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: notice.daysUntilDeadline! <= 3
-                                                ? Colors.red.shade100
-                                                : Colors.blue.shade100,
+                                                ? AppTheme.errorColor.withOpacity(isDark ? 0.2 : 0.12)
+                                                : AppTheme.infoColor.withOpacity(isDark ? 0.2 : 0.12),
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: Text(
@@ -821,8 +821,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
                                               color: notice.daysUntilDeadline! <= 3
-                                                  ? Colors.red.shade700
-                                                  : Colors.blue.shade700,
+                                                  ? AppTheme.errorColor
+                                                  : AppTheme.infoColor,
                                             ),
                                           ),
                                         ),
@@ -846,6 +846,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildAIRecommendCardContent() {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         // AI 추천: 백엔드 하이브리드 검색 기반 맞춤 추천
         final aiRecommended = provider.recommendedNotices.take(5).toList();
 
@@ -859,13 +860,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.purple.shade100,
+                        color: AppTheme.primaryColor.withOpacity(isDark ? 0.2 : 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(Icons.auto_awesome, color: Colors.purple.shade700),
+                      child: const Icon(Icons.auto_awesome, color: AppTheme.primaryColor),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -874,13 +875,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : AppTheme.textPrimary,
                             ),
                           ),
                           Text(
                             '맞춤 공지사항',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey,
+                              color: isDark ? Colors.white54 : AppTheme.textSecondary,
                             ),
                           ),
                         ],
@@ -893,7 +895,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         '전체보기',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.withOpacity(0.7),
+                          color: AppTheme.textSecondary,
                         ),
                       ),
                     ),
@@ -910,11 +912,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.auto_awesome, size: 40, color: Colors.grey.shade400),
+                                Icon(Icons.auto_awesome, size: 40, color: isDark ? Colors.white38 : AppTheme.textHint),
                                 const SizedBox(height: 8),
                                 Text(
                                   '추천 공지사항이 없습니다',
-                                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                                  style: TextStyle(fontSize: 13, color: isDark ? Colors.white54 : AppTheme.textSecondary),
                                 ),
                               ],
                             ),
@@ -956,7 +958,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 vertical: 2,
                                               ),
                                               decoration: BoxDecoration(
-                                                color: Colors.purple.shade100,
+                                                color: AppTheme.getCategoryColor(notice.category).withOpacity(isDark ? 0.2 : 0.12),
                                                 borderRadius: BorderRadius.circular(4),
                                               ),
                                               child: Text(
@@ -964,7 +966,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 style: TextStyle(
                                                   fontSize: 10,
                                                   fontWeight: FontWeight.bold,
-                                                  color: Colors.purple.shade700,
+                                                  color: AppTheme.getCategoryColor(notice.category),
                                                 ),
                                               ),
                                             ),
@@ -988,6 +990,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildWeeklyInfoCardContent() {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         final now = DateTime.now();
         final weekStart = now.subtract(Duration(days: now.weekday - 1));
         final weekEnd = weekStart.add(const Duration(days: 6));
@@ -1012,13 +1015,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.green.shade100,
+                        color: AppTheme.successColor.withOpacity(isDark ? 0.2 : 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(Icons.calendar_today, color: Colors.green.shade700),
+                      child: const Icon(Icons.calendar_today, color: AppTheme.successColor),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1027,13 +1030,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : AppTheme.textPrimary,
                             ),
                           ),
                           Text(
                             '마감 예정 공지사항',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey,
+                              color: isDark ? Colors.white54 : AppTheme.textSecondary,
                             ),
                           ),
                         ],
@@ -1045,7 +1049,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         '전체보기',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.withOpacity(0.7),
+                          color: AppTheme.textSecondary,
                         ),
                       ),
                     ),
@@ -1059,11 +1063,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.event_available, size: 48, color: Colors.grey.shade400),
+                            Icon(Icons.event_available, size: 48, color: isDark ? Colors.white38 : AppTheme.textHint),
                             const SizedBox(height: 8),
                             Text(
                               '이번 주 일정이 없습니다',
-                              style: TextStyle(color: Colors.grey.shade600),
+                              style: TextStyle(color: isDark ? Colors.white54 : AppTheme.textSecondary),
                             ),
                           ],
                         ),
@@ -1108,7 +1112,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               '마감: ${notice.deadline!.month}/${notice.deadline!.day}',
                                               style: TextStyle(
                                                 fontSize: 11,
-                                                color: Colors.grey.shade600,
+                                                color: isDark ? Colors.white54 : AppTheme.textSecondary,
                                               ),
                                             ),
                                           ],
@@ -1120,7 +1124,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           vertical: 4,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Colors.green.shade100,
+                                          color: AppTheme.getCategoryColor(notice.category).withOpacity(isDark ? 0.2 : 0.12),
                                           borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Text(
@@ -1128,7 +1132,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           style: TextStyle(
                                             fontSize: 10,
                                             fontWeight: FontWeight.w600,
-                                            color: Colors.green.shade700,
+                                            color: AppTheme.getCategoryColor(notice.category),
                                           ),
                                         ),
                                       ),
@@ -1143,7 +1147,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                         color: notice.isBookmarked
                                             ? Theme.of(context).colorScheme.primary
-                                            : Colors.grey.shade600,
+                                            : (isDark ? Colors.white54 : AppTheme.textSecondary),
                                         onPressed: () {
                                           context.read<NoticeProvider>().toggleBookmark(notice.id);
                                         },
@@ -1168,6 +1172,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// 카테고리 모달 표시
   void _showCategoryBottomSheet(BuildContext context, String categoryName, Color categoryColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     // 카테고리에 맞는 아이콘 찾기
     final categoryData = _categories.firstWhere((c) => c['name'] == categoryName);
     final categoryIcon = categoryData['icon'] as IconData;
@@ -1182,7 +1187,7 @@ class _HomeScreenState extends State<HomeScreen> {
         maxChildSize: 0.95,
         builder: (context, scrollController) => Container(
           decoration: BoxDecoration(
-            color: AppTheme.backgroundColor,
+            color: isDark ? const Color(0xFF1A1A2E) : AppTheme.backgroundColor,
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppRadius.xl),
             ),
@@ -1195,7 +1200,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1262,14 +1267,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             Icon(
                               Icons.inbox_outlined,
                               size: 64,
-                              color: Colors.grey.shade400,
+                              color: isDark ? Colors.white38 : AppTheme.textHint,
                             ),
                             const SizedBox(height: AppSpacing.md),
                             Text(
                               '해당 카테고리의 공지사항이 없습니다',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: Colors.grey.shade600,
+                                color: isDark ? Colors.white54 : AppTheme.textSecondary,
                               ),
                             ),
                           ],
@@ -1298,6 +1303,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// 카테고리 모달용 공지사항 카드
   Widget _buildCategoryNoticeCard(BuildContext context, notice, Color categoryColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: InkWell(
@@ -1379,20 +1385,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: AppTheme.primaryColor.withOpacity(isDark ? 0.15 : 0.08),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.blue.shade200),
+                    border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.auto_awesome, size: 14, color: Colors.blue.shade700),
+                      Icon(Icons.auto_awesome, size: 14, color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           notice.aiSummary!,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.blue.shade900,
+                            color: isDark ? Colors.white70 : AppTheme.primaryDark,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -1411,13 +1417,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   Icon(
                     Icons.calendar_today,
                     size: 14,
-                    color: AppTheme.textSecondary,
+                    color: isDark ? Colors.white54 : AppTheme.textSecondary,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     notice.formattedDate,
                     style: TextStyle(
-                      color: AppTheme.textSecondary,
+                      color: isDark ? Colors.white54 : AppTheme.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -1425,13 +1431,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   Icon(
                     Icons.visibility,
                     size: 14,
-                    color: AppTheme.textSecondary,
+                    color: isDark ? Colors.white54 : AppTheme.textSecondary,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     '${notice.views}',
                     style: TextStyle(
-                      color: AppTheme.textSecondary,
+                      color: isDark ? Colors.white54 : AppTheme.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -1442,7 +1448,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: Colors.red.shade600,
+                        color: notice.daysUntilDeadline! <= 3 ? AppTheme.errorColor : AppTheme.infoColor,
                       ),
                     ),
                   ],
@@ -1459,7 +1465,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         color: notice.isBookmarked
                             ? categoryColor
-                            : Colors.grey[600],
+                            : (isDark ? Colors.white54 : AppTheme.textSecondary),
                         onPressed: () {
                           provider.toggleBookmark(notice.id);
                         },
@@ -1658,7 +1664,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.red,
+                          color: AppTheme.errorColor,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Text(
@@ -1682,7 +1688,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       color: notice['isBookmarked'] == true
                           ? Theme.of(context).colorScheme.primary
-                          : Colors.grey[600],
+                          : AppTheme.textSecondary,
                       onPressed: () {
                         context.read<NoticeProvider>().toggleBookmark(notice['id'] as String);
                       },
@@ -1708,20 +1714,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
+                      color: AppTheme.primaryColor.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.blue.shade200),
+                      border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.auto_awesome, size: 14, color: Colors.blue.shade700),
+                        Icon(Icons.auto_awesome, size: 14, color: AppTheme.primaryColor),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             notice['aiSummary'] as String,
                             style: TextStyle(
                               fontSize: 11,
-                              color: Colors.blue.shade900,
+                              color: AppTheme.primaryDark,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -1740,14 +1746,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       Icon(
                         Icons.person_outline,
                         size: 14,
-                        color: Colors.grey[600],
+                        color: AppTheme.textSecondary,
                       ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           notice['author'] as String,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
+                                color: AppTheme.textSecondary,
                               ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1763,26 +1769,26 @@ class _HomeScreenState extends State<HomeScreen> {
                     Icon(
                       Icons.calendar_today,
                       size: 14,
-                      color: Colors.grey[600],
+                      color: AppTheme.textSecondary,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       notice['date'] as String,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
+                            color: AppTheme.textSecondary,
                           ),
                     ),
                     const SizedBox(width: 12),
                     Icon(
                       Icons.visibility_outlined,
                       size: 14,
-                      color: Colors.grey[600],
+                      color: AppTheme.textSecondary,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${notice['views']}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
+                            color: AppTheme.textSecondary,
                           ),
                     ),
                   ],
@@ -1858,7 +1864,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.red,
+                        color: AppTheme.errorColor,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Text(
@@ -1882,7 +1888,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     color: notice['isBookmarked'] == true
                         ? Theme.of(context).colorScheme.primary
-                        : Colors.grey[600],
+                        : AppTheme.textSecondary,
                     onPressed: () {
                       context.read<NoticeProvider>().toggleBookmark(notice['id'] as String);
                     },
@@ -1898,20 +1904,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: AppTheme.primaryColor.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.blue.shade200),
+                    border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.auto_awesome, size: 14, color: Colors.blue.shade700),
+                      Icon(Icons.auto_awesome, size: 14, color: AppTheme.primaryColor),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           notice['aiSummary'] as String,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.blue.shade900,
+                            color: AppTheme.primaryDark,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -1947,7 +1953,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(
                     notice['date'] as String,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
+                          color: AppTheme.textSecondary,
                         ),
                   ),
                   if (notice['views'] != null) ...[
@@ -1955,13 +1961,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     Icon(
                       Icons.visibility_outlined,
                       size: 16,
-                      color: Colors.grey[600],
+                      color: AppTheme.textSecondary,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${notice['views']}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
+                            color: AppTheme.textSecondary,
                           ),
                     ),
                   ],
@@ -1975,13 +1981,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     Icon(
                       Icons.person_outline,
                       size: 14,
-                      color: Colors.grey[600],
+                      color: AppTheme.textSecondary,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       notice['author'] as String,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
+                            color: AppTheme.textSecondary,
                           ),
                     ),
                   ],
@@ -2012,11 +2018,13 @@ class _HomeScreenState extends State<HomeScreen> {
   // 중요도에 따른 색상 반환
   Color _getPriorityColor(String priority) {
     switch (priority) {
+      case '긴급':
+        return AppTheme.errorColor;
       case '중요':
-        return Colors.orange.shade700;
+        return AppTheme.warningColor;
       case '일반':
       default:
-        return Colors.grey.shade600;
+        return AppTheme.textSecondary;
     }
   }
 }
