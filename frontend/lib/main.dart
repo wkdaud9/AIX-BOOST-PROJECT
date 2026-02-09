@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'screens/auth_wrapper.dart';
 import 'theme/app_theme.dart';
 import 'providers/notice_provider.dart';
+import 'providers/settings_provider.dart';
+import 'providers/notification_provider.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'services/auth_service.dart';
@@ -41,15 +43,29 @@ class AIXBoostApp extends StatelessWidget {
         // 3. NoticeProvider 생성 (ApiService 의존)
         ChangeNotifierProxyProvider<ApiService, NoticeProvider>(
           create: (context) => NoticeProvider(apiService: context.read<ApiService>()),
-          update: (_, apiService, previous) => 
+          update: (_, apiService, previous) =>
               previous ?? NoticeProvider(apiService: apiService),
         ),
+        // 4. SettingsProvider 생성 (테마, 알림 설정 관리)
+        ChangeNotifierProvider<SettingsProvider>(
+          create: (_) => SettingsProvider()..initialize(),
+        ),
+        // 5. NotificationProvider 생성 (알림 목록 관리)
+        ChangeNotifierProvider<NotificationProvider>(
+          create: (_) => NotificationProvider()..initialize(),
+        ),
       ],
-      child: MaterialApp(
-        title: 'AIX-Boost',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        home: const AuthWrapper(),
+      child: Consumer<SettingsProvider>(
+        builder: (context, settings, child) {
+          return MaterialApp(
+            title: 'AIX-Boost',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: settings.themeMode,
+            home: const AuthWrapper(),
+          );
+        },
       ),
     );
   }

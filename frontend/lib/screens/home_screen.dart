@@ -3,12 +3,15 @@ import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import '../models/notice.dart';
 import '../providers/notice_provider.dart';
+import '../providers/notification_provider.dart';
 import '../theme/app_theme.dart';
 import 'notice_detail_screen.dart';
 import 'calendar_screen.dart';
 import 'recommend_screen.dart';
 import 'profile_screen.dart';
 import 'category_notice_screen.dart';
+import 'notification_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -97,16 +100,63 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              // TODO: 알림 화면으로 이동
+          // 알림 아이콘 (읽지 않은 알림 개수 뱃지)
+          Consumer<NotificationProvider>(
+            builder: (context, notificationProvider, child) {
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const NotificationScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  if (notificationProvider.hasUnread)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.errorColor,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          notificationProvider.unreadCount > 9
+                              ? '9+'
+                              : '${notificationProvider.unreadCount}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
             },
           ),
+          // 설정 아이콘
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () {
-              // TODO: 설정 화면으로 이동
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
             },
           ),
         ],
@@ -359,7 +409,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       categoryColor: categoryColor,
                     ),
                   ),
-                );
+                ).then((_) {
+                  // 화면 복귀 시 카테고리 선택 상태 초기화
+                  setState(() {
+                    _selectedCategory = null;
+                  });
+                });
               },
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 4),

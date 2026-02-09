@@ -182,6 +182,158 @@ class AppTheme {
     ),
   );
 
+  /// 다크 테마
+  static ThemeData get darkTheme => ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    primaryColor: primaryColor,
+    scaffoldBackgroundColor: const Color(0xFF1A1A2E),
+    splashColor: Colors.transparent,
+    highlightColor: Colors.transparent,
+
+    colorScheme: const ColorScheme.dark(
+      primary: primaryColor,
+      secondary: secondaryColor,
+      surface: Color(0xFF25253D),
+      error: errorColor,
+      onPrimary: Colors.white,
+      onSecondary: Colors.white,
+      onSurface: Colors.white,
+      onError: Colors.white,
+    ),
+
+    // AppBar 테마 (다크)
+    appBarTheme: const AppBarTheme(
+      elevation: 0,
+      centerTitle: false,
+      backgroundColor: Color(0xFF1A1A2E),
+      foregroundColor: Colors.white,
+      titleTextStyle: TextStyle(
+        color: Colors.white,
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+
+    // Card 테마 (다크)
+    cardTheme: CardThemeData(
+      elevation: 0,
+      color: const Color(0xFF25253D),
+      shadowColor: Colors.black.withOpacity(0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      margin: const EdgeInsets.symmetric(vertical: 6),
+    ),
+
+    // 텍스트 테마 (다크)
+    textTheme: TextTheme(
+      headlineLarge: const TextStyle(
+        fontSize: 32,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+      headlineMedium: const TextStyle(
+        fontSize: 28,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+      headlineSmall: const TextStyle(
+        fontSize: 24,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+      titleLarge: const TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      ),
+      titleMedium: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      ),
+      titleSmall: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      ),
+      bodyLarge: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.normal,
+        color: Colors.white,
+      ),
+      bodyMedium: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.normal,
+        color: Colors.white,
+      ),
+      bodySmall: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.normal,
+        color: Colors.white.withOpacity(0.7),
+      ),
+    ),
+
+    // 입력 필드 테마 (다크)
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: const Color(0xFF2D2D44),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: primaryColor, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: errorColor),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    ),
+
+    // 버튼 테마 (다크)
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        textStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
+      ),
+    ),
+
+    // 아이콘 테마 (다크)
+    iconTheme: const IconThemeData(
+      color: Colors.white,
+      size: 24,
+    ),
+
+    // BottomNavigationBar 테마 (다크)
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: Color(0xFF1A1A2E),
+      selectedItemColor: primaryColor,
+      unselectedItemColor: Colors.white54,
+    ),
+
+    // Divider 테마 (다크)
+    dividerTheme: DividerThemeData(
+      color: Colors.white.withOpacity(0.1),
+    ),
+  );
+
   /// 카테고리별 색상 가져오기
   static Color getCategoryColor(String category) {
     return categoryColors[category] ?? categoryColors['기타']!;

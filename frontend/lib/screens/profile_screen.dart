@@ -4,6 +4,11 @@ import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../providers/notice_provider.dart';
+import '../providers/settings_provider.dart';
+import '../widgets/modals/version_info_modal.dart';
+import '../widgets/modals/privacy_policy_modal.dart';
+import '../widgets/modals/terms_of_service_modal.dart';
+import '../widgets/modals/profile_edit_modal.dart';
 
 /// 마이페이지 화면 - 사용자 설정 및 정보
 class ProfileScreen extends StatefulWidget {
@@ -99,35 +104,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: AppSpacing.lg),
 
           // 알림 설정
-          _buildSection(
-            context,
-            title: '알림 설정',
-            items: [
-              _buildSettingTile(
+          Consumer<SettingsProvider>(
+            builder: (context, settings, child) {
+              return _buildSection(
                 context,
-                icon: Icons.notifications_outlined,
-                title: '푸시 알림',
-                subtitle: '새로운 공지사항 알림 받기',
-                trailing: Switch(
-                  value: true,
-                  onChanged: (value) {
-                    // TODO: 알림 설정 변경
-                  },
-                ),
-              ),
-              _buildSettingTile(
-                context,
-                icon: Icons.event_outlined,
-                title: '일정 알림',
-                subtitle: '마감일 3일 전 알림',
-                trailing: Switch(
-                  value: true,
-                  onChanged: (value) {
-                    // TODO: 일정 알림 설정 변경
-                  },
-                ),
-              ),
-            ],
+                title: '알림 설정',
+                items: [
+                  _buildSettingTile(
+                    context,
+                    icon: Icons.notifications_outlined,
+                    title: '푸시 알림',
+                    subtitle: '새로운 공지사항 알림 받기',
+                    trailing: Switch(
+                      value: settings.pushNotificationEnabled,
+                      onChanged: (value) {
+                        settings.setPushNotificationEnabled(value);
+                      },
+                      activeColor: AppTheme.primaryColor,
+                    ),
+                  ),
+                  _buildSettingTile(
+                    context,
+                    icon: Icons.event_outlined,
+                    title: '일정 알림',
+                    subtitle: '마감일 ${settings.deadlineReminderDays}일 전 알림',
+                    trailing: Switch(
+                      value: settings.scheduleNotificationEnabled,
+                      onChanged: (value) {
+                        settings.setScheduleNotificationEnabled(value);
+                      },
+                      activeColor: AppTheme.primaryColor,
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
 
           const SizedBox(height: AppSpacing.lg),
@@ -264,25 +275,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon: Icons.info_outlined,
                 title: '버전 정보',
                 subtitle: 'v1.0.0',
-                onTap: () {},
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => VersionInfoModal.show(context),
               ),
               _buildSettingTile(
                 context,
                 icon: Icons.privacy_tip_outlined,
                 title: '개인정보 처리방침',
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  // TODO: 개인정보 처리방침 화면으로 이동
-                },
+                onTap: () => PrivacyPolicyModal.show(context),
               ),
               _buildSettingTile(
                 context,
                 icon: Icons.description_outlined,
                 title: '이용약관',
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  // TODO: 이용약관 화면으로 이동
-                },
+                onTap: () => TermsOfServiceModal.show(context),
               ),
             ],
           ),
@@ -358,7 +366,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: AppSpacing.sm),
                   OutlinedButton.icon(
                     onPressed: () {
-                      // TODO: 프로필 편집 화면으로 이동
+                      ProfileEditModal.show(
+                        context,
+                        initialProfile: _userProfile,
+                        onSaved: _loadUserProfile,
+                      );
                     },
                     icon: const Icon(Icons.edit, size: 16),
                     label: const Text('프로필 편집'),
