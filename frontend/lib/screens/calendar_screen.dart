@@ -508,16 +508,16 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
-  /// 선택된 날짜의 공지사항 목록
+  /// 선택된 날짜의 공지사항 목록 (복수 마감일 라벨 포함)
   Widget _buildEventList() {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
-        final events = _getEventsForDay(
+        final deadlineEvents = _getDeadlineEventsForDay(
           _selectedDay ?? _focusedDay,
           provider.bookmarkedNotices,
         );
 
-        if (events.isEmpty) {
+        if (deadlineEvents.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -542,18 +542,18 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
         return ListView.builder(
           padding: const EdgeInsets.all(AppSpacing.md),
-          itemCount: events.length,
+          itemCount: deadlineEvents.length,
           itemBuilder: (context, index) {
-            final notice = events[index];
-            return _buildEventCard(notice);
+            final entry = deadlineEvents[index];
+            return _buildEventCard(entry.key, deadlineLabel: entry.value.label);
           },
         );
       },
     );
   }
 
-  /// 이벤트 카드
-  Widget _buildEventCard(Notice notice) {
+  /// 이벤트 카드 (deadlineLabel: 복수 마감일의 라벨 표시)
+  Widget _buildEventCard(Notice notice, {String? deadlineLabel}) {
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: InkWell(
@@ -606,6 +606,20 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               ),
 
               const SizedBox(height: AppSpacing.sm),
+
+              // 마감 라벨 (복수 마감일인 경우)
+              if (deadlineLabel != null && deadlineLabel != '전체 마감')
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '[$deadlineLabel 마감]',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
 
               // 제목
               Text(
@@ -673,14 +687,21 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
-  /// 특정 날짜의 이벤트 가져오기 (북마크된 공지의 마감일만 매칭)
+  /// 특정 날짜의 이벤트 가져오기 (북마크된 공지의 모든 마감일 매칭)
   List<Notice> _getEventsForDay(DateTime day, List<Notice> notices) {
     final targetDate = DateTime(day.year, day.month, day.day);
 
     return notices.where((notice) {
-      // 마감일이 없으면 캘린더에 표시하지 않음
-      if (notice.deadline == null) return false;
+      // 복수 마감일이 있으면 모든 날짜에 매칭
+      if (notice.deadlines.isNotEmpty) {
+        return notice.deadlines.any((dl) => isSameDay(
+          DateTime(dl.date.year, dl.date.month, dl.date.day),
+          targetDate,
+        ));
+      }
 
+      // 단일 deadline 호환
+      if (notice.deadline == null) return false;
       return isSameDay(
         DateTime(
           notice.deadline!.year,
@@ -690,5 +711,26 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         targetDate,
       );
     }).toList();
+  }
+
+  /// 특정 날짜에 해당하는 마감일 라벨 목록 가져오기
+  List<MapEntry<Notice, Deadline>> _getDeadlineEventsForDay(DateTime day, List<Notice> notices) {
+    final targetDate = DateTime(day.year, day.month, day.day);
+    final results = <MapEntry<Notice, Deadline>>[];
+
+    for (final notice in notices) {
+      if (notice.deadlines.isNotEmpty) {
+        for (final dl in notice.deadlines) {
+          if (isSameDay(DateTime(dl.date.year, dl.date.month, dl.date.day), targetDate)) {
+            results.add(MapEntry(notice, dl));
+          }
+        }
+      } else if (notice.deadline != null &&
+          isSameDay(DateTime(notice.deadline!.year, notice.deadline!.month, notice.deadline!.day), targetDate)) {
+        results.add(MapEntry(notice, Deadline(label: '전체 마감', date: notice.deadline!)));
+      }
+    }
+
+    return results;
   }
 }

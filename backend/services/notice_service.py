@@ -123,11 +123,22 @@ class NoticeService:
             if "board_seq" in notice_data:
                 db_data["board_seq"] = notice_data["board_seq"]
 
-            # 마감일 추출 (AI 분석 결과의 dates.deadline)
+            # 마감일 추출 (AI 분석 결과의 dates)
             dates = notice_data.get("dates", {})
-            deadline = dates.get("deadline")
-            if deadline and deadline != "null":
-                db_data["deadline"] = deadline
+
+            # 복수 마감일 처리 (deadlines JSONB 배열)
+            deadlines_list = dates.get("deadlines", [])
+            if deadlines_list and isinstance(deadlines_list, list):
+                db_data["deadlines"] = deadlines_list
+                # deadline은 가장 빠른 날짜로 자동 설정
+                upcoming = [d["date"] for d in deadlines_list if d.get("date")]
+                if upcoming:
+                    db_data["deadline"] = min(upcoming)
+            else:
+                # 기존 단일 deadline 호환
+                deadline = dates.get("deadline")
+                if deadline and deadline != "null":
+                    db_data["deadline"] = deadline
 
             # 추가 필드 (있으면 포함)
             if "author" in notice_data:
@@ -219,11 +230,18 @@ class NoticeService:
                 "updated_at": datetime.now().isoformat()
             }
 
-            # 마감일 추출
+            # 마감일 추출 (복수 마감일 포함)
             dates = analysis_result.get("dates", {})
-            deadline = dates.get("deadline")
-            if deadline and deadline != "null":
-                update_data["deadline"] = deadline
+            deadlines_list = dates.get("deadlines", [])
+            if deadlines_list and isinstance(deadlines_list, list):
+                update_data["deadlines"] = deadlines_list
+                upcoming = [d["date"] for d in deadlines_list if d.get("date")]
+                if upcoming:
+                    update_data["deadline"] = min(upcoming)
+            else:
+                deadline = dates.get("deadline")
+                if deadline and deadline != "null":
+                    update_data["deadline"] = deadline
 
             # DB 업데이트
             result = self.client.table("notices")\
@@ -472,11 +490,18 @@ class NoticeService:
                 "updated_at": datetime.now().isoformat()
             }
 
-            # 마감일 추출
+            # 마감일 추출 (복수 마감일 포함)
             dates = notice_data.get("dates", {})
-            deadline = dates.get("deadline")
-            if deadline and deadline != "null":
-                db_data["deadline"] = deadline
+            deadlines_list = dates.get("deadlines", [])
+            if deadlines_list and isinstance(deadlines_list, list):
+                db_data["deadlines"] = deadlines_list
+                upcoming = [d["date"] for d in deadlines_list if d.get("date")]
+                if upcoming:
+                    db_data["deadline"] = min(upcoming)
+            else:
+                deadline = dates.get("deadline")
+                if deadline and deadline != "null":
+                    db_data["deadline"] = deadline
 
             # 추가 필드
             if "author" in notice_data:

@@ -12,6 +12,7 @@ user_bookmarks + notices 테이블을 조인하여 마감일 기반 이벤트를
 
 from flask import Blueprint, request, jsonify, g
 import os
+import json
 
 from supabase import create_client, Client
 from utils.auth_middleware import login_required
@@ -87,29 +88,56 @@ def get_calendar_events():
 
         # 2. 북마크된 공지사항 중 마감일이 있는 것만 조회
         notices_result = supabase.table("notices")\
-            .select("id, title, category, deadline")\
+            .select("id, title, category, deadline, deadlines")\
             .in_("id", notice_ids)\
             .not_.is_("deadline", "null")\
             .execute()
 
-        # 3. 마감일 이벤트 목록 생성
+        # 3. 마감일 이벤트 목록 생성 (복수 마감일 지원)
         events = []
         for notice in (notices_result.data or []):
-            deadline = str(notice.get("deadline", ""))
-            if not deadline:
-                continue
+            # 복수 마감일(deadlines JSONB)이 있으면 각 항목별로 이벤트 생성
+            raw_deadlines = notice.get("deadlines")
+            deadlines_list = []
+            if raw_deadlines:
+                if isinstance(raw_deadlines, str):
+                    try:
+                        deadlines_list = json.loads(raw_deadlines)
+                    except (json.JSONDecodeError, TypeError):
+                        deadlines_list = []
+                elif isinstance(raw_deadlines, list):
+                    deadlines_list = raw_deadlines
 
-            # month 필터 적용
-            if month and not deadline.startswith(month):
-                continue
-
-            events.append({
-                "notice_id": notice["id"],
-                "title": notice["title"],
-                "category": notice.get("category", ""),
-                "deadline": deadline,
-                "event_type": "마감일"
-            })
+            if deadlines_list:
+                for dl in deadlines_list:
+                    dl_date = str(dl.get("date", ""))
+                    if not dl_date:
+                        continue
+                    if month and not dl_date.startswith(month):
+                        continue
+                    events.append({
+                        "notice_id": notice["id"],
+                        "title": notice["title"],
+                        "category": notice.get("category", ""),
+                        "deadline": dl_date,
+                        "label": dl.get("label", "전체 마감"),
+                        "event_type": "마감일"
+                    })
+            else:
+                # 기존 단일 deadline 호환
+                deadline = str(notice.get("deadline", ""))
+                if not deadline:
+                    continue
+                if month and not deadline.startswith(month):
+                    continue
+                events.append({
+                    "notice_id": notice["id"],
+                    "title": notice["title"],
+                    "category": notice.get("category", ""),
+                    "deadline": deadline,
+                    "label": "전체 마감",
+                    "event_type": "마감일"
+                })
 
         print(f"   - 결과: {len(events)}개 마감일 이벤트")
 

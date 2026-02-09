@@ -635,6 +635,20 @@ class NoticeAnalyzer:
                 normalized[key] = value
                 continue
 
+            # deadlines 배열은 각 항목의 date를 정규화
+            if key == "deadlines" and isinstance(value, list):
+                normalized_deadlines = []
+                for item in value:
+                    if isinstance(item, dict) and "date" in item:
+                        norm_date = self._normalize_single_date(item["date"])
+                        if norm_date:
+                            normalized_deadlines.append({
+                                "label": item.get("label", "전체 마감"),
+                                "date": norm_date
+                            })
+                normalized[key] = normalized_deadlines
+                continue
+
             # null 값 처리
             if value is None or value == "null" or value == "":
                 normalized[key] = None
@@ -642,23 +656,40 @@ class NoticeAnalyzer:
 
             # 문자열인 경우 정규화
             if isinstance(value, str):
-                # 이미 YYYY-MM-DD 형식인지 확인
-                if re.match(r'^\d{4}-\d{2}-\d{2}$', value):
-                    normalized[key] = value
-                # YYYY/MM/DD 형식
-                elif re.match(r'^\d{4}/\d{2}/\d{2}$', value):
-                    normalized[key] = value.replace("/", "-")
-                # YYYY.MM.DD 형식
-                elif re.match(r'^\d{4}\.\d{2}\.\d{2}$', value):
-                    normalized[key] = value.replace(".", "-")
-                else:
-                    # 형식이 맞지 않으면 원본 유지
-                    print(f"⚠️ 날짜 형식 불일치: {key}={value}")
-                    normalized[key] = value
+                normalized[key] = self._normalize_single_date(value) or value
             else:
                 normalized[key] = value
 
         return normalized
+
+    def _normalize_single_date(self, value: str) -> Optional[str]:
+        """
+        단일 날짜 문자열을 YYYY-MM-DD 형식으로 정규화합니다.
+
+        🔧 처리 가능한 형식:
+        - YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
+
+        반환값:
+        - 정규화된 날짜 문자열 또는 None
+        """
+        if value is None or value == "null" or value == "":
+            return None
+
+        if not isinstance(value, str):
+            return None
+
+        # 이미 YYYY-MM-DD 형식
+        if re.match(r'^\d{4}-\d{2}-\d{2}$', value):
+            return value
+        # YYYY/MM/DD 형식
+        elif re.match(r'^\d{4}/\d{2}/\d{2}$', value):
+            return value.replace("/", "-")
+        # YYYY.MM.DD 형식
+        elif re.match(r'^\d{4}\.\d{2}\.\d{2}$', value):
+            return value.replace(".", "-")
+        else:
+            print(f"⚠️ 날짜 형식 불일치: {value}")
+            return None
 
 
 # 🧪 테스트 코드

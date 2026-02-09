@@ -32,7 +32,8 @@ def get_comprehensive_analysis_prompt(notice_text: str, has_images: bool = False
         "dates": {
             "start_date": "YYYY-MM-DD",
             "end_date": "YYYY-MM-DD",
-            "deadline": "YYYY-MM-DD"
+            "deadline": "YYYY-MM-DD",
+            "deadlines": [{"label": "대상명", "date": "YYYY-MM-DD"}]
         },
         "category": "학사|장학|취업|행사|교육|공모전",
         "display_mode": "POSTER|DOCUMENT|HYBRID",
@@ -62,15 +63,23 @@ def get_comprehensive_analysis_prompt(notice_text: str, has_images: bool = False
 2. **dates** (날짜 정보):
    - start_date: 행사/일정 시작일 (YYYY-MM-DD 형식, 없으면 null)
    - end_date: 행사/일정 종료일 (YYYY-MM-DD 형식, 없으면 null)
-   - deadline: 학생이 조치를 취해야 하는 마지막 날 또는 일정에 기록해야 할 중요 날짜 (YYYY-MM-DD 형식, 없으면 null)
+   - deadline: 가장 임박한(가장 빠른) 마감일 (YYYY-MM-DD 형식, 없으면 null)
      - 1순위 (신청/제출): 원서 접수 마감, 서류 제출 기한, 수강신청 마감, 장학금 신청 종료일 등
      - 2순위 (참여/행사): 학위수여식 당일, 축제/콘서트 일시, 통학버스 운행일, 특강 개최일 등
      - 3순위 (모집 종료): 서포터즈/동아리 모집 마감일
      - 기간(Start~End)으로 명시되어 있다면, 반드시 종료일(End)을 deadline으로 설정
+     - deadlines 배열에 여러 마감일이 있으면, 그 중 가장 빠른 날짜를 deadline에 설정
    - date_type: deadline의 성격 분류
      - "ACTION": 신청, 제출, 접수 등 학생이 무언가를 해야 하는 경우
      - "EVENT": 행사, 축제, 강연 등 참여/참석하는 경우
      - null: 특정 기한이 없는 단순 정보 전달
+   - deadlines: 공지 내에 명시된 모든 마감/행사 기한을 배열로 추출 (없으면 빈 배열 [])
+     - 각 항목은 {{"label": "대상명", "date": "YYYY-MM-DD"}} 형식
+     - label: 해당 기한이 적용되는 대상 (직군명, 행사명, 항목명 등)
+     - date: 해당 마감일 (YYYY-MM-DD 형식)
+     - 마감일이 1개만 있으면 label은 "전체 마감" 또는 공지 제목의 핵심 키워드로 설정
+     - 마감일이 2개 이상이면 각각의 대상과 날짜를 분리하여 추출
+     - 예시: 채용 공고에서 직군별 마감일이 다른 경우 → [{{"label": "계약직(부산)", "date": "2026-02-12"}}, {{"label": "경력직(서면심사)", "date": "2026-02-18"}}]
    - 날짜가 "2월 1일", "2/1" 등으로 표기된 경우, 올해 또는 가장 가까운 미래 날짜로 변환
    - 연도가 없으면 현재 연도 또는 공지사항 맥락상 적절한 연도 추정
 
@@ -103,7 +112,11 @@ def get_comprehensive_analysis_prompt(notice_text: str, has_images: bool = False
         "start_date": "YYYY-MM-DD",
         "end_date": "YYYY-MM-DD",
         "deadline": "YYYY-MM-DD",
-        "date_type": "ACTION 또는 EVENT 또는 null"
+        "date_type": "ACTION 또는 EVENT 또는 null",
+        "deadlines": [
+            {{"label": "대상명", "date": "YYYY-MM-DD"}},
+            {{"label": "대상명2", "date": "YYYY-MM-DD"}}
+        ]
     }},
     "category": "카테고리명",
     "display_mode": "POSTER 또는 DOCUMENT 또는 HYBRID",
