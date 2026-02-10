@@ -387,6 +387,161 @@ def update_user_preferences(user_id):
         }), 500
 
 
+@users_bp.route('/preferences/<user_id>/notification-settings', methods=['PUT'])
+@login_required
+def update_notification_settings(user_id):
+    """
+    알림 설정을 업데이트합니다
+
+    PUT /api/users/preferences/<user_id>/notification-settings
+    Body (JSON):
+    {
+        "notification_mode": "all_on",
+        "deadline_reminder_days": 3
+    }
+
+    notification_mode 옵션:
+    - "all_off": 모든 알림 끄기
+    - "schedule_only": 일정 알림만
+    - "notice_only": 공지 알림만
+    - "all_on": 모든 알림 켜기
+
+    deadline_reminder_days: 1~7 (마감 며칠 전 알림)
+
+    응답:
+    {
+        "status": "success",
+        "data": {
+            "message": "알림 설정이 업데이트되었습니다.",
+            "settings": {
+                "notification_mode": "all_on",
+                "deadline_reminder_days": 3
+            }
+        }
+    }
+    """
+    try:
+        if g.user.id != user_id:
+            return jsonify({
+                "status": "error",
+                "message": "자신의 설정만 변경할 수 있습니다."
+            }), 403
+
+        data = request.get_json()
+
+        # 유효한 알림 모드 검증
+        valid_modes = ['all_off', 'schedule_only', 'notice_only', 'all_on']
+        update_data = {}
+
+        if 'notification_mode' in data:
+            mode = data['notification_mode']
+            if mode not in valid_modes:
+                return jsonify({
+                    "status": "error",
+                    "message": f"유효하지 않은 알림 모드입니다. 가능한 값: {valid_modes}"
+                }), 400
+            update_data['notification_mode'] = mode
+
+        if 'deadline_reminder_days' in data:
+            days = int(data['deadline_reminder_days'])
+            if days < 1 or days > 7:
+                return jsonify({
+                    "status": "error",
+                    "message": "deadline_reminder_days는 1~7 사이여야 합니다."
+                }), 400
+            update_data['deadline_reminder_days'] = days
+
+        if not update_data:
+            return jsonify({
+                "status": "error",
+                "message": "변경할 설정이 없습니다."
+            }), 400
+
+        supabase = SupabaseService()
+
+        result = supabase.client.table("user_preferences")\
+            .update(update_data)\
+            .eq("user_id", user_id)\
+            .execute()
+
+        if not result.data:
+            return jsonify({
+                "status": "error",
+                "message": "알림 설정 업데이트에 실패했습니다."
+            }), 500
+
+        print(f"[알림 설정] 업데이트 완료: {user_id} - {update_data}")
+
+        return jsonify({
+            "status": "success",
+            "data": {
+                "message": "알림 설정이 업데이트되었습니다.",
+                "settings": update_data
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] 알림 설정 업데이트 에러: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+@users_bp.route('/preferences/<user_id>/notification-settings', methods=['GET'])
+@login_required
+def get_notification_settings(user_id):
+    """
+    알림 설정을 조회합니다
+
+    GET /api/users/preferences/<user_id>/notification-settings
+
+    응답:
+    {
+        "status": "success",
+        "data": {
+            "notification_mode": "all_on",
+            "deadline_reminder_days": 3
+        }
+    }
+    """
+    try:
+        if g.user.id != user_id:
+            return jsonify({
+                "status": "error",
+                "message": "자신의 설정만 조회할 수 있습니다."
+            }), 403
+
+        supabase = SupabaseService()
+
+        result = supabase.client.table("user_preferences")\
+            .select("notification_mode, deadline_reminder_days")\
+            .eq("user_id", user_id)\
+            .single()\
+            .execute()
+
+        if not result.data:
+            return jsonify({
+                "status": "success",
+                "data": {
+                    "notification_mode": "all_on",
+                    "deadline_reminder_days": 3
+                }
+            }), 200
+
+        return jsonify({
+            "status": "success",
+            "data": result.data
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] 알림 설정 조회 에러: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
 @users_bp.route('/profile/<user_id>', methods=['DELETE'])
 @login_required
 def delete_user(user_id):

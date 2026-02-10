@@ -49,15 +49,33 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
       // 포그라운드 메시지 수신 시 NotificationProvider에 알림 추가
       fcmService.onMessageReceived = (message) {
-        notificationProvider.createNewNoticeNotification(
-          noticeId: message.data['notice_id'] ?? '',
-          noticeTitle: message.notification?.title ?? '새 공지사항',
-          category: message.data['category'] ?? '',
-        );
+        final type = message.data['type'] ?? 'new_notice';
+        final noticeId = message.data['notice_id'] ?? '';
+
+        if (type == 'deadline') {
+          // 마감 임박 알림
+          final daysUntil = int.tryParse(message.data['days_until'] ?? '') ?? 0;
+          notificationProvider.createDeadlineNotification(
+            noticeId: noticeId,
+            noticeTitle: message.notification?.title ?? '마감 임박',
+            deadline: DateTime.now().add(Duration(days: daysUntil)),
+            reminderDays: daysUntil,
+          );
+        } else {
+          // 새 공지사항 알림
+          notificationProvider.createNewNoticeNotification(
+            noticeId: noticeId,
+            noticeTitle: message.notification?.title ?? '새 공지사항',
+            category: message.data['category'] ?? '',
+          );
+        }
       };
 
       // FCM 초기화 (Firebase init + 토큰 등록 + 리스너 설정)
       fcmService.initialize();
+
+      // 백엔드에서 알림 내역 조회
+      notificationProvider.fetchFromBackend();
     });
   }
 }

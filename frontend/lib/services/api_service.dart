@@ -191,6 +191,7 @@ class ApiService {
         queryParameters: {
           'limit': limit,
           'min_score': minScore,
+          'rerank': 'true',
         },
       );
       return _handleListResponse(response, listKey: 'notices');
@@ -293,6 +294,52 @@ class ApiService {
       await _dio.put('/api/notifications/read-all');
     } catch (e) {
       throw _handleError(e);
+    }
+  }
+
+  /// 알림 설정 조회
+  Future<Map<String, dynamic>> getNotificationSettings(String userId) async {
+    try {
+      final response = await _dio.get(
+        '/api/users/preferences/$userId/notification-settings',
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 알림 설정 업데이트
+  Future<Map<String, dynamic>> updateNotificationSettings({
+    required String userId,
+    String? notificationMode,
+    int? deadlineReminderDays,
+  }) async {
+    try {
+      final data = <String, dynamic>{};
+      if (notificationMode != null) {
+        data['notification_mode'] = notificationMode;
+      }
+      if (deadlineReminderDays != null) {
+        data['deadline_reminder_days'] = deadlineReminderDays;
+      }
+      final response = await _dio.put(
+        '/api/users/preferences/$userId/notification-settings',
+        data: data,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 공지사항 조회 기록 (인기 공지 집계용)
+  Future<void> recordNoticeView(String noticeId) async {
+    try {
+      await _dio.post('/api/notices/$noticeId/view');
+    } catch (e) {
+      // 조회 기록 실패는 무시 (사용자 경험에 영향 없음)
+      print('조회 기록 실패: $e');
     }
   }
 

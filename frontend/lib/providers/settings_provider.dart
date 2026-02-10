@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 
 /// 알림 모드 enum
 enum NotificationMode {
@@ -19,6 +20,8 @@ class SettingsProvider with ChangeNotifier {
   static const String _notificationModeKey = 'notification_mode';
 
   SharedPreferences? _prefs;
+  final ApiService _apiService = ApiService();
+  String? _userId;
 
   // 테마 설정
   ThemeMode _themeMode = ThemeMode.system;
@@ -41,11 +44,18 @@ class SettingsProvider with ChangeNotifier {
   NotificationMode get notificationMode => _notificationMode;
 
   /// 설정 초기화 (앱 시작 시 호출)
-  Future<void> initialize() async {
+  Future<void> initialize({String? userId}) async {
     if (_isInitialized) return;
 
     _prefs = await SharedPreferences.getInstance();
+    _userId = userId;
     await _loadSettings();
+
+    // 로그인 상태면 백엔드에서 알림 설정 동기화
+    if (_userId != null) {
+      await _syncFromBackend();
+    }
+
     _isInitialized = true;
     notifyListeners();
   }
@@ -105,6 +115,9 @@ class SettingsProvider with ChangeNotifier {
 
     _deadlineReminderDays = days;
     await _prefs?.setInt(_deadlineReminderDaysKey, days);
+
+    // 백엔드 동기화
+    await _syncToBackend();
     notifyListeners();
   }
 
@@ -137,7 +150,67 @@ class SettingsProvider with ChangeNotifier {
 
     await _prefs?.setBool(_pushNotificationKey, _pushNotificationEnabled);
     await _prefs?.setBool(_scheduleNotificationKey, _scheduleNotificationEnabled);
+
+    // 백엔드 동기화
+    await _syncToBackend();
     notifyListeners();
+  }
+
+  /// 백엔드에서 알림 설정 동기화 (앱 시작 시)
+  Future<void> _syncFromBackend() async {
+    if (_userId == null) return;
+    try {
+      final response = await _apiService.getNotificationSettings(_userId!);
+      final mode = response['notification_mode'] as String? ?? 'all_on';
+      final days = response['deadline_reminder_days'] as int? ?? 3;
+
+      // 로컬 설정 갱신
+      _notificationMode = _modeFromString(mode);
+      _deadlineReminderDays = days;
+      await _prefs?.setInt(_notificationModeKey, _notificationMode.index);
+      await _prefs?.setInt(_deadlineReminderDaysKey, _deadlineReminderDays);
+    } catch (e) {
+      // 백엔드 실패 시 로컬 설정 유지
+    }
+  }
+
+  /// 백엔드에 알림 설정 저장 (설정 변경 시)
+  Future<void> _syncToBackend() async {
+    if (_userId == null) return;
+    try {
+      await _apiService.updateNotificationSettings(
+        userId: _userId!,
+        notificationMode: _modeToString(_notificationMode),
+        deadlineReminderDays: _deadlineReminderDays,
+      );
+    } catch (e) {
+      // 백엔드 실패 시 로컬 설정은 이미 저장됨
+    }
+  }
+
+  /// 사용자 ID 설정 (로그인 시 호출)
+  void setUserId(String? userId) {
+    _userId = userId;
+  }
+
+  /// NotificationMode → 백엔드 문자열 변환
+  String _modeToString(NotificationMode mode) {
+    switch (mode) {
+      case NotificationMode.allOff: return 'all_off';
+      case NotificationMode.scheduleOnly: return 'schedule_only';
+      case NotificationMode.noticeOnly: return 'notice_only';
+      case NotificationMode.allOn: return 'all_on';
+    }
+  }
+
+  /// 백엔드 문자열 → NotificationMode 변환
+  NotificationMode _modeFromString(String mode) {
+    switch (mode) {
+      case 'all_off': return NotificationMode.allOff;
+      case 'schedule_only': return NotificationMode.scheduleOnly;
+      case 'notice_only': return NotificationMode.noticeOnly;
+      default: return NotificationMode.allOn;
+    }
   }
 
   /// 알림 모드 표시 텍스트

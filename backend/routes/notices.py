@@ -8,6 +8,7 @@
 
 from flask import Blueprint, request, jsonify, Response, g
 from typing import Dict, Any
+from datetime import datetime
 import requests as http_requests
 from services.supabase_service import SupabaseService
 from crawler.crawler_manager import CrawlerManager
@@ -179,6 +180,113 @@ def get_notices():
         }), 500
 
 
+@notices_bp.route('/popular-in-my-group', methods=['GET'])
+@login_required
+def get_popular_in_my_group():
+    """
+    우리 학과/학년이 많이 본 공지사항을 조회합니다
+
+    GET /api/notices/popular-in-my-group?limit=20
+
+    인증 필수 (Authorization: Bearer <token>)
+
+    쿼리 파라미터:
+    - limit: 최대 결과 수 (기본 20, 최대 50)
+
+    응답:
+    {
+        "status": "success",
+        "data": {
+            "notices": [...],
+            "total": 20,
+            "group": {
+                "department": "컴퓨터정보공학과",
+                "grade": 3
+            }
+        }
+    }
+    """
+    try:
+        user_id = g.user_id
+        limit = min(50, max(1, int(request.args.get('limit', 20))))
+
+        supabase = SupabaseService()
+
+        # 1. 현재 사용자의 학과/학년 조회
+        user_result = supabase.client.table("users")\
+            .select("department, grade")\
+            .eq("id", user_id)\
+            .single()\
+            .execute()
+
+        if not user_result.data:
+            return jsonify({
+                "status": "error",
+                "message": "사용자 정보를 찾을 수 없습니다"
+            }), 404
+
+        department = user_result.data.get("department")
+        grade = user_result.data.get("grade")
+
+        if not department or not grade:
+            return jsonify({
+                "status": "error",
+                "message": "학과 또는 학년 정보가 설정되지 않았습니다"
+            }), 400
+
+        # 2. 같은 학과/학년 사용자 ID 목록 조회
+        peers_result = supabase.client.table("users")\
+            .select("id")\
+            .eq("department", department)\
+            .eq("grade", grade)\
+            .execute()
+
+        peer_ids = [p["id"] for p in (peers_result.data or [])]
+
+        if not peer_ids:
+            return jsonify({
+                "status": "success",
+                "data": {
+                    "notices": [],
+                    "total": 0,
+                    "group": {
+                        "department": department,
+                        "grade": grade
+                    }
+                }
+            }), 200
+
+        # 3. RPC 함수로 인기 공지 조회
+        rpc_result = supabase.client.rpc(
+            "get_popular_notices_by_users",
+            {
+                "user_ids": peer_ids,
+                "limit_count": limit
+            }
+        ).execute()
+
+        notices = rpc_result.data or []
+
+        return jsonify({
+            "status": "success",
+            "data": {
+                "notices": notices,
+                "total": len(notices),
+                "group": {
+                    "department": department,
+                    "grade": grade
+                }
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] 인기 공지 조회 실패: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
 @notices_bp.route('/<notice_id>', methods=['GET'])
 def get_notice(notice_id):
     """
@@ -214,6 +322,54 @@ def get_notice(notice_id):
 
     except Exception as e:
         print(f"[ERROR] 에러: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+@notices_bp.route('/<notice_id>/view', methods=['POST'])
+@login_required
+def record_notice_view(notice_id):
+    """
+    공지사항 조회 기록을 저장합니다 (upsert)
+
+    POST /api/notices/{notice_id}/view
+
+    인증 필수 (Authorization: Bearer <token>)
+
+    응답:
+    {
+        "status": "success",
+        "data": {
+            "notice_id": "uuid",
+            "recorded": true
+        }
+    }
+    """
+    try:
+        user_id = g.user_id
+        supabase = SupabaseService()
+
+        # Upsert: 이미 기록이 있으면 무시, 없으면 새로 생성
+        supabase.client.table("notice_views")\
+            .upsert({
+                "user_id": user_id,
+                "notice_id": notice_id,
+                "viewed_at": datetime.now().isoformat()
+            }, on_conflict="user_id,notice_id")\
+            .execute()
+
+        return jsonify({
+            "status": "success",
+            "data": {
+                "notice_id": notice_id,
+                "recorded": True
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] 조회 기록 저장 실패: {str(e)}")
         return jsonify({
             "status": "error",
             "message": str(e)

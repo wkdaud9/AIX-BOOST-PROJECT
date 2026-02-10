@@ -19,6 +19,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.hybrid_search_service import HybridSearchService
 from services.reranking_service import RerankingService
+from services.supabase_service import SupabaseService
 from utils.auth_middleware import login_required
 
 # Blueprint 생성 (URL 접두사: /api/search)
@@ -264,6 +265,128 @@ def find_relevant_users():
 
     except Exception as e:
         print(f"[에러] 관련 사용자 검색 실패: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+@search_bp.route('/notices/all', methods=['GET'])
+def search_all_notices():
+    """
+    전체 공지사항 검색 (공개 API)
+
+    GET /api/search/notices/all?q=장학금&category=학사&date_from=2026-01-01&date_to=2026-02-28&sort=latest&page=1&limit=20
+
+    쿼리 파라미터:
+    - q: 검색어 (제목, 내용 ILIKE 검색) - 선택
+    - category: 카테고리 필터 - 선택
+    - date_from: 시작일 필터 (YYYY-MM-DD) - 선택
+    - date_to: 종료일 필터 (YYYY-MM-DD) - 선택
+    - sort: 정렬 기준 (latest|views) - 기본값: latest
+    - page: 페이지 번호 (기본값: 1)
+    - limit: 페이지당 결과 수 (기본값: 20, 최대 100)
+
+    응답:
+    {
+        "status": "success",
+        "data": {
+            "notices": [...],
+            "total": 150,
+            "page": 1,
+            "total_pages": 8
+        }
+    }
+    """
+    try:
+        # 쿼리 파라미터 파싱
+        q = request.args.get('q', '').strip()
+        category = request.args.get('category', '').strip()
+        date_from = request.args.get('date_from', '').strip()
+        date_to = request.args.get('date_to', '').strip()
+        sort = request.args.get('sort', 'latest').strip()
+        page = max(1, int(request.args.get('page', 1)))
+        limit = min(100, max(1, int(request.args.get('limit', 20))))
+
+        # 오프셋 계산
+        offset = (page - 1) * limit
+
+        print(f"\n[검색] 전체 검색 API")
+        print(f"   - 검색어: '{q}', 카테고리: '{category}'")
+        print(f"   - 기간: {date_from} ~ {date_to}")
+        print(f"   - 정렬: {sort}, 페이지: {page}, 제한: {limit}")
+
+        supabase_service = SupabaseService()
+
+        # 총 개수 조회용 쿼리
+        count_query = supabase_service.client.table("notices")\
+            .select("id", count="exact")
+
+        # 데이터 조회용 쿼리
+        data_query = supabase_service.client.table("notices")\
+            .select("id, title, content, ai_summary, category, source_url, "
+                    "published_at, author, view_count, deadline, display_mode, "
+                    "has_important_image, content_images, bookmark_count")
+
+        # 검색어 필터 (제목 또는 내용 ILIKE)
+        if q:
+            escaped_q = q.replace("%", "\\%").replace("_", "\\_")
+            filter_str = f"title.ilike.%{escaped_q}%,content.ilike.%{escaped_q}%"
+            count_query = count_query.or_(filter_str)
+            data_query = data_query.or_(filter_str)
+
+        # 카테고리 필터
+        if category:
+            count_query = count_query.eq("category", category)
+            data_query = data_query.eq("category", category)
+
+        # 날짜 범위 필터
+        if date_from:
+            count_query = count_query.gte("published_at", date_from)
+            data_query = data_query.gte("published_at", date_from)
+        if date_to:
+            count_query = count_query.lte("published_at", date_to + "T23:59:59")
+            data_query = data_query.lte("published_at", date_to + "T23:59:59")
+
+        # 총 개수 조회
+        count_result = count_query.execute()
+        total = count_result.count if count_result.count is not None else 0
+
+        # 정렬 적용
+        if sort == 'views':
+            data_query = data_query.order("view_count", desc=True)
+        else:
+            data_query = data_query.order("published_at", desc=True)
+
+        # 페이지네이션 적용
+        data_query = data_query.range(offset, offset + limit - 1)
+
+        # 데이터 조회
+        result = data_query.execute()
+        notices = result.data or []
+
+        # 총 페이지 수 계산
+        total_pages = (total + limit - 1) // limit if total > 0 else 0
+
+        print(f"   - 결과: {len(notices)}개 / 총 {total}개")
+
+        return jsonify({
+            "status": "success",
+            "data": {
+                "notices": notices,
+                "total": total,
+                "page": page,
+                "total_pages": total_pages
+            }
+        }), 200
+
+    except ValueError as ve:
+        return jsonify({
+            "status": "error",
+            "message": f"잘못된 파라미터: {str(ve)}"
+        }), 400
+    except Exception as e:
+        print(f"[에러] 전체 검색 실패: {str(e)}")
         return jsonify({
             "status": "error",
             "message": str(e)

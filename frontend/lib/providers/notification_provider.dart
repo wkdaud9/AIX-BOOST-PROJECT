@@ -2,22 +2,31 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_notification.dart';
+import '../services/api_service.dart';
 
 /// 알림 상태 관리 Provider
-/// 알림 목록 관리, 읽음 상태 처리, SharedPreferences로 영속화
+/// 백엔드 API에서 알림을 조회하고, 로컬 캐시(SharedPreferences)로 영속화
 class NotificationProvider with ChangeNotifier {
   static const String _notificationsKey = 'app_notifications';
   static const int _maxNotifications = 100; // 최대 저장 개수
 
   SharedPreferences? _prefs;
+  ApiService? _apiService;
   List<AppNotification> _notifications = [];
   bool _isInitialized = false;
+  bool _isLoading = false;
 
   // Getters
   List<AppNotification> get notifications => List.unmodifiable(_notifications);
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
   bool get hasUnread => unreadCount > 0;
   bool get isInitialized => _isInitialized;
+  bool get isLoading => _isLoading;
+
+  /// ApiService 설정 (ProxyProvider에서 호출)
+  void updateApiService(ApiService apiService) {
+    _apiService = apiService;
+  }
 
   /// 초기화 (앱 시작 시 호출)
   Future<void> initialize() async {
@@ -62,6 +71,40 @@ class NotificationProvider with ChangeNotifier {
     await _prefs!.setString(_notificationsKey, json.encode(jsonList));
   }
 
+  /// 백엔드에서 알림 목록 조회
+  Future<void> fetchFromBackend() async {
+    if (_apiService == null) return;
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await _apiService!.getNotifications(limit: 100);
+      final List<dynamic> rawList = response['notifications'] ?? [];
+
+      final backendNotifications = rawList
+          .map((item) => AppNotification.fromBackendJson(
+              item as Map<String, dynamic>))
+          .toList();
+
+      // 백엔드 데이터로 교체 (FCM으로 받은 로컬 알림은 유지)
+      final localOnlyNotifications = _notifications
+          .where((local) => local.id.startsWith('system_'))
+          .toList();
+
+      _notifications = [...backendNotifications, ...localOnlyNotifications];
+      _notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      await _saveNotifications();
+    } catch (e) {
+      debugPrint('백엔드 알림 조회 실패: $e');
+      // 실패 시 로컬 캐시 유지
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   /// 새 알림 추가
   Future<void> addNotification(AppNotification notification) async {
     _notifications.insert(0, notification);
@@ -69,17 +112,24 @@ class NotificationProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// 알림 읽음 처리
+  /// 알림 읽음 처리 (로컬 + 백엔드)
   Future<void> markAsRead(String notificationId) async {
     final index = _notifications.indexWhere((n) => n.id == notificationId);
     if (index != -1 && !_notifications[index].isRead) {
       _notifications[index] = _notifications[index].copyWith(isRead: true);
       await _saveNotifications();
       notifyListeners();
+
+      // 백엔드에도 읽음 처리 요청
+      try {
+        await _apiService?.markNotificationAsRead(notificationId);
+      } catch (e) {
+        debugPrint('백엔드 읽음 처리 실패: $e');
+      }
     }
   }
 
-  /// 모든 알림 읽음 처리
+  /// 모든 알림 읽음 처리 (로컬 + 백엔드)
   Future<void> markAllAsRead() async {
     bool changed = false;
     for (int i = 0; i < _notifications.length; i++) {
@@ -91,6 +141,13 @@ class NotificationProvider with ChangeNotifier {
     if (changed) {
       await _saveNotifications();
       notifyListeners();
+
+      // 백엔드에도 전체 읽음 처리 요청
+      try {
+        await _apiService?.markAllNotificationsAsRead();
+      } catch (e) {
+        debugPrint('백엔드 전체 읽음 처리 실패: $e');
+      }
     }
   }
 

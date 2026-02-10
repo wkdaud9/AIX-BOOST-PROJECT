@@ -64,7 +64,7 @@ class AppNotification {
     };
   }
 
-  /// JSON에서 생성
+  /// JSON에서 생성 (SharedPreferences 로컬 저장용)
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     return AppNotification(
       id: json['id'] as String,
@@ -75,6 +75,34 @@ class AppNotification {
       isRead: json['isRead'] as bool? ?? false,
       noticeId: json['noticeId'] as String?,
       payload: json['payload'] as Map<String, dynamic>?,
+    );
+  }
+
+  /// 백엔드 notification_logs 응답에서 생성
+  factory AppNotification.fromBackendJson(Map<String, dynamic> json) {
+    // notification_type → NotificationType 변환
+    NotificationType type;
+    switch (json['notification_type'] as String? ?? 'new_notice') {
+      case 'deadline':
+        type = NotificationType.deadline;
+        break;
+      case 'system':
+        type = NotificationType.system;
+        break;
+      default:
+        type = NotificationType.newNotice;
+    }
+
+    return AppNotification(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? '공지사항',
+      body: json['body'] as String? ?? '',
+      type: type,
+      createdAt: json['sent_at'] != null
+          ? DateTime.parse(json['sent_at'] as String)
+          : DateTime.now(),
+      isRead: json['is_read'] as bool? ?? false,
+      noticeId: json['notice_id'] as String?,
     );
   }
 

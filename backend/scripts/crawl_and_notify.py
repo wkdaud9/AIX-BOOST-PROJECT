@@ -34,6 +34,7 @@ from crawler.recruitment_crawler import RecruitmentCrawler
 from ai.analyzer import NoticeAnalyzer
 from ai.embedding_service import EmbeddingService
 from ai.enrichment_service import EnrichmentService
+from config import Config
 from services.notice_service import NoticeService
 from services.hybrid_search_service import HybridSearchService
 from services.reranking_service import RerankingService
@@ -279,41 +280,101 @@ class CrawlAndNotifyPipeline:
         print(f"\n[통계] DB 저장 완료: {len(saved_ids)}개")
         return saved_ids
 
+    def _load_user_categories(self) -> Dict[str, List[str]]:
+        """사용자별 선호 카테고리를 일괄 조회합니다."""
+        try:
+            result = self.supabase.table("user_preferences")\
+                .select("user_id, categories")\
+                .execute()
+
+            user_categories = {}
+            for pref in (result.data or []):
+                user_categories[pref["user_id"]] = pref.get("categories") or []
+
+            print(f"  [정보] {len(user_categories)}명의 선호 카테고리 로드 완료")
+            return user_categories
+
+        except Exception as e:
+            print(f"  [경고] 사용자 카테고리 로드 실패: {str(e)}")
+            return {}
+
     def _step4_calculate_relevance(
         self,
         notice_ids: List[str]
     ) -> Dict[str, List[Dict[str, Any]]]:
-        """4단계: 하이브리드 검색으로 관련 사용자 찾기 (메모리에서만 처리)"""
+        """4단계: 하이브리드 검색 + 카테고리 기반 이중 임계값 필터링"""
         print("\n" + "-"*60)
-        print("[4단계] 하이브리드 검색 기반 관련 사용자 찾기")
+        print("[4단계] 하이브리드 검색 기반 관련 사용자 찾기 (이중 임계값)")
         print("-"*60)
 
-        # notice_id -> 관련 사용자 리스트 매핑
+        # 환경변수에서 임계값 로드
+        category_match_min = Config.CATEGORY_MATCH_MIN_SCORE
+        category_unmatch_min = Config.CATEGORY_UNMATCH_MIN_SCORE
+        min_vector_score = Config.MIN_VECTOR_SCORE
+
+        print(f"  [설정] 관심 카테고리 임계값: {category_match_min}")
+        print(f"  [설정] 비관심 카테고리 임계값: {category_unmatch_min}")
+        print(f"  [설정] 최소 벡터 점수: {min_vector_score}")
+
+        # 사용자 선호 카테고리 캐시 (전체 조회 1회)
+        user_categories_map = self._load_user_categories()
+
         relevance_results = {}
 
         for i, notice_id in enumerate(notice_ids, 1):
             print(f"\n[{i}/{len(notice_ids)}] 공지 {notice_id[:8]}... 관련 사용자 검색 중")
 
             try:
-                # 하이브리드 검색으로 관련 사용자 찾기
+                # 공지사항 카테고리 조회
+                notice_result = self.supabase.table("notices")\
+                    .select("category")\
+                    .eq("id", notice_id)\
+                    .single()\
+                    .execute()
+                notice_category = (notice_result.data or {}).get("category", "")
+
+                # 하이브리드 검색 (낮은 임계값으로 넓게 검색)
                 relevant_users = self.hybrid_search_service.find_relevant_users(
                     notice_id=notice_id,
-                    min_score=0.5,
+                    min_score=category_match_min,
                     max_users=50
                 )
 
+                # 카테고리 기반 이중 임계값 필터링
+                filtered_users = []
+                for user_data in relevant_users:
+                    user_id = user_data.get("user_id")
+                    total_score = user_data.get("total_score", 0)
+                    vector_score = user_data.get("vector_score", 0)
+
+                    # 최소 벡터 점수 체크 (raw similarity 기준)
+                    raw_similarity = vector_score / 0.7 if vector_score > 0 else 0
+                    if raw_similarity < min_vector_score:
+                        continue
+
+                    # 카테고리 매칭 여부 확인
+                    user_cats = user_categories_map.get(user_id, [])
+                    is_category_match = notice_category in user_cats
+
+                    # 이중 임계값 적용
+                    threshold = category_match_min if is_category_match else category_unmatch_min
+                    if total_score >= threshold:
+                        user_data["category_match"] = is_category_match
+                        filtered_users.append(user_data)
+
                 # 상위 결과에 대해 리랭킹 (선택적)
-                if len(relevant_users) > 10 and self.reranking_service.should_rerank(relevant_users):
-                    relevant_users = self.reranking_service.rerank_users_for_notice(
+                if len(filtered_users) > 10 and self.reranking_service.should_rerank(filtered_users):
+                    filtered_users = self.reranking_service.rerank_users_for_notice(
                         notice_id=notice_id,
-                        candidate_users=relevant_users,
+                        candidate_users=filtered_users,
                         top_n=10
                     )
 
-                # 메모리에만 저장 (ai_analysis 테이블 사용 안 함)
-                relevance_results[notice_id] = relevant_users
+                relevance_results[notice_id] = filtered_users
 
-                print(f"  [완료] {len(relevant_users)}명 관련 사용자 발견")
+                print(f"  [완료] {len(relevant_users)}명 검색 → "
+                      f"{len(filtered_users)}명 필터링 통과 "
+                      f"(카테고리: {notice_category})")
 
             except Exception as e:
                 print(f"  [오류] 관련도 계산 실패: {str(e)}")
@@ -324,17 +385,40 @@ class CrawlAndNotifyPipeline:
 
         return relevance_results
 
+    def _load_user_notification_settings(self) -> Dict[str, Dict[str, Any]]:
+        """사용자별 알림 설정을 일괄 조회합니다."""
+        try:
+            result = self.supabase.table("user_preferences")\
+                .select("user_id, notification_mode, deadline_reminder_days")\
+                .execute()
+
+            settings = {}
+            for pref in (result.data or []):
+                settings[pref["user_id"]] = {
+                    "notification_mode": pref.get("notification_mode", "all_on"),
+                    "deadline_reminder_days": pref.get("deadline_reminder_days", 3)
+                }
+            return settings
+
+        except Exception as e:
+            print(f"  [경고] 알림 설정 로드 실패: {str(e)}")
+            return {}
+
     def _step5_send_notifications(
         self,
         relevance_results: Dict[str, List[Dict[str, Any]]]
     ) -> int:
-        """6단계: 푸시 알림 발송 (device_tokens 테이블 기반 FCM 발송)"""
+        """6단계: 푸시 알림 발송 (사용자 알림 설정 반영)"""
         print("\n" + "-"*60)
-        print("[6단계] 푸시 알림 발송")
+        print("[6단계] 푸시 알림 발송 (알림 설정 반영)")
         print("-"*60)
 
         notification_count = 0
         fcm_sent_count = 0
+        skipped_count = 0
+
+        # 사용자 알림 설정 일괄 로드
+        user_settings = self._load_user_notification_settings()
 
         try:
             for notice_id, relevant_users in relevance_results.items():
@@ -358,6 +442,15 @@ class CrawlAndNotifyPipeline:
                     user_id = user_data.get("user_id")
                     relevance_score = user_data.get("total_score", user_data.get("score", 0.5))
 
+                    # 사용자 알림 설정 확인
+                    settings = user_settings.get(user_id, {"notification_mode": "all_on"})
+                    mode = settings.get("notification_mode", "all_on")
+
+                    # 알림 모드 체크: 새 공지 알림은 notice_only 또는 all_on에서만 발송
+                    if mode == "all_off" or mode == "schedule_only":
+                        skipped_count += 1
+                        continue
+
                     # 알림 로그 저장 (notification_logs 테이블) - FCM 발송 전에 저장
                     try:
                         self.supabase.table("notification_logs").insert({
@@ -366,7 +459,8 @@ class CrawlAndNotifyPipeline:
                             "title": notice_title,
                             "body": notice_body,
                             "sent_at": datetime.now().isoformat(),
-                            "is_read": False
+                            "is_read": False,
+                            "notification_type": "new_notice"
                         }).execute()
                         notification_count += 1
                     except Exception as e:
@@ -403,6 +497,7 @@ class CrawlAndNotifyPipeline:
                               f"FCM 미설정 - 로그만 저장)")
 
             print(f"\n[통계] 알림 로그 저장: {notification_count}건")
+            print(f"[통계] 알림 설정으로 스킵: {skipped_count}건")
             if self.fcm_service:
                 print(f"[통계] FCM 푸시 발송: {fcm_sent_count}건")
             else:

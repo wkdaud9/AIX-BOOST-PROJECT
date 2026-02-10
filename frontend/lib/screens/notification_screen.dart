@@ -76,17 +76,21 @@ class NotificationScreen extends StatelessWidget {
       ),
       body: Consumer<NotificationProvider>(
         builder: (context, provider, child) {
-          if (provider.notifications.isEmpty) {
+          if (provider.notifications.isEmpty && !provider.isLoading) {
             return _buildEmptyState(context);
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            itemCount: provider.notifications.length,
-            itemBuilder: (context, index) {
-              final notification = provider.notifications[index];
-              return _buildNotificationCard(context, notification, provider);
-            },
+          return RefreshIndicator(
+            onRefresh: () => provider.fetchFromBackend(),
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              itemCount: provider.notifications.length,
+              itemBuilder: (context, index) {
+                final notification = provider.notifications[index];
+                return _buildNotificationCard(context, notification, provider);
+              },
+            ),
           );
         },
       ),

@@ -53,9 +53,15 @@ class AIXBoostApp extends StatelessWidget {
         ChangeNotifierProvider<SettingsProvider>(
           create: (_) => SettingsProvider()..initialize(),
         ),
-        // 5. NotificationProvider 생성 (알림 목록 관리)
-        ChangeNotifierProvider<NotificationProvider>(
+        // 5. NotificationProvider 생성 (ApiService 의존, 알림 목록 관리)
+        ChangeNotifierProxyProvider<ApiService, NotificationProvider>(
           create: (_) => NotificationProvider()..initialize(),
+          update: (_, apiService, previous) {
+            previous?.updateApiService(apiService);
+            return previous ?? (NotificationProvider()
+              ..updateApiService(apiService)
+              ..initialize());
+          },
         ),
         // 6. FCMService 생성 (ApiService 의존, 푸시 알림 처리)
         ProxyProvider<ApiService, FCMService>(
