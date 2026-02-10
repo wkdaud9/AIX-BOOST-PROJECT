@@ -132,7 +132,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onChanged: (value) {
                         settings.setPushNotificationEnabled(value);
                       },
-                      activeColor: AppTheme.primaryColor,
+                      activeColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                     ),
                   ),
                   Divider(
@@ -152,7 +152,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onChanged: (value) {
                         settings.setScheduleNotificationEnabled(value);
                       },
-                      activeColor: AppTheme.primaryColor,
+                      activeColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                     ),
                   ),
                 ],
@@ -173,7 +173,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 context,
                 isDark: isDark,
                 icon: Icons.new_releases_outlined,
-                iconColor: AppTheme.primaryColor,
+                iconColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                 title: '버전 정보',
                 subtitle: 'v1.0.0',
                 trailing: Icon(
@@ -191,7 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 context,
                 isDark: isDark,
                 icon: Icons.shield_outlined,
-                iconColor: AppTheme.secondaryColor,
+                iconColor: isDark ? AppTheme.primaryLight : AppTheme.secondaryColor,
                 title: '개인정보 처리방침',
                 trailing: Icon(
                   Icons.chevron_right_rounded,
@@ -230,7 +230,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  /// 프로필 헤더 카드 - 그라데이션 배경 + 아바타 + 정보
+  /// 프로필 헤더 카드 - 컴팩트 가로 레이아웃
   Widget _buildProfileHeader(BuildContext context, bool isDark) {
     final user = _userProfile?['user'];
     final name = user?['name'] ?? '이름 없음';
@@ -247,102 +247,104 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.xl),
-        child: Stack(
-          children: [
-            // 그라데이션 배경
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isDark
-                      ? [
-                          const Color(0xFF3D3577),
-                          const Color(0xFF2D2B55),
-                        ]
-                      : [
-                          AppTheme.primaryColor,
-                          AppTheme.primaryDark,
-                        ],
-                ),
-              ),
-              child: Column(
-                children: [
-                  // 아바타
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.2),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.4),
-                        width: 3,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        initials,
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [
+                      const Color(0xFF1C4D8D),
+                      const Color(0xFF0F2854),
+                    ]
+                  : [
+                      AppTheme.primaryColor,
+                      AppTheme.primaryDark,
+                    ],
+            ),
+          ),
+          child: Row(
+            children: [
+              // 아바타
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.2),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.4),
+                    width: 2,
                   ),
-
-                  const SizedBox(height: 16),
-
-                  // 이름
-                  Text(
-                    '$name님',
+                ),
+                child: Center(
+                  child: Text(
+                    initials,
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
-                      letterSpacing: -0.5,
                     ),
                   ),
+                ),
+              ),
 
-                  const SizedBox(height: 6),
+              const SizedBox(width: 16),
 
-                  // 학과
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(AppRadius.round),
-                    ),
-                    child: Text(
-                      department,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withOpacity(0.9),
-                        fontWeight: FontWeight.w500,
+              // 정보 영역
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$name님',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // 이메일
-                  Text(
-                    email,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withOpacity(0.6),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(AppRadius.round),
+                          ),
+                          child: Text(
+                            department,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withOpacity(0.9),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    if (email.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        email,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white.withOpacity(0.55),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -359,7 +361,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             isDark: isDark,
             icon: Icons.edit_rounded,
             label: '프로필 편집',
-            color: AppTheme.primaryColor,
+            color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
             onTap: () {
               ProfileEditModal.show(
                 context,
@@ -377,7 +379,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             isDark: isDark,
             icon: Icons.headset_mic_rounded,
             label: '고객센터',
-            color: AppTheme.secondaryColor,
+            color: isDark ? AppTheme.primaryLight : AppTheme.secondaryColor,
             onTap: () => _showContactDialog(context),
           ),
         ),
@@ -395,7 +397,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: isDark ? const Color(0xFF2D2D44) : Colors.white,
+      color: isDark ? const Color(0xFF1C4D8D) : Colors.white,
       borderRadius: BorderRadius.circular(AppRadius.lg),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -470,7 +472,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // 섹션 콘텐츠 카드
         Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF2D2D44) : Colors.white,
+            color: isDark ? const Color(0xFF1C4D8D) : Colors.white,
             borderRadius: BorderRadius.circular(AppRadius.lg),
             boxShadow: isDark ? null : AppShadow.soft,
           ),
@@ -583,52 +585,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.xl),
         ),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.headset_mic_rounded, color: AppTheme.primaryColor),
-            SizedBox(width: 12),
-            Text('고객센터'),
+            Icon(Icons.headset_mic_rounded, color: Theme.of(context).brightness == Brightness.dark ? AppTheme.primaryLight : AppTheme.primaryColor),
+            const SizedBox(width: 12),
+            const Text('고객센터'),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              '문의사항이 있으시면 아래 이메일로 연락해주세요.',
-              style: TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppRadius.md),
+        content: Builder(builder: (ctx) {
+          final dialogIsDark = Theme.of(ctx).brightness == Brightness.dark;
+          final dialogAccent = dialogIsDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '문의사항이 있으시면 아래 이메일로 연락해주세요.',
+                style: TextStyle(fontSize: 14),
               ),
-              child: const Row(
-                children: [
-                  Icon(Icons.email_outlined, size: 20, color: AppTheme.primaryColor),
-                  SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'heybro@kunsan.ac.kr',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.primaryColor,
+              const SizedBox(height: AppSpacing.md),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: dialogAccent.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.email_outlined, size: 20, color: dialogAccent),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      'heybro@kunsan.ac.kr',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: dialogAccent,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            const Text(
-              '운영시간: 평일 09:00 ~ 18:00',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                '운영시간: 평일 09:00 ~ 18:00',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: dialogIsDark ? Colors.white54 : AppTheme.textSecondary,
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          );
+        }),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

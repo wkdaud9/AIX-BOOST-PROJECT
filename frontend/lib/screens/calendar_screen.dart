@@ -73,17 +73,16 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
             margin: const EdgeInsets.only(right: 12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  AppTheme.primaryColor.withOpacity(0.15),
-                  AppTheme.primaryColor.withOpacity(0.08),
-                ],
+                colors: isDark
+                    ? [AppTheme.primaryLight.withOpacity(0.2), AppTheme.primaryLight.withOpacity(0.1)]
+                    : [AppTheme.primaryColor.withOpacity(0.15), AppTheme.primaryColor.withOpacity(0.08)],
               ),
               borderRadius: BorderRadius.circular(AppRadius.md),
             ),
             child: IconButton(
               icon: Icon(
                 _viewMode == ViewMode.calendar ? Icons.view_list_rounded : Icons.calendar_month_rounded,
-                color: AppTheme.primaryColor,
+                color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                 size: 22,
               ),
               onPressed: () {
@@ -217,7 +216,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
       ),
       child: TabBar(
         controller: _tabController,
-        labelColor: AppTheme.primaryColor,
+        labelColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
         unselectedLabelColor: isDark ? Colors.white54 : AppTheme.textSecondary,
         labelStyle: const TextStyle(
           fontSize: 15,
@@ -227,7 +226,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
           fontSize: 15,
           fontWeight: FontWeight.w500,
         ),
-        indicatorColor: AppTheme.primaryColor,
+        indicatorColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
         indicatorWeight: 3,
         tabs: const [
           Tab(
@@ -384,6 +383,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   /// 캘린더 위젯
   Widget _buildCalendar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
         return Card(
@@ -436,7 +436,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
                   if (daysLeft > 0) {
                     dDayText = 'D-$daysLeft';
-                    bgColor = daysLeft <= 3 ? AppTheme.errorColor : AppTheme.primaryColor;
+                    bgColor = daysLeft <= 3 ? AppTheme.errorColor : AppTheme.infoColor;
                   } else if (daysLeft == 0) {
                     dDayText = 'D-Day';
                     bgColor = AppTheme.errorColor;
@@ -470,11 +470,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
               // 스타일 설정
               calendarStyle: CalendarStyle(
                 todayDecoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.5),
+                  color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor).withOpacity(0.5),
                   shape: BoxShape.circle,
                 ),
-                selectedDecoration: const BoxDecoration(
-                  color: AppTheme.primaryColor,
+                selectedDecoration: BoxDecoration(
+                  color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                   shape: BoxShape.circle,
                 ),
                 // 커스텀 마커 빌더를 사용하므로 기본 마커 숨김
@@ -489,11 +489,11 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 titleCentered: true,
                 formatButtonShowsNext: false,
                 formatButtonDecoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor).withOpacity(0.15),
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
-                formatButtonTextStyle: const TextStyle(
-                  color: AppTheme.primaryColor,
+                formatButtonTextStyle: TextStyle(
+                  color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -620,7 +620,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.primaryColor,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppTheme.primaryLight
+                          : AppTheme.primaryColor,
                     ),
                   ),
                 ),

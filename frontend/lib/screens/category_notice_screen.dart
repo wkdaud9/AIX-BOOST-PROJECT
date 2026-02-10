@@ -138,7 +138,7 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
           ),
         ],
       ),
-      color: isDark ? const Color(0xFF2D2D44) : Colors.white,
+      color: isDark ? const Color(0xFF1C4D8D) : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
@@ -217,7 +217,7 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF25253D) : Colors.white,
+        color: isDark ? const Color(0xFF0F2854) : Colors.white,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         boxShadow: isDark ? null : AppShadow.soft,
       ),

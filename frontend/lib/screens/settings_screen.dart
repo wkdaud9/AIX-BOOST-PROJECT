@@ -188,6 +188,9 @@ class SettingsScreen extends StatelessWidget {
     required String label,
   }) {
     final isSelected = settings.themeMode == mode;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 다크모드에서 primaryColor는 배경과 동일하므로 primaryLight 사용
+    final accentColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
     return Expanded(
       child: GestureDetector(
         onTap: () => settings.setThemeMode(mode),
@@ -196,13 +199,13 @@ class SettingsScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.primaryColor.withOpacity(0.1)
+                ? accentColor.withOpacity(0.15)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(AppRadius.md),
             border: Border.all(
               color: isSelected
-                  ? AppTheme.primaryColor
-                  : Colors.grey.withOpacity(0.3),
+                  ? accentColor
+                  : (isDark ? Colors.white24 : Colors.grey.withOpacity(0.3)),
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -211,7 +214,7 @@ class SettingsScreen extends StatelessWidget {
               Icon(
                 icon,
                 color: isSelected
-                    ? AppTheme.primaryColor
+                    ? accentColor
                     : Theme.of(context).iconTheme.color?.withOpacity(0.6),
               ),
               const SizedBox(height: 4),
@@ -221,7 +224,7 @@ class SettingsScreen extends StatelessWidget {
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   color: isSelected
-                      ? AppTheme.primaryColor
+                      ? accentColor
                       : Theme.of(context).textTheme.bodyMedium?.color,
                 ),
               ),
@@ -293,32 +296,36 @@ class SettingsScreen extends StatelessWidget {
                 child: Text(label),
               );
             }).toList(),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppRadius.md),
-                border: Border.all(
-                  color: AppTheme.primaryColor.withOpacity(0.3),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    settings.notificationModeDisplayText,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : AppTheme.textPrimary,
+            child: Builder(
+              builder: (context) {
+                final isDarkDropdown = Theme.of(context).brightness == Brightness.dark;
+                final dropdownAccent = isDarkDropdown ? AppTheme.primaryLight : AppTheme.primaryColor;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: dropdownAccent.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(
+                      color: dropdownAccent.withOpacity(0.4),
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.keyboard_arrow_down, size: 20),
-                ],
-              ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        settings.notificationModeDisplayText,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: isDarkDropdown ? Colors.white : AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.keyboard_arrow_down, size: 20),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],

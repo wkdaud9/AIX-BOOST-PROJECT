@@ -73,7 +73,7 @@ class FullListModal extends StatelessWidget {
         title: '저장한 일정',
         subtitle: '마감 임박 순 정렬',
         notices: bookmarked,
-        themeColor: Colors.blue,
+        themeColor: AppTheme.infoColor,
         icon: Icons.event,
         listType: FullListType.savedEvents,
       ),
@@ -92,7 +92,7 @@ class FullListModal extends StatelessWidget {
         title: 'AI 추천',
         subtitle: '맞춤 공지사항',
         notices: provider.recommendedNotices,
-        themeColor: Colors.purple,
+        themeColor: AppTheme.primaryLight,
         icon: Icons.auto_awesome,
         listType: FullListType.aiRecommend,
       ),
@@ -197,7 +197,7 @@ class FullListModal extends StatelessWidget {
         title: '이번 주 일정',
         subtitle: '마감 예정 공지사항',
         notices: weeklyNotices,
-        themeColor: Colors.green,
+        themeColor: AppTheme.successColor,
         icon: Icons.calendar_today,
         listType: FullListType.weekly,
       ),
@@ -215,7 +215,7 @@ class FullListModal extends StatelessWidget {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+            color: isDark ? const Color(0xFF060E1F) : Colors.white,
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppRadius.xl),
             ),
@@ -498,7 +498,7 @@ class FullListModal extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color: isExpired
                   ? Colors.grey
-                  : (daysLeft <= 3 ? Colors.red : themeColor),
+                  : (daysLeft <= 3 ? AppTheme.errorColor : themeColor),
             ),
           );
         }
@@ -563,7 +563,7 @@ class FullListModal extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                 decoration: BoxDecoration(
                   color: notice.priority == '긴급'
-                      ? Colors.red.withOpacity(0.15)
+                      ? AppTheme.errorColor.withOpacity(0.15)
                       : AppTheme.warningColor.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(3),
                 ),
@@ -573,7 +573,7 @@ class FullListModal extends StatelessWidget {
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color: notice.priority == '긴급'
-                        ? Colors.red
+                        ? AppTheme.errorColor
                         : AppTheme.warningColor,
                   ),
                 ),
@@ -586,7 +586,7 @@ class FullListModal extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: Colors.red,
+                  color: AppTheme.errorColor,
                 ),
               ),
             ],
@@ -601,7 +601,7 @@ class FullListModal extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: daysLeft <= 3 ? Colors.red : themeColor,
+              color: daysLeft <= 3 ? AppTheme.errorColor : themeColor,
             ),
           );
         }

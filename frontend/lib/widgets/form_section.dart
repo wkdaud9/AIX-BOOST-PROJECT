@@ -38,7 +38,7 @@ class FormSection extends StatelessWidget {
         // 입력 필드를 감싸는 카드
         Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF25253D) : Colors.white,
+            color: isDark ? const Color(0xFF0F2854) : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: errorMessage != null

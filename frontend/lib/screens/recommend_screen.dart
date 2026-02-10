@@ -60,7 +60,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
                       isDark: isDark,
                       title: 'AI 맞춤 추천',
                       icon: Icons.auto_awesome_rounded,
-                      color: AppTheme.primaryColor,
+                      color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                       description: '당신의 관심사에 맞는 공지사항',
                       count: provider.recommendedNotices.length,
                     ),
@@ -146,7 +146,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: isDark
-                  ? [const Color(0xFF3D3577), const Color(0xFF2D2B55)]
+                  ? [const Color(0xFF1C4D8D), const Color(0xFF0F2854)]
                   : [AppTheme.primaryColor, AppTheme.primaryDark],
             ),
           ),
@@ -316,9 +316,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
                     icon: const Icon(Icons.list_alt_rounded, size: 18),
                     label: Text('전체보기 (${recommended.length}건)'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.primaryColor,
+                      foregroundColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                       side: BorderSide(
-                        color: AppTheme.primaryColor.withOpacity(0.4),
+                        color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor).withOpacity(0.4),
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
@@ -484,7 +484,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF25253D) : Colors.white,
+        color: isDark ? const Color(0xFF0F2854) : Colors.white,
         borderRadius: BorderRadius.circular(AppRadius.md),
         boxShadow: isDark ? null : AppShadow.soft,
         border: Border(
@@ -653,7 +653,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
                       : Icons.bookmark_border_rounded,
                   size: 20,
                   color: notice.isBookmarked
-                      ? AppTheme.primaryColor
+                      ? (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
                       : (isDark ? Colors.white38 : AppTheme.textHint),
                 ),
               ),
@@ -671,7 +671,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
         Icon(
           Icons.auto_awesome,
           size: 12,
-          color: AppTheme.primaryColor.withOpacity(isDark ? 0.7 : 0.8),
+          color: isDark ? AppTheme.primaryLight.withOpacity(0.7) : AppTheme.primaryColor.withOpacity(0.8),
         ),
         const SizedBox(width: 4),
         Expanded(
@@ -766,7 +766,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
           margin: const EdgeInsets.only(bottom: AppSpacing.md),
           decoration: BoxDecoration(
             color: isDark
-                ? const Color(0xFF25253D).withOpacity(0.5)
+                ? const Color(0xFF0F2854).withOpacity(0.5)
                 : AppTheme.surfaceLight,
             borderRadius: BorderRadius.circular(AppRadius.lg),
           ),

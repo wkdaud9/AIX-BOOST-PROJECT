@@ -101,7 +101,7 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+            color: isDark ? const Color(0xFF060E1F) : Colors.white,
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppRadius.xl),
             ),
@@ -230,7 +230,7 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
           vertical: AppSpacing.md,
         ),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF2D2D44) : AppTheme.surfaceLight,
+          color: isDark ? const Color(0xFF1C4D8D) : AppTheme.surfaceLight,
           borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
             color: isDark
@@ -293,7 +293,7 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
               builder: (context, scrollController) {
                 return Container(
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+                    color: isDark ? const Color(0xFF060E1F) : Colors.white,
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(AppRadius.xl),
                     ),
@@ -452,7 +452,7 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
-      color: isDark ? const Color(0xFF2D2D44) : Colors.white,
+      color: isDark ? const Color(0xFF1C4D8D) : Colors.white,
       onSelected: (value) {
         setState(() => _selectedGrade = value);
       },
@@ -468,7 +468,7 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
           vertical: 14,
         ),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF2D2D44) : AppTheme.surfaceLight,
+          color: isDark ? const Color(0xFF1C4D8D) : AppTheme.surfaceLight,
           borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
             color: isDark

@@ -2,42 +2,45 @@ import 'package:flutter/material.dart';
 
 /// 앱 전체 테마 정의 - 트렌디하고 세련된 모바일 UI
 class AppTheme {
-  // 프라이머리 컬러 (부드러운 블루-퍼플 그라데이션)
-  static const Color primaryColor = Color(0xFF6C63FF);
-  static const Color primaryLight = Color(0xFF9D97FF);
-  static const Color primaryDark = Color(0xFF4B42DB);
+  // 프라이머리 컬러 (딥 네이비 블루)
+  static const Color primaryColor = Color(0xFF0F2854);
+  static const Color primaryLight = Color(0xFF4988C4);
+  static const Color primaryDark = Color(0xFF0A1D40);
 
-  // 세컨더리 컬러 (부드러운 민트/틸)
-  static const Color secondaryColor = Color(0xFF5DDAB4);
-  static const Color secondaryLight = Color(0xFF8EECD4);
-  static const Color secondaryDark = Color(0xFF3EC99D);
+  // 세컨더리 컬러 (미드 네이비)
+  static const Color secondaryColor = Color(0xFF1C4D8D);
+  static const Color secondaryLight = Color(0xFF4988C4);
+  static const Color secondaryDark = Color(0xFF143A6B);
 
-  // 배경 컬러 (매우 밝고 깔끔한 톤)
-  static const Color backgroundColor = Color(0xFFF8F9FE);
+  // 배경 컬러 (밝고 시원한 블루그레이)
+  static const Color backgroundColor = Color(0xFFF0F4F8);
   static const Color surfaceColor = Colors.white;
-  static const Color surfaceLight = Color(0xFFFBFBFF);
+  static const Color surfaceLight = Color(0xFFF5F9FC);
 
-  // 텍스트 컬러 (가독성 높은 톤)
-  static const Color textPrimary = Color(0xFF2E3A59);
-  static const Color textSecondary = Color(0xFF8F9BB3);
-  static const Color textHint = Color(0xFFC5CEE0);
+  // 텍스트 컬러 (네이비 기반 가독성)
+  static const Color textPrimary = Color(0xFF0F2854);
+  static const Color textSecondary = Color(0xFF5A7BA6);
+  static const Color textHint = Color(0xFFA8C4D9);
 
-  // 상태 컬러 (부드러운 파스텔 톤)
-  static const Color successColor = Color(0xFF56C596);
-  static const Color warningColor = Color(0xFFFFB84D);
-  static const Color errorColor = Color(0xFFFF6B9D);
-  static const Color infoColor = Color(0xFF6C9DFF);
+  // 상태 컬러 (세련된 톤)
+  static const Color successColor = Color(0xFF2A9D8F);
+  static const Color warningColor = Color(0xFFE9A040);
+  static const Color errorColor = Color(0xFFE05263);
+  static const Color infoColor = Color(0xFF4988C4);
+
+  // 라이트 틴트 (섹션 배경, 하이라이트)
+  static const Color lightTint = Color(0xFFBDE8F5);
 
   // 공지사항 카테고리 컬러 (트렌디한 파스텔 톤)
   static const Map<String, Color> categoryColors = {
-    '학사': Color(0xFF6C9DFF),       // 부드러운 블루
-    '학사공지': Color(0xFF6C9DFF),   // 부드러운 블루
+    '학사': Color(0xFF4988C4),       // 액센트 블루
+    '학사공지': Color(0xFF4988C4),   // 액센트 블루
     '장학': Color(0xFF56C596),       // 부드러운 그린
     '취업': Color(0xFFFFB84D),       // 부드러운 오렌지
     '행사': Color(0xFFAD7FFF),       // 부드러운 퍼플
     '학생활동': Color(0xFFAD7FFF),   // 부드러운 퍼플
     '시설': Color(0xFF5DDAB4),       // 부드러운 민트
-    '교육': Color(0xFF7C90FF),       // 부드러운 인디고
+    '교육': Color(0xFF3A78B5),       // 네이비 블루
     '공모전': Color(0xFFFFD66B),     // 부드러운 골드
     '기타': Color(0xFF9AA5B8),       // 부드러운 그레이
   };
@@ -187,14 +190,14 @@ class AppTheme {
     useMaterial3: true,
     brightness: Brightness.dark,
     primaryColor: primaryColor,
-    scaffoldBackgroundColor: const Color(0xFF1A1A2E),
+    scaffoldBackgroundColor: const Color(0xFF060E1F),
     splashColor: Colors.transparent,
     highlightColor: Colors.transparent,
 
     colorScheme: const ColorScheme.dark(
       primary: primaryColor,
       secondary: secondaryColor,
-      surface: Color(0xFF25253D),
+      surface: Color(0xFF0F2854),
       error: errorColor,
       onPrimary: Colors.white,
       onSecondary: Colors.white,
@@ -206,7 +209,7 @@ class AppTheme {
     appBarTheme: const AppBarTheme(
       elevation: 0,
       centerTitle: false,
-      backgroundColor: Color(0xFF1A1A2E),
+      backgroundColor: Color(0xFF060E1F),
       foregroundColor: Colors.white,
       titleTextStyle: TextStyle(
         color: Colors.white,
@@ -218,7 +221,7 @@ class AppTheme {
     // Card 테마 (다크)
     cardTheme: CardThemeData(
       elevation: 0,
-      color: const Color(0xFF25253D),
+      color: const Color(0xFF0F2854),
       shadowColor: Colors.black.withOpacity(0.3),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -278,7 +281,7 @@ class AppTheme {
     // 입력 필드 테마 (다크)
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: const Color(0xFF2D2D44),
+      fillColor: const Color(0xFF1C4D8D),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
@@ -323,8 +326,8 @@ class AppTheme {
 
     // BottomNavigationBar 테마 (다크)
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: Color(0xFF1A1A2E),
-      selectedItemColor: primaryColor,
+      backgroundColor: Color(0xFF060E1F),
+      selectedItemColor: primaryLight,
       unselectedItemColor: Colors.white54,
     ),
 

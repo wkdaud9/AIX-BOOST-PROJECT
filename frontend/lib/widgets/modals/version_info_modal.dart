@@ -26,7 +26,7 @@ class VersionInfoModal extends StatelessWidget {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+            color: isDark ? const Color(0xFF060E1F) : Colors.white,
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppRadius.xl),
             ),
@@ -83,13 +83,13 @@ class VersionInfoModal extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(AppSpacing.lg),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor).withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(AppRadius.xl),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.school,
                                 size: 48,
-                                color: AppTheme.primaryColor,
+                                color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                               ),
                             ),
                             const SizedBox(height: AppSpacing.md),
@@ -187,15 +187,17 @@ class VersionInfoModal extends StatelessWidget {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final accentColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: isLatest
-            ? AppTheme.primaryColor.withOpacity(0.1)
+            ? accentColor.withOpacity(0.15)
             : (isDark ? Colors.white12 : Colors.grey.shade100),
         borderRadius: BorderRadius.circular(AppRadius.md),
         border: isLatest
-            ? Border.all(color: AppTheme.primaryColor.withOpacity(0.3))
+            ? Border.all(color: accentColor.withOpacity(0.3))
             : null,
       ),
       child: Column(
@@ -208,7 +210,7 @@ class VersionInfoModal extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: isLatest ? AppTheme.primaryColor : null,
+                  color: isLatest ? accentColor : null,
                 ),
               ),
               if (isLatest) ...[
@@ -216,7 +218,7 @@ class VersionInfoModal extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor,
+                    color: accentColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(

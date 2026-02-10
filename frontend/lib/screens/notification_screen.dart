@@ -28,7 +28,9 @@ class NotificationScreen extends StatelessWidget {
                   child: Text(
                     '모두 읽음',
                     style: TextStyle(
-                      color: AppTheme.primaryColor,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppTheme.primaryLight
+                          : AppTheme.primaryColor,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -200,15 +202,15 @@ class NotificationScreen extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
             color: notification.isRead
-                ? (isDark ? const Color(0xFF25253D) : Colors.white)
+                ? (isDark ? const Color(0xFF0F2854) : Colors.white)
                 : (isDark
-                    ? AppTheme.primaryColor.withOpacity(0.15)
+                    ? AppTheme.primaryLight.withOpacity(0.1)
                     : AppTheme.primaryColor.withOpacity(0.05)),
             borderRadius: BorderRadius.circular(AppRadius.lg),
             border: Border.all(
               color: notification.isRead
                   ? (isDark ? Colors.white12 : Colors.grey.shade200)
-                  : AppTheme.primaryColor.withOpacity(0.2),
+                  : (isDark ? AppTheme.primaryLight.withOpacity(0.3) : AppTheme.primaryColor.withOpacity(0.2)),
             ),
             boxShadow: notification.isRead ? null : AppShadow.soft,
           ),
@@ -302,8 +304,8 @@ class NotificationScreen extends StatelessWidget {
                   width: 8,
                   height: 8,
                   margin: const EdgeInsets.only(left: AppSpacing.sm),
-                  decoration: const BoxDecoration(
-                    color: AppTheme.primaryColor,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -332,9 +334,9 @@ class NotificationScreen extends StatelessWidget {
       case NotificationType.deadline:
         return AppTheme.errorColor;
       case NotificationType.newNotice:
-        return AppTheme.primaryColor;
-      case NotificationType.system:
         return AppTheme.infoColor;
+      case NotificationType.system:
+        return AppTheme.successColor;
     }
   }
 

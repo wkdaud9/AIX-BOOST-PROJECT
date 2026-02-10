@@ -128,7 +128,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
-      color: isDark ? const Color(0xFF25253D) : AppTheme.surfaceColor,
+      color: isDark ? const Color(0xFF0F2854) : AppTheme.surfaceColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -218,9 +218,9 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(isDark ? 0.15 : 0.08),
+                color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor).withOpacity(isDark ? 0.1 : 0.08),
                 borderRadius: BorderRadius.circular(AppRadius.md),
-                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+                border: Border.all(color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor).withOpacity(0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -590,8 +590,8 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(AppRadius.sm),
                 color: isActive
-                    ? AppTheme.primaryColor
-                    : AppTheme.primaryColor.withOpacity(0.2),
+                    ? (Theme.of(context).brightness == Brightness.dark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                    : (Theme.of(context).brightness == Brightness.dark ? AppTheme.primaryLight : AppTheme.primaryColor).withOpacity(0.25),
               ),
             );
           }).toList(),
@@ -614,21 +614,28 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
             child: Row(
               children: [
-                Text(
-                  '원문 보기',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
+                Builder(builder: (context) {
+                  final collapseIsDark = Theme.of(context).brightness == Brightness.dark;
+                  final collapseColor = collapseIsDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+                  return Text(
+                    '원문 보기',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: collapseColor,
+                    ),
+                  );
+                }),
                 const Spacer(),
-                Icon(
-                  _isContentExpanded
-                      ? Icons.keyboard_arrow_up
-                      : Icons.keyboard_arrow_down,
-                  color: AppTheme.primaryColor,
-                ),
+                Builder(builder: (context) {
+                  final collapseIsDark = Theme.of(context).brightness == Brightness.dark;
+                  return Icon(
+                    _isContentExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: collapseIsDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                  );
+                }),
               ],
             ),
           ),
@@ -646,7 +653,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     return Container(
       height: 200,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2D2D44) : Colors.grey.shade100,
+        color: isDark ? const Color(0xFF1C4D8D) : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: const Center(
@@ -664,7 +671,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     return Container(
       height: 120,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2D2D44) : Colors.grey.shade100,
+        color: isDark ? const Color(0xFF1C4D8D) : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
       ),
@@ -736,33 +743,37 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: _notice!.tags.map((tag) {
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppRadius.round),
-                  border: Border.all(
-                    color: AppTheme.primaryColor.withOpacity(0.3),
+          Builder(builder: (context) {
+            final tagIsDark = Theme.of(context).brightness == Brightness.dark;
+            final tagAccent = tagIsDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+            return Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: _notice!.tags.map((tag) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
                   ),
-                ),
-                child: Text(
-                  '#$tag',
-                  style: const TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                  decoration: BoxDecoration(
+                    color: tagAccent.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(AppRadius.round),
+                    border: Border.all(
+                      color: tagAccent.withOpacity(0.3),
+                    ),
                   ),
-                ),
-              );
-            }).toList(),
-          ),
+                  child: Text(
+                    '#$tag',
+                    style: TextStyle(
+                      color: tagAccent,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                );
+              }).toList(),
+            );
+          }),
         ],
       ),
     );
@@ -780,40 +791,44 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: AppSpacing.sm),
-          InkWell(
-            onTap: () => _openUrl(_notice!.url!),
-            child: Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.link,
-                    color: AppTheme.primaryColor,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      _notice!.url!,
-                      style: const TextStyle(
-                        color: AppTheme.primaryColor,
-                        decoration: TextDecoration.underline,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+          Builder(builder: (context) {
+            final urlIsDark = Theme.of(context).brightness == Brightness.dark;
+            final urlAccent = urlIsDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+            return InkWell(
+              onTap: () => _openUrl(_notice!.url!),
+              child: Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: urlAccent.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.link,
+                      color: urlAccent,
                     ),
-                  ),
-                  const Icon(
-                    Icons.open_in_new,
-                    color: AppTheme.primaryColor,
-                    size: 20,
-                  ),
-                ],
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        _notice!.url!,
+                        style: TextStyle(
+                          color: urlAccent,
+                          decoration: TextDecoration.underline,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Icon(
+                      Icons.open_in_new,
+                      color: urlAccent,
+                      size: 20,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
+            );
+          }),
         ],
       ),
     );

@@ -220,9 +220,11 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                     ),
                     const Spacer(),
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.bookmark,
-                        color: AppTheme.primaryColor,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? AppTheme.primaryLight
+                            : AppTheme.primaryColor,
                       ),
                       onPressed: () {
                         provider.toggleBookmark(notice.id);
@@ -322,19 +324,21 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                     spacing: AppSpacing.xs,
                     runSpacing: AppSpacing.xs,
                     children: notice.tags.take(3).map((tag) {
+                      final tagIsDark = Theme.of(context).brightness == Brightness.dark;
+                      final tagColor = tagIsDark ? AppTheme.primaryLight : AppTheme.primaryColor;
                       return Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.sm,
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          color: tagColor.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(AppRadius.sm),
                         ),
                         child: Text(
                           '#$tag',
-                          style: const TextStyle(
-                            color: AppTheme.primaryColor,
+                          style: TextStyle(
+                            color: tagColor,
                             fontSize: 10,
                           ),
                         ),

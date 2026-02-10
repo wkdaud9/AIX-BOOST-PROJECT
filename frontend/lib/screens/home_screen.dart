@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:carousel_slider/carousel_slider.dart';
 import '../models/notice.dart';
 import '../providers/notice_provider.dart';
 import '../providers/notification_provider.dart';
@@ -25,7 +24,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   String? _selectedCategory; // 선택된 카테고리 필터
-  int _currentBannerIndex = 0; // 현재 배너 인덱스
   int _currentCardIndex = 0; // 현재 카드 인덱스
   late PageController _cardPageController; // 카드 페이지 컨트롤러
 
@@ -37,30 +35,6 @@ class _HomeScreenState extends State<HomeScreen> {
     {'name': '행사', 'icon': Icons.event, 'color': AppTheme.getCategoryColor('행사')},
     {'name': '교육', 'icon': Icons.menu_book, 'color': AppTheme.getCategoryColor('교육')},
     {'name': '공모전', 'icon': Icons.emoji_events, 'color': AppTheme.getCategoryColor('공모전')},
-  ];
-
-  // 배너 더미 데이터 (AppTheme 색상 기반)
-  final List<Map<String, dynamic>> _banners = [
-    {
-      'title': '2024학년도 1학기 수강신청 안내',
-      'color': AppTheme.getCategoryColor('학사'),
-      'icon': Icons.school,
-    },
-    {
-      'title': '국가장학금 신청 기간 안내',
-      'color': AppTheme.getCategoryColor('장학'),
-      'icon': Icons.attach_money,
-    },
-    {
-      'title': '취업 박람회 개최 안내',
-      'color': AppTheme.getCategoryColor('취업'),
-      'icon': Icons.work,
-    },
-    {
-      'title': '도서관 열람실 예약 안내',
-      'color': AppTheme.getCategoryColor('행사'),
-      'icon': Icons.library_books,
-    },
   ];
 
   @override
@@ -177,39 +151,52 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: _buildBody(),
-      bottomNavigationBar: Theme(
-        data: Theme.of(context).copyWith(
-          hoverColor: Colors.transparent,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF060E1F) : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? Colors.white10 : Colors.grey.shade200,
+              width: 1,
+            ),
+          ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: Theme.of(context).colorScheme.primary,
-          unselectedItemColor: isDark ? Colors.white54 : AppTheme.textSecondary,
-          elevation: 8,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: '홈',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_month_outlined),
-              activeIcon: Icon(Icons.calendar_month),
-              label: '일정',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.auto_awesome_outlined),
-              activeIcon: Icon(Icons.auto_awesome),
-              label: 'mybro',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: '마이페이지',
-            ),
-          ],
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            hoverColor: Colors.transparent,
+            splashColor: Colors.transparent,
+          ),
+          child: BottomNavigationBar(
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: isDark ? const Color(0xFF060E1F) : Colors.white,
+            selectedItemColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+            unselectedItemColor: isDark ? Colors.white54 : AppTheme.textSecondary,
+            elevation: 0,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_outlined),
+                activeIcon: Icon(Icons.home),
+                label: '홈',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.calendar_month_outlined),
+                activeIcon: Icon(Icons.calendar_month),
+                label: '일정',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.auto_awesome_outlined),
+                activeIcon: Icon(Icons.auto_awesome),
+                label: 'mybro',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person_outline),
+                activeIcon: Icon(Icons.person),
+                label: '마이페이지',
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -245,7 +232,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // 배너 + 카테고리 영역
             Container(
-              color: isDark ? const Color(0xFF25253D) : Colors.white,
+              color: isDark ? const Color(0xFF0F2854) : Colors.white,
               child: Column(
                 children: [
                   // 배너 슬라이드
@@ -260,7 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // 추천 정보 섹션
             Container(
-              color: isDark ? const Color(0xFF1E1E35) : Colors.grey.shade100,
+              color: isDark ? const Color(0xFF0A1D40) : Colors.grey.shade100,
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -283,118 +270,271 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 배너 슬라이더 (트렌디한 디자인)
+  // mybro 소개 배너 (단일 배너)
   Widget _buildBannerSlider() {
-    return Column(
-      children: [
-        CarouselSlider(
-          options: CarouselOptions(
-            height: 200.0,
-            autoPlay: true,
-            autoPlayInterval: const Duration(seconds: 4),
-            autoPlayAnimationDuration: const Duration(milliseconds: 800),
-            autoPlayCurve: Curves.easeInOutCubic,
-            enlargeCenterPage: true,
-            enlargeFactor: 0.25,
-            viewportFraction: 0.92,
-            onPageChanged: (index, reason) {
-              setState(() {
-                _currentBannerIndex = index;
-              });
-            },
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+      child: GestureDetector(
+        onTap: () => _showMybroInfoModal(context),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [const Color(0xFF1C4D8D), const Color(0xFF0F2854)]
+                  : [AppTheme.primaryColor, AppTheme.primaryDark],
+            ),
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+            boxShadow: AppShadow.medium,
           ),
-          items: _banners.map((banner) {
-            return Builder(
-              builder: (BuildContext context) {
-                return Container(
-                  width: MediaQuery.of(context).size.width,
-                  margin: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 12.0),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        banner['color'] as Color,
-                        (banner['color'] as Color).withOpacity(0.75),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(AppRadius.xl),
-                    boxShadow: AppShadow.strong,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.xl),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          // TODO: 배너 클릭 시 동작
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('${banner['title']} 클릭')),
-                          );
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(AppRadius.md),
-                                ),
-                                child: Icon(
-                                  banner['icon'] as IconData,
-                                  size: 32,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              Text(
-                                banner['title'] as String,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  height: 1.4,
-                                  letterSpacing: -0.3,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
+          child: Row(
+            children: [
+              // 텍스트 영역
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'mybro',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                  ),
-                );
-              },
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 12),
-        // 인디케이터 (동일 크기, 색상만 변경)
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: _banners.asMap().entries.map((entry) {
-            final isActive = _currentBannerIndex == entry.key;
-            return Container(
-              width: 8.0,
-              height: 8.0,
-              margin: const EdgeInsets.symmetric(horizontal: 4.0),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isActive
-                    ? AppTheme.primaryColor
-                    : AppTheme.primaryColor.withOpacity(0.25),
+                    const SizedBox(height: 6),
+                    Text(
+                      'AI가 추천하는 맞춤형 공지사항',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withOpacity(0.8),
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '탭해서 자세히 알아보기',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white.withOpacity(0.55),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            );
-          }).toList(),
+              // 아이콘 영역
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 28,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 20),
-      ],
+      ),
+    );
+  }
+
+  /// mybro 기능 소개 모달
+  void _showMybroInfoModal(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.65,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF060E1F) : Colors.white,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(AppRadius.xl),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 핸들바
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // 헤더
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppTheme.primaryColor, AppTheme.primaryDark],
+                        ),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                      child: const Icon(
+                        Icons.auto_awesome_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'mybro 기능 안내',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : AppTheme.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'AI 기반 맞춤형 추천 서비스',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? Colors.white54 : AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              // 기능 목록
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: Column(
+                    children: [
+                      _buildFeatureItem(
+                        isDark,
+                        icon: Icons.auto_awesome_rounded,
+                        color: AppTheme.primaryColor,
+                        title: 'AI 맞춤 추천',
+                        description: '관심 카테고리와 열람 패턴을 분석하여\n나에게 딱 맞는 공지사항을 추천합니다.',
+                      ),
+                      const SizedBox(height: 14),
+                      _buildFeatureItem(
+                        isDark,
+                        icon: Icons.push_pin_rounded,
+                        color: AppTheme.errorColor,
+                        title: '오늘 꼭 봐야 할 공지',
+                        description: '긴급, 마감 임박, 인기 공지를\n종합 분석하여 오늘의 필수 공지를 알려줍니다.',
+                      ),
+                      const SizedBox(height: 14),
+                      _buildFeatureItem(
+                        isDark,
+                        icon: Icons.star_rounded,
+                        color: AppTheme.infoColor,
+                        title: '학과/학년 인기 공지',
+                        description: '같은 학과, 같은 학년 학생들이\n가장 많이 본 공지를 보여줍니다.',
+                      ),
+                      const SizedBox(height: 14),
+                      _buildFeatureItem(
+                        isDark,
+                        icon: Icons.alarm_rounded,
+                        color: AppTheme.warningColor,
+                        title: '마감 임박 알림',
+                        description: '신청 마감이 다가오는 공지를\n마감일 기준으로 정렬하여 보여줍니다.',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// 모달 기능 항목 위젯
+  Widget _buildFeatureItem(
+    bool isDark, {
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String description,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F2854) : color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: isDark ? Colors.white10 : color.withOpacity(0.12),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withOpacity(isDark ? 0.2 : 0.1),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.white54 : AppTheme.textSecondary,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -437,23 +577,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // 네모 박스 아이콘
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? categoryColor.withOpacity(0.15)
-                            : isDark ? const Color(0xFF2D2D44) : AppTheme.textHint.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        category['icon'] as IconData,
-                        size: 24,
-                        color: isSelected
-                            ? categoryColor
-                            : isDark ? Colors.white54 : AppTheme.textSecondary,
-                      ),
+                    // 아이콘 (배경 없이 깔끔하게)
+                    Icon(
+                      category['icon'] as IconData,
+                      size: 28,
+                      color: isSelected
+                          ? categoryColor
+                          : isDark ? Colors.white70 : AppTheme.textSecondary,
                     ),
                     const SizedBox(height: 6),
                     // 카테고리 이름
@@ -482,56 +612,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 슬라이드 카드 섹션 (트렌디한 디자인)
   Widget _buildSlideCards() {
-    return SizedBox(
-      height: 340,
-      child: PageView.builder(
-        controller: _cardPageController,
-        physics: const BouncingScrollPhysics(),
-        itemCount: 4,
-        padEnds: false,
-        onPageChanged: (index) {
-          setState(() {
-            _currentCardIndex = index;
-          });
-        },
-        itemBuilder: (context, index) {
-          switch (index) {
-            case 0:
-              return _buildCardWithIndicator(_buildPopularCardContent());
-            case 1:
-              return _buildCardWithIndicator(_buildSavedEventsCardContent());
-            case 2:
-              return _buildCardWithIndicator(_buildAIRecommendCardContent());
-            case 3:
-              return _buildCardWithIndicator(_buildWeeklyInfoCardContent());
-            default:
-              return const SizedBox();
-          }
-        },
-      ),
-    );
-  }
-
-  /// 카드 + 우하단 인디케이터 래퍼
-  Widget _buildCardWithIndicator(Widget cardContent) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF25253D) : Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: isDark ? null : AppShadow.soft,
-      ),
-      child: Stack(
-        children: [
-          // 카드 내용
-          cardContent,
-          // 우하단 인디케이터
-          Positioned(
-            right: 16,
-            bottom: 12,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+    return Column(
+      children: [
+        SizedBox(
+          height: 340,
+          child: PageView.builder(
+            controller: _cardPageController,
+            physics: const BouncingScrollPhysics(),
+            itemCount: 4,
+            padEnds: false,
+            onPageChanged: (index) {
+              setState(() {
+                _currentCardIndex = index;
+              });
+            },
+            itemBuilder: (context, index) {
+              switch (index) {
+                case 0:
+                  return _buildCard(_buildPopularCardContent());
+                case 1:
+                  return _buildCard(_buildSavedEventsCardContent());
+                case 2:
+                  return _buildCard(_buildAIRecommendCardContent());
+                case 3:
+                  return _buildCard(_buildWeeklyInfoCardContent());
+                default:
+                  return const SizedBox();
+              }
+            },
+          ),
+        ),
+        // 카드 하단 인디케이터
+        const SizedBox(height: 12),
+        Builder(
+          builder: (context) {
+            final isDarkIndicator = Theme.of(context).brightness == Brightness.dark;
+            final indicatorColor = isDarkIndicator ? AppTheme.primaryLight : AppTheme.primaryColor;
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(4, (index) {
                 final isActive = _currentCardIndex == index;
                 return Container(
@@ -541,15 +659,29 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isActive
-                        ? AppTheme.primaryColor
-                        : AppTheme.primaryColor.withOpacity(0.25),
+                        ? indicatorColor
+                        : indicatorColor.withOpacity(0.3),
                   ),
                 );
               }),
-            ),
-          ),
-        ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  /// 카드 래퍼
+  Widget _buildCard(Widget cardContent) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F2854) : Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: isDark ? null : AppShadow.soft,
       ),
+      child: cardContent,
     );
   }
 
@@ -880,7 +1012,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         borderRadius: BorderRadius.circular(AppRadius.md),
                       ),
-                      child: const Icon(Icons.auto_awesome, color: AppTheme.primaryColor, size: 24),
+                      child: Icon(Icons.auto_awesome, color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor, size: 24),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1175,7 +1307,7 @@ class _HomeScreenState extends State<HomeScreen> {
         maxChildSize: 0.95,
         builder: (context, scrollController) => Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1A1A2E) : AppTheme.backgroundColor,
+            color: isDark ? const Color(0xFF060E1F) : AppTheme.backgroundColor,
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppRadius.xl),
             ),
