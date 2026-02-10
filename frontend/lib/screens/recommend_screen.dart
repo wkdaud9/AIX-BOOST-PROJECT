@@ -200,8 +200,11 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
-  /// 헤더 (모던 클린 스타일, colorScheme 기반)
+  /// 헤더 (모던 클린 스타일, 다크모드 대비 보장)
   Widget _buildHeader(ColorScheme colorScheme) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
@@ -220,7 +223,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
-                    color: colorScheme.primary,
+                    color: accentColor,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -243,12 +246,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: colorScheme.primary.withOpacity(0.08),
+                color: accentColor.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(AppRadius.md),
               ),
               child: Icon(
                 Icons.refresh_rounded,
-                color: colorScheme.primary,
+                color: accentColor,
                 size: 22,
               ),
             ),

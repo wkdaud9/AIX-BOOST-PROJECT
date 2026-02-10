@@ -27,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _selectedCategory; // 선택된 카테고리 필터
   int _currentCardIndex = 0; // 현재 카드 인덱스
   late PageController _cardPageController; // 카드 페이지 컨트롤러
+  final ScrollController _homeScrollController = ScrollController(); // 홈 탭 스크롤 컨트롤러
 
   // 카테고리 목록 (아이콘 포함)
   final List<Map<String, dynamic>> _categories = [
@@ -53,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _cardPageController.dispose();
+    _homeScrollController.dispose();
     super.dispose();
   }
 
@@ -74,20 +76,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Consumer<AuthService>(
-          builder: (context, authService, child) {
-            final name = authService.userName;
-            if (authService.isAuthenticated && name != null && name.isNotEmpty) {
-              return Text(
-                '$name님!',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+        title: GestureDetector(
+          onTap: () {
+            if (_selectedIndex != 0) {
+              setState(() => _selectedIndex = 0);
+            } else {
+              _homeScrollController.animateTo(
+                0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
               );
             }
-            return const Text(
-              'Hey bro',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            );
           },
+          child: Consumer<AuthService>(
+            builder: (context, authService, child) {
+              final name = authService.userName;
+              if (authService.isAuthenticated && name != null && name.isNotEmpty) {
+                return Text(
+                  '$name님!',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                );
+              }
+              return const Text(
+                'Hey bro',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              );
+            },
+          ),
         ),
         actions: [
           // 검색 아이콘
@@ -201,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
               BottomNavigationBarItem(
                 icon: Icon(Icons.auto_awesome_outlined),
                 activeIcon: Icon(Icons.auto_awesome),
-                label: 'mybro',
+                label: 'MyBro',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.person_outline),
@@ -239,6 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ]);
       },
       child: SingleChildScrollView(
+        controller: _homeScrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -283,79 +299,74 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // mybro 소개 배너 (단일 배너)
+  // MyBro 소개 배너 (Edge-to-edge, 토스 스타일)
   Widget _buildBannerSlider() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-      child: GestureDetector(
-        onTap: () => _showMybroInfoModal(context),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDark
-                  ? [const Color(0xFF1C4D8D), const Color(0xFF0F2854)]
-                  : [AppTheme.primaryColor, AppTheme.primaryDark],
+    return GestureDetector(
+      onTap: () => _showMybroInfoModal(context),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [const Color(0xFF1C4D8D), const Color(0xFF0F2854)]
+                : [AppTheme.primaryColor, AppTheme.primaryDark],
+          ),
+        ),
+        child: Row(
+          children: [
+            // 텍스트 영역
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'MyBro',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'AI가 추천하는 맞춤형 공지사항',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withOpacity(0.8),
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '탭해서 자세히 알아보기',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withOpacity(0.55),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            borderRadius: BorderRadius.circular(AppRadius.xl),
-            boxShadow: AppShadow.medium,
-          ),
-          child: Row(
-            children: [
-              // 텍스트 영역
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'mybro',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'AI가 추천하는 맞춤형 공지사항',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.white.withOpacity(0.8),
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '탭해서 자세히 알아보기',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white.withOpacity(0.55),
-                      ),
-                    ),
-                  ],
-                ),
+            // 아이콘 영역
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
-              // 아이콘 영역
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
-                child: const Icon(
-                  Icons.auto_awesome_rounded,
-                  size: 28,
-                  color: Colors.white,
-                ),
+              child: const Icon(
+                Icons.auto_awesome_rounded,
+                size: 28,
+                color: Colors.white,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -418,7 +429,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'mybro 기능 안내',
+                            'MyBro 기능 안내',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -453,7 +464,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _buildFeatureItem(
                         isDark,
                         icon: Icons.auto_awesome_rounded,
-                        color: AppTheme.primaryColor,
+                        color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                         title: 'AI 맞춤 추천',
                         description: '관심 카테고리와 열람 패턴을 분석하여\n나에게 딱 맞는 공지사항을 추천합니다.',
                       ),
@@ -1450,165 +1461,184 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(AppRadius.lg),
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
             children: [
-              // 제목과 뱃지
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      notice.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (notice.priority != null) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+              // 북마크 오버레이 (오른쪽 상단)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Consumer<NoticeProvider>(
+                  builder: (context, provider, child) {
+                    return GestureDetector(
+                      onTap: () => provider.toggleBookmark(notice.id),
+                      child: Icon(
+                        notice.isBookmarked
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_border_rounded,
+                        size: 22,
+                        color: notice.isBookmarked
+                            ? categoryColor
+                            : (isDark ? Colors.white38 : AppTheme.textSecondary),
                       ),
-                      decoration: BoxDecoration(
-                        color: _getPriorityColor(notice.priority!),
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                      child: Text(
-                        notice.priority!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (notice.isNew) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.errorColor,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                      child: const Text(
-                        'NEW',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+                    );
+                  },
+                ),
               ),
-
-              // AI 요약
-              if (notice.aiSummary != null) ...[
-                const SizedBox(height: AppSpacing.sm),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(isDark ? 0.15 : 0.08),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.auto_awesome, size: 14, color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          notice.aiSummary!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? Colors.white70 : AppTheme.primaryDark,
+              // 콘텐츠 영역
+              Padding(
+                padding: const EdgeInsets.only(right: 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 뱃지 행
+                    Row(
+                      children: [
+                        if (notice.priority != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getPriorityColor(notice.priority!),
+                              borderRadius: BorderRadius.circular(AppRadius.xs),
+                            ),
+                            child: Text(
+                              notice.priority!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                          const SizedBox(width: 6),
+                        ],
+                        if (notice.isNew) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.errorColor,
+                              borderRadius: BorderRadius.circular(AppRadius.xs),
+                            ),
+                            child: const Text(
+                              'NEW',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (notice.deadline != null && notice.daysUntilDeadline != null) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: (notice.daysUntilDeadline! <= 3 ? AppTheme.errorColor : AppTheme.infoColor)
+                                  .withOpacity(isDark ? 0.2 : 0.1),
+                              borderRadius: BorderRadius.circular(AppRadius.xs),
+                              border: Border.all(
+                                color: (notice.daysUntilDeadline! <= 3 ? AppTheme.errorColor : AppTheme.infoColor)
+                                    .withOpacity(0.4),
+                              ),
+                            ),
+                            child: Text(
+                              'D-${notice.daysUntilDeadline}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: notice.daysUntilDeadline! <= 3 ? AppTheme.errorColor : AppTheme.infoColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+
+                    const SizedBox(height: AppSpacing.sm),
+
+                    // 제목 (고정 높이 영역 - 2줄 기준)
+                    SizedBox(
+                      height: 42,
+                      child: Text(
+                        notice.title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+
+                    // AI 요약
+                    if (notice.aiSummary != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(isDark ? 0.15 : 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor).withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.auto_awesome, size: 14, color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                notice.aiSummary!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? Colors.white70 : AppTheme.primaryDark,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
-                  ),
-                ),
-              ],
 
-              const SizedBox(height: AppSpacing.sm),
+                    const SizedBox(height: AppSpacing.sm),
 
-              // 메타 정보
-              Row(
-                children: [
-                  Icon(
-                    Icons.calendar_today,
-                    size: 14,
-                    color: isDark ? Colors.white54 : AppTheme.textSecondary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    notice.formattedDate,
-                    style: TextStyle(
-                      color: isDark ? Colors.white54 : AppTheme.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Icon(
-                    Icons.visibility,
-                    size: 14,
-                    color: isDark ? Colors.white54 : AppTheme.textSecondary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${notice.views}',
-                    style: TextStyle(
-                      color: isDark ? Colors.white54 : AppTheme.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                  if (notice.deadline != null && notice.daysUntilDeadline != null) ...[
-                    const Spacer(),
-                    Text(
-                      'D-${notice.daysUntilDeadline}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: notice.daysUntilDeadline! <= 3 ? AppTheme.errorColor : AppTheme.infoColor,
-                      ),
+                    // 메타 정보 (고정 위치)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.visibility_outlined,
+                          size: 14,
+                          color: isDark ? Colors.white38 : AppTheme.textSecondary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${notice.views}',
+                          style: TextStyle(
+                            color: isDark ? Colors.white38 : AppTheme.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          notice.formattedDate,
+                          style: TextStyle(
+                            color: isDark ? Colors.white24 : AppTheme.textHint,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                  const Spacer(),
-                  // 북마크 아이콘
-                  Consumer<NoticeProvider>(
-                    builder: (context, provider, child) {
-                      return IconButton(
-                        icon: Icon(
-                          notice.isBookmarked
-                              ? Icons.bookmark
-                              : Icons.bookmark_border,
-                          size: 20,
-                        ),
-                        color: notice.isBookmarked
-                            ? categoryColor
-                            : (isDark ? Colors.white54 : AppTheme.textSecondary),
-                        onPressed: () {
-                          provider.toggleBookmark(notice.id);
-                        },
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        tooltip: notice.isBookmarked ? '북마크 해제' : '북마크 추가',
-                      );
-                    },
-                  ),
-                ],
+                ),
               ),
             ],
           ),
@@ -1820,7 +1850,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         size: 20,
                       ),
                       color: notice['isBookmarked'] == true
-                          ? Theme.of(context).colorScheme.primary
+                          ? (Theme.of(context).brightness == Brightness.dark ? AppTheme.primaryLight : AppTheme.primaryColor)
                           : AppTheme.textSecondary,
                       onPressed: () {
                         context.read<NoticeProvider>().toggleBookmark(notice['id'] as String);
@@ -1844,31 +1874,35 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 8),
                 // AI 요약 (있는 경우)
                 if (notice['aiSummary'] != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.auto_awesome, size: 14, color: AppTheme.primaryColor),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            notice['aiSummary'] as String,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.primaryDark,
+                  Builder(builder: (context) {
+                    final isDark = Theme.of(context).brightness == Brightness.dark;
+                    final aiAccent = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+                    return Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: aiAccent.withOpacity(isDark ? 0.15 : 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: aiAccent.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.auto_awesome, size: 14, color: aiAccent),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              notice['aiSummary'] as String,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? Colors.white70 : AppTheme.primaryDark,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
+                        ],
+                      ),
+                    );
+                  }),
                   const SizedBox(height: 8),
                 ],
                 const Spacer(),
@@ -2020,7 +2054,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       size: 20,
                     ),
                     color: notice['isBookmarked'] == true
-                        ? Theme.of(context).colorScheme.primary
+                        ? (Theme.of(context).brightness == Brightness.dark ? AppTheme.primaryLight : AppTheme.primaryColor)
                         : AppTheme.textSecondary,
                     onPressed: () {
                       context.read<NoticeProvider>().toggleBookmark(notice['id'] as String);
@@ -2034,31 +2068,35 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 8),
               // AI 요약 (있는 경우)
               if (notice['aiSummary'] != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.auto_awesome, size: 14, color: AppTheme.primaryColor),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          notice['aiSummary'] as String,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.primaryDark,
+                Builder(builder: (context) {
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
+                  final aiAccent = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+                  return Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: aiAccent.withOpacity(isDark ? 0.15 : 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: aiAccent.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.auto_awesome, size: 14, color: aiAccent),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            notice['aiSummary'] as String,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white70 : AppTheme.primaryDark,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    ],
-                  ),
-                ),
+                      ],
+                    ),
+                  );
+                }),
                 const SizedBox(height: 8),
               ],
               // 카테고리와 날짜

@@ -560,33 +560,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.xl),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
           ),
-          title: const Row(
-            children: [
-              Icon(Icons.logout_rounded, color: AppTheme.errorColor),
-              SizedBox(width: 12),
-              Text('로그아웃'),
-            ],
+          title: const Text(
+            '로그아웃',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           content: const Text(
             '정말 로그아웃 하시겠습니까?',
-            style: TextStyle(fontSize: 16),
+            style: TextStyle(fontSize: 15),
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-              ),
-              child: const Text('취소'),
-            ),
-            ElevatedButton(
               onPressed: () async {
                 Navigator.of(context).pop();
 
@@ -615,15 +603,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.errorColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
+              child: const Text(
+                '확인',
+                style: TextStyle(
+                  color: AppTheme.errorColor,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              child: const Text('로그아웃'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                '취소',
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white54
+                      : AppTheme.textSecondary,
+                ),
+              ),
             ),
           ],
         );

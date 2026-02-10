@@ -48,6 +48,16 @@ class _SplashScreenState extends State<SplashScreen>
     _startAnimations();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 이미지 미리 캐싱 (Phase 3 도달 전 로드 완료)
+    precacheImage(
+      const AssetImage('assets/images/icon_transparency.png'),
+      context,
+    );
+  }
+
   /// Phase 1 초기화: 손 흔들기
   void _initPhase1() {
     _waveController = AnimationController(
@@ -167,26 +177,26 @@ class _SplashScreenState extends State<SplashScreen>
       curve: const Interval(0, 0.7, curve: Curves.easeInOut),
     ));
 
-    // 손이 벌어질 때 로고 등장
+    // 손이 벌어질 때 로고 등장 (더 일찍, 더 빠르게)
     _logoScale = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0, end: 0), weight: 35),
+      TweenSequenceItem(tween: Tween(begin: 0, end: 0), weight: 25),
       TweenSequenceItem(
         tween: Tween(begin: 0, end: 1.1),
-        weight: 30,
+        weight: 25,
       ),
       TweenSequenceItem(
         tween: Tween(begin: 1.1, end: 1),
-        weight: 35,
+        weight: 50,
       ),
     ]).animate(CurvedAnimation(
       parent: _highFiveController,
-      curve: const Interval(0, 0.8, curve: Curves.easeOut),
+      curve: const Interval(0, 0.75, curve: Curves.easeOut),
     ));
 
     _logoFade = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _highFiveController,
-        curve: const Interval(0.35, 0.55, curve: Curves.easeOut),
+        curve: const Interval(0.25, 0.45, curve: Curves.easeOut),
       ),
     );
 
@@ -218,7 +228,7 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
     setState(() => _phase = 3);
     _highFiveController.forward();
-    await Future.delayed(const Duration(milliseconds: 1600));
+    await Future.delayed(const Duration(milliseconds: 2000));
 
     // 다음 화면으로 이동
     if (mounted) _navigateToApp();
@@ -480,6 +490,13 @@ class _SplashScreenState extends State<SplashScreen>
                             fit: BoxFit.contain,
                             filterQuality: FilterQuality.high,
                             isAntiAlias: true,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(
+                                Icons.handshake,
+                                size: 64,
+                                color: AppTheme.primaryColor,
+                              );
+                            },
                           ),
                         ),
                       ),

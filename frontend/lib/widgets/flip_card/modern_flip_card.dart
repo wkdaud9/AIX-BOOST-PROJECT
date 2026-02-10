@@ -159,58 +159,60 @@ class _ModernFlipCardState extends State<ModernFlipCard>
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 12),
-                  // AI 요약 (아이콘 + 배경 강조)
+                  // AI 요약 (아이콘 + 배경 강조, 다크모드 대비 보장)
                   if (notice.aiSummary != null &&
                       notice.aiSummary!.isNotEmpty)
                     Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: colorScheme.primary.withOpacity(0.08),
+                      child: Builder(builder: (context) {
+                        final isDark = Theme.of(context).brightness == Brightness.dark;
+                        final aiAccent = isDark ? AppTheme.primaryLight : colorScheme.primary;
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: aiAccent.withOpacity(isDark ? 0.12 : 0.04),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: aiAccent.withOpacity(isDark ? 0.25 : 0.08),
+                            ),
                           ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.auto_awesome,
-                                  size: 14,
-                                  color:
-                                      colorScheme.primary.withOpacity(0.6),
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  'AI 요약',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color:
-                                        colorScheme.primary.withOpacity(0.7),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.auto_awesome,
+                                    size: 14,
+                                    color: aiAccent,
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Expanded(
-                              child: Text(
-                                notice.aiSummary!,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: colorScheme.onSurface
-                                      .withOpacity(0.6),
-                                  height: 1.5,
-                                ),
-                                overflow: TextOverflow.fade,
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'AI 요약',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: aiAccent,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
+                              const SizedBox(height: 8),
+                              Expanded(
+                                child: Text(
+                                  notice.aiSummary!,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: colorScheme.onSurface
+                                        .withOpacity(isDark ? 0.8 : 0.6),
+                                    height: 1.5,
+                                  ),
+                                  overflow: TextOverflow.fade,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
                     ),
                   if (notice.aiSummary == null || notice.aiSummary!.isEmpty)
                     const Spacer(),
@@ -325,7 +327,8 @@ class _ModernFlipCardState extends State<ModernFlipCard>
                         );
                       },
                       style: TextButton.styleFrom(
-                        backgroundColor: categoryColor.withOpacity(0.08),
+                        backgroundColor: categoryColor.withOpacity(
+                            Theme.of(context).brightness == Brightness.dark ? 0.2 : 0.08),
                         foregroundColor: categoryColor,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -460,7 +463,8 @@ class _ModernFlipCardState extends State<ModernFlipCard>
   Widget _buildDDayBadge(Notice notice, ColorScheme colorScheme) {
     final days = notice.daysUntilDeadline!;
     final isUrgent = days <= 3;
-    final color = isUrgent ? colorScheme.error : colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isUrgent ? colorScheme.error : (isDark ? AppTheme.primaryLight : colorScheme.primary);
     final text = days == 0 ? 'D-Day' : 'D-$days';
 
     return Container(

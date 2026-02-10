@@ -410,14 +410,14 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
                                             ? FontWeight.bold
                                             : FontWeight.normal,
                                         color: isSelected
-                                            ? AppTheme.primaryColor
+                                            ? (Theme.of(context).brightness == Brightness.dark ? AppTheme.primaryLight : AppTheme.primaryColor)
                                             : null,
                                       ),
                                     ),
                                     trailing: isSelected
-                                        ? const Icon(
+                                        ? Icon(
                                             Icons.check,
-                                            color: AppTheme.primaryColor,
+                                            color: Theme.of(context).brightness == Brightness.dark ? AppTheme.primaryLight : AppTheme.primaryColor,
                                           )
                                         : null,
                                     onTap: () {

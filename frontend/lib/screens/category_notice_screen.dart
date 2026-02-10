@@ -243,25 +243,31 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 인라인 뱃지 행 (우선순위 + NEW + D-day)
-                      _buildInlineBadges(
-                          notice, showDDay, dDayColor, isDark),
+                      // 인라인 뱃지 행 (고정 높이 - 뱃지 유무와 무관)
+                      SizedBox(
+                        height: 22,
+                        child: _buildInlineBadges(
+                            notice, showDDay, dDayColor, isDark),
+                      ),
 
                       const SizedBox(height: AppSpacing.sm),
 
-                      // 제목 (매직넘버 padding 제거)
-                      Text(
-                        notice.title,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? Colors.white
-                              : AppTheme.textPrimary,
-                          height: 1.3,
+                      // 제목 (고정 높이 영역 - 2줄 기준)
+                      SizedBox(
+                        height: 40,
+                        child: Text(
+                          notice.title,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? Colors.white
+                                : AppTheme.textPrimary,
+                            height: 1.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
 
                       const SizedBox(height: AppSpacing.sm),
@@ -274,13 +280,21 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
 
                 const SizedBox(width: AppSpacing.md),
 
-                // 우측: 썸네일 + 북마크
-                Column(
-                  children: [
-                    _buildThumbnail(notice, isDark),
-                    const SizedBox(height: AppSpacing.sm),
-                    _buildBookmarkButton(notice, isDark),
-                  ],
+                // 우측: 썸네일 + 북마크 오버레이
+                SizedBox(
+                  width: 72,
+                  height: 72,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      _buildThumbnail(notice, isDark),
+                      Positioned(
+                        top: -4,
+                        right: -4,
+                        child: _buildBookmarkButton(notice, isDark),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -472,25 +486,28 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
     );
   }
 
-  /// 북마크 토글 버튼
+  /// 북마크 토글 버튼 (썸네일 오버레이용)
   Widget _buildBookmarkButton(Notice notice, bool isDark) {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
-        return InkWell(
-          borderRadius: BorderRadius.circular(AppRadius.round),
+        return GestureDetector(
           onTap: () => provider.toggleBookmark(notice.id),
           child: Container(
-            width: 44,
-            height: 36,
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: (isDark ? Colors.black54 : Colors.white.withOpacity(0.85)),
+              borderRadius: BorderRadius.circular(AppRadius.xs),
+            ),
             alignment: Alignment.center,
             child: Icon(
               notice.isBookmarked
                   ? Icons.bookmark_rounded
                   : Icons.bookmark_border_rounded,
-              size: 22,
+              size: 18,
               color: notice.isBookmarked
                   ? widget.categoryColor
-                  : (isDark ? Colors.white38 : AppTheme.textSecondary),
+                  : (isDark ? Colors.white54 : AppTheme.textSecondary),
             ),
           ),
         );
