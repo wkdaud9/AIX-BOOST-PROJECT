@@ -2,11 +2,17 @@
 
 ## 📋 진행 예정 작업
 
-### 🔧 배포/운영 (수동 작업 필요)
+### 🎨 프론트엔드 UI/UX 개선
+- ⬜ UI/UX 전체 개선 (다크모드/라이트모드 가시성 및 디자인)
+- ⬜ 카테고리 모달창 날짜 우측 정렬 수정
+- ⬜ 로그인 후 로딩 화면 추가 (빈 화면 방지)
+- ⬜ 카테고리 아이콘 변경
 
-#### Supabase 마이그레이션 실행
-- ⬜ `docs/migrations/014_add_notice_views.sql` — Supabase SQL Editor에서 실행
-- ⬜ `docs/migrations/015_add_notification_settings.sql` — Supabase SQL Editor에서 실행
+### 🐛 버그 수정
+- ⬜ 마이페이지 학과/학년 변경 시 DB 미반영 버그 수정
+- ⬜ 스플래시 스크린 투명 이미지 로드 실패 수정
+
+### 🔧 배포/운영 (수동 작업 필요)
 
 #### Render Cron Job 설정
 - ⬜ 디데이 알림 Cron Job 등록
@@ -18,6 +24,10 @@
 ## ✅ 완료된 작업
 
 ### 2026-02-11
+
+#### 🗄️ Supabase 마이그레이션 실행
+- ✅ `docs/migrations/014_add_notice_views.sql` — Supabase SQL Editor에서 실행 완료
+- ✅ `docs/migrations/015_add_notification_settings.sql` — Supabase SQL Editor에서 실행 완료
 
 #### 🎯 백엔드: 카테고리 기반 알림 필터링 (이중 임계값)
 - ✅ `backend/config.py`: 환경변수 3개 추가 (`CATEGORY_MATCH_MIN_SCORE`, `CATEGORY_UNMATCH_MIN_SCORE`, `MIN_VECTOR_SCORE`)

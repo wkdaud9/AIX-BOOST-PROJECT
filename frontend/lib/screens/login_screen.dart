@@ -68,9 +68,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     } on AuthException catch (e) {
       // 5. Supabase 인증 에러 처리
+      debugPrint('[로그인 에러] AuthException: ${e.message} / statusCode: ${e.statusCode}');
       if (!mounted) return;
 
-      String errorMessage = '로그인에 실패했습니다.';
+      String errorMessage = '로그인에 실패했습니다. (${e.message})';
       if (e.message.contains('Invalid login credentials') ||
           e.message.contains('Invalid email or password')) {
         errorMessage = '이메일 또는 비밀번호가 올바르지 않습니다.';

@@ -1,6 +1,6 @@
 # AIX-Boost 프로젝트 Handoff 문서
 
-> 작성일: 2026-02-08
+> 작성일: 2026-02-08 (최종 업데이트: 2026-02-10)
 > 목적: 새로운 AI 세션이 프로젝트 컨텍스트를 이해할 수 있도록 진행 상황 정리
 
 ---
@@ -30,7 +30,119 @@
 
 ---
 
-## 2. 세션 2 (2026-02-08 오후) 완료 작업
+## 2. 세션 4~5 (2026-02-10) 완료 작업
+
+### 2.1 알림 시스템 고도화 (Full-Stack)
+
+| 변경 | 내용 |
+|------|------|
+| 이중 임계값 필터링 | 카테고리 기반 알림 필터링 — 관심 카테고리 0.4 / 비관심 0.75 임계값 |
+| 전체 검색 API | `GET /api/search/notices/all` — ILIKE, 카테고리, 날짜, 페이지네이션 지원 |
+| 인기 공지 API | `GET /api/notices/popular-in-my-group` — 학과/학년 기반 인기 공지 |
+| 조회 기록 API | `POST /api/notices/<id>/view` — 공지 조회 기록 저장 |
+| 알림 설정 API | `PUT/GET /api/users/preferences/<id>/notification-settings` |
+| 디데이 알림 | `send_deadline_reminders.py` — 마감일 임박 알림 스크립트 |
+| 크롤러 알림 개선 | 알림 발송 시 `notification_mode` 체크 |
+| FCM 버그 수정 | WebpushConfig `fcm_options` 제거 (HTTPS URL 필요 오류), ValueError 처리 추가 |
+| Firebase 보안 | `firebase_options.dart`를 dotenv 사용하도록 변경, API 키를 `.env`로 이전 |
+| 프론트엔드 알림 연동 | 알림 화면 백엔드 연동 (`fetchFromBackend`, `fromBackendJson`), 읽음 상태 동기화, 알림 설정 동기화, FCM 포그라운드 핸들러 유형 구분 (deadline vs new_notice), 당겨서 새로고침 |
+
+### 2.2 검색/리랭킹 서비스 최적화
+
+| 변경 | 내용 |
+|------|------|
+| 싱글턴 캐싱 | 검색/리랭킹 서비스를 싱글턴으로 변경하여 매 요청 재초기화 방지 |
+| 리랭킹 프롬프트 간결화 | 토큰 제한으로 비용/응답시간 절감 |
+| 추천 API 안정성 | 자동 재시도(2회) 및 최신순 폴백 로직 추가, API 타임아웃 10초→30초 확대 |
+| user_preferences 방어 | 조회 실패 시 graceful 처리 |
+| 리랭킹 파라미터 | 프론트엔드에서 `rerank=true` 파라미터 추가 |
+
+### 2.3 서비스 리브랜딩 및 UI 전면 개편
+
+| 변경 | 내용 |
+|------|------|
+| 서비스명 변경 | **AIX-Boost → HeyBro** 전체 변경 |
+| 컬러 테마 교체 | 보라색(`#6C63FF`) → 딥 네이비 블루(`#0F2854`) 팔레트 전면 교체 (14개 파일) |
+| 다크모드 가시성 수정 | `colorScheme.primary == surface` 문제 해결, `AppTheme.primaryLight` 분기, AI 요약 카드/북마크/D-Day 뱃지/MyBro 헤더 다크모드 대비 보장 |
+| 스플래시 리디자인 | 손 모양 애니메이션 리디자인, 아이콘을 `icon_transparency.png`로 변경, 로고 등장 타이밍 앞당김 + `precacheImage` 추가 |
+| 홈 화면 개선 | 추천정보 4개 카드 레이아웃 통일, 이번 주 일정 D-day 뱃지 우측 이동, 추천정보 섹션 배경 회색 변경, AppBar 사용자명 탭 시 홈 탭 이동 + 스크롤 최상단 |
+| D-day 개선 | 캘린더 같은 날짜 개수 표시 제거, D-day 계산 자정 기준 통일 |
+
+### 2.4 추천화면 리뉴얼 및 검색화면 추가
+
+| 변경 | 내용 |
+|------|------|
+| 추천화면 개편 | 쇼츠 스타일 세로 카드 + 좌우 카테고리 전환 방식으로 리뉴얼 |
+| 검색화면 신규 | `search_screen.dart` — 전체 검색 기능 UI 구현 |
+| 플립카드 위젯 | `flip_card_section.dart`, `modern_flip_card.dart` — 카드 플립 애니메이션 |
+| 플립 카운트다운 위젯 | `flip_countdown.dart`, `flip_digit.dart`, `flip_notice_card.dart` — D-day 카운트다운 |
+
+### 2.5 마이페이지 개편 및 기타
+
+| 변경 | 내용 |
+|------|------|
+| 마이페이지 개편 | 프로필 강조, 알림 섹션 삭제, 프로필 편집 독립 섹션, 고객센터→앱 정보로 이동 |
+| AppBar 스크롤 | `scrolledUnderElevation: 0`으로 스크롤 시 색상 변경 방지 |
+| 웹 아이콘 통일 | Icon-main 기반으로 192/512/maskable 아이콘 통일 |
+| 카테고리 상세 카드 | 날짜 위치 고정 (`SizedBox height 22/40`) |
+| 관련 링크 | 외부 URL 열기 (`url_launcher`) |
+| Pillow 패키지 | `requirements.txt`에 Pillow 추가 (PIL import 누락 수정) |
+
+### 2.6 DB 마이그레이션
+
+| 파일 | 내용 |
+|------|------|
+| `docs/migrations/014_add_notice_views.sql` | `notice_views` 테이블 + RPC 함수 |
+| `docs/migrations/015_add_notification_settings.sql` | 알림 설정 컬럼 + 중복 방지 인덱스 |
+| `docs/database_schema.sql` | `notification_type` 컬럼 추가 |
+
+### 2.7 변경 파일 요약 (2026-02-10)
+
+**백엔드 (10개):**
+- `backend/config.py` — 알림 임계값 설정
+- `backend/routes/notices.py` — 인기 공지, 조회 기록 API
+- `backend/routes/search.py` — 전체 검색 API, 싱글턴 캐싱
+- `backend/routes/users.py` — 알림 설정 API
+- `backend/scripts/crawl_and_notify.py` — 알림 필터링 개선
+- `backend/scripts/send_deadline_reminders.py` — **신규** (디데이 알림)
+- `backend/services/fcm_service.py` — FCM 버그 수정
+- `backend/services/hybrid_search_service.py` — 싱글턴, 날짜 계산 수정
+- `backend/services/reranking_service.py` — 프롬프트 간결화
+- `backend/requirements.txt` — markdownify, Pillow 추가
+
+**프론트엔드 (25개+):**
+- `frontend/lib/models/notice.dart` — D-day 자정 기준 통일
+- `frontend/lib/models/app_notification.dart` — 백엔드 연동 추가
+- `frontend/lib/providers/notice_provider.dart` — 추천 API 재시도, 검색 기능
+- `frontend/lib/providers/notification_provider.dart` — 백엔드 동기화
+- `frontend/lib/providers/settings_provider.dart` — 알림 설정 동기화
+- `frontend/lib/services/api_service.dart` — 검색/알림/인기공지 API 메서드
+- `frontend/lib/screens/home_screen.dart` — 추천카드 통일, 테마 변경
+- `frontend/lib/screens/recommend_screen.dart` — 쇼츠 스타일 개편
+- `frontend/lib/screens/search_screen.dart` — **신규** (검색화면)
+- `frontend/lib/screens/profile_screen.dart` — 마이페이지 개편
+- `frontend/lib/screens/splash_screen.dart` — 리디자인
+- `frontend/lib/screens/category_notice_screen.dart` — 카드 날짜 위치 고정
+- `frontend/lib/screens/notification_screen.dart` — 백엔드 연동
+- `frontend/lib/screens/notice_detail_screen.dart` — 테마 변경
+- `frontend/lib/screens/settings_screen.dart` — 테마 변경
+- `frontend/lib/screens/bookmark_screen.dart` — 테마 변경
+- `frontend/lib/screens/calendar_screen.dart` — 테마 변경
+- `frontend/lib/theme/app_theme.dart` — 네이비 블루 팔레트
+- `frontend/lib/widgets/flip_card/` — **신규** (플립카드 위젯 2개)
+- `frontend/lib/widgets/flip_clock/` — **신규** (플립 카운트다운 위젯 3개)
+- `frontend/lib/firebase_options.dart` — dotenv 보안 설정
+- `frontend/lib/screens/login_screen.dart` — HeyBro 서비스명 변경
+
+**문서 (4개):**
+- `TODO.md` — 작업 목록 업데이트
+- `docs/database_schema.sql` — notification_type 컬럼
+- `docs/migrations/014_add_notice_views.sql` — **신규**
+- `docs/migrations/015_add_notification_settings.sql` — **신규**
+
+---
+
+## 3. 세션 2~3 (2026-02-08) 완료 작업
 
 ### 2.0 백엔드 환경 수정
 
@@ -62,7 +174,7 @@
 
 ---
 
-## 3. 세션 3 (2026-02-08 오후~저녁) 완료 작업
+## 4. 세션 3 (2026-02-08 오후~저녁) 완료 작업
 
 ### 3.1 이미지 표시 기능 구현
 
@@ -116,7 +228,7 @@
 
 ---
 
-## 4. 세션 1 완료 작업 (이전 세션)
+## 5. 세션 1 완료 작업 (이전 세션)
 
 ### 4.1 DB 구조조정
 
@@ -249,12 +361,17 @@ updated_at TIMESTAMPTZ DEFAULT NOW()
 |--------|----------|------|
 | GET | `/api/notices` | 공지사항 목록 조회 |
 | GET | `/api/notices/<id>` | 공지사항 상세 조회 |
+| POST | `/api/notices/<id>/view` | 공지 조회 기록 저장 |
+| GET | `/api/notices/popular-in-my-group` | 학과/학년 인기 공지 |
 | GET | `/api/search` | 하이브리드 검색 (BM25 + 벡터) |
+| GET | `/api/search/notices/all` | 전체 검색 (ILIKE, 카테고리, 날짜, 페이지네이션) |
 | GET | `/api/bookmarks` | 북마크 목록 조회 (로그인 필요) |
 | POST | `/api/bookmarks` | 북마크 추가 (로그인 필요) |
 | DELETE | `/api/bookmarks/<notice_id>` | 북마크 삭제 (로그인 필요) |
 | GET | `/api/calendar/events` | 캘린더 이벤트 조회 (로그인 필요) |
 | POST | `/api/users/preferences` | 사용자 선호도 설정 |
+| GET | `/api/users/preferences/<id>/notification-settings` | 알림 설정 조회 |
+| PUT | `/api/users/preferences/<id>/notification-settings` | 알림 설정 변경 |
 | POST | `/api/crawl` | 수동 크롤링 트리거 |
 
 ---
@@ -267,27 +384,20 @@ updated_at TIMESTAMPTZ DEFAULT NOW()
   2. _step2_analyze()   — Gemini AI 분석 (OCR은 _ocr_text에 별도 저장) + display_mode 판별 + 임베딩 생성
   3. _step3_save_to_db() — DB 저장 (임베딩 + display_mode 포함)
   4. _step4_calculate_relevance() — 하이브리드 검색으로 관련 사용자 매칭
-  5. _step5_send_notifications() — 푸시 알림 (FCM 미구현, 로그만 저장)
+  5. _step5_send_notifications() — FCM 푸시 알림 (이중 임계값 필터링 + notification_mode 체크)
 ```
 
 ---
 
-## 8. 남은 작업 / 주의사항
+### 남은 작업
 
-### 알려진 이슈
-- ~~`CalendarService` 클래스가 삭제된 `calendar_events` 테이블 참조~~ → **해결 완료**: `calendar_service.py` 삭제, `crawler_manager.py`/`test_gemini_integration.py`/`run_analyze_existing.py`에서 참조 제거
-- FCM 푸시 알림 미구현 (notification_logs에 로그만 저장)
-
-### 다음 작업 (2026-02-09 예정)
-
-| # | 작업 | 상세 | 영향 범위 |
-|---|------|------|-----------|
-| 1 | 복수 날짜 처리 | 신청일/수납일 등 날짜가 2개 이상인 공지에서 ai_summary의 날짜를 파싱하여 캘린더 안내를 분리 표시 | Backend AI, Frontend 캘린더 |
-| 2 | 북마크 기반 인기순 정렬 | 카테고리 세부 화면에서 인기순 = 북마크 횟수 기준 정렬. DB에 bookmark_count 집계 또는 실시간 count 쿼리 필요 | DB, Backend API, Frontend |
-| 3 | 공지 본문 내 링크 클릭 | notice_detail_screen에서 Markdown 링크/URL 클릭 시 브라우저로 이동 (url_launcher 사용) | Frontend |
-| 4 | 홈 화면 AI 추천 카드 데이터 연동 | 메인 화면의 AI 추천 카드에 실제 데이터 표시 (recommend API 연동 확인) | Frontend |
-| 5 | 카테고리 아이콘 하이라이트 버그 | 홈에서 카테고리 선택 → 모달 닫기 후에도 아이콘이 선택 상태로 남는 문제 수정 | Frontend (home_screen) |
-| 6 | 알림 기능 구현 | FCM 푸시 알림 연동 + 알림 화면 UI 구현 | Full-Stack |
+| # | 작업 | 상세 | 상태 |
+|---|------|------|------|
+| ~~1~~ | ~~알림 기능 구현~~ | ~~FCM 푸시 알림 연동 + 알림 화면 UI 구현~~ | **완료** (세션 4~5) |
+| ~~2~~ | ~~전체 검색 API~~ | ~~ILIKE 기반 전체 검색 + 검색화면 UI~~ | **완료** (세션 4~5) |
+| ~~3~~ | ~~관련 링크 클릭~~ | ~~url_launcher로 외부 URL 열기~~ | **완료** (세션 4~5) |
+| 4 | 복수 날짜 처리 | 신청일/수납일 등 날짜가 2개 이상인 공지에서 캘린더 안내를 분리 표시 | 미완료 |
+| 5 | 카테고리 아이콘 하이라이트 버그 | 홈에서 카테고리 선택 → 모달 닫기 후에도 아이콘이 선택 상태로 남는 문제 | 미완료 |
 
 ---
 

@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../env_config.dart';
 
 /// Backend API와 통신하는 서비스 클래스
 /// RESTful API 호출 및 응답 처리를 담당합니다.
@@ -8,7 +8,7 @@ class ApiService {
   final String baseUrl;
 
   ApiService({String? baseUrl})
-      : baseUrl = baseUrl ?? dotenv.env['BACKEND_URL'] ?? 'http://localhost:5000' {
+      : baseUrl = baseUrl ?? EnvConfig.backendUrl {
     _dio = Dio(BaseOptions(
       baseUrl: this.baseUrl,
       connectTimeout: const Duration(seconds: 30),

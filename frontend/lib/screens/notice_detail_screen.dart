@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../env_config.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -457,7 +457,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
 
   /// 학교 서버 이미지를 백엔드 프록시를 통해 로드하기 위한 URL 변환
   String _getProxyImageUrl(String originalUrl) {
-    final backendUrl = dotenv.env['BACKEND_URL'] ?? 'http://localhost:5000';
+    final backendUrl = EnvConfig.backendUrl;
     return '$backendUrl/api/notices/image-proxy?url=${Uri.encodeComponent(originalUrl)}';
   }
 
