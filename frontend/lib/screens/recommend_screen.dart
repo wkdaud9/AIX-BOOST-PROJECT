@@ -54,7 +54,22 @@ class _RecommendScreenState extends State<RecommendScreen> {
                     _buildHeroHeader(context, isDark),
                     const SizedBox(height: AppSpacing.lg),
 
-                    // 1. 오늘 꼭 봐야 할 공지 섹션
+                    // 1. AI 추천 섹션 (최상단)
+                    _buildSectionHeader(
+                      context,
+                      isDark: isDark,
+                      title: 'AI 맞춤 추천',
+                      icon: Icons.auto_awesome_rounded,
+                      color: AppTheme.primaryColor,
+                      description: '당신의 관심사에 맞는 공지사항',
+                      count: provider.recommendedNotices.length,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _buildAIRecommendList(context, isDark),
+
+                    const SizedBox(height: AppSpacing.xl),
+
+                    // 2. 오늘 꼭 봐야 할 공지 섹션
                     Builder(
                       builder: (context) {
                         final todayMustSee = provider.todayMustSeeNotices;
@@ -78,21 +93,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
                         );
                       },
                     ),
-
-                    // 2. AI 추천 섹션
-                    _buildSectionHeader(
-                      context,
-                      isDark: isDark,
-                      title: 'AI 맞춤 추천',
-                      icon: Icons.auto_awesome_rounded,
-                      color: AppTheme.primaryColor,
-                      description: '당신의 관심사에 맞는 공지사항',
-                      count: provider.recommendedNotices.length,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    _buildAIRecommendList(context, isDark),
-
-                    const SizedBox(height: AppSpacing.xl),
 
                     // 3. 학과/학년 인기 공지 섹션
                     _buildDepartmentPopularSection(context, isDark, provider),
@@ -479,15 +479,15 @@ class _RecommendScreenState extends State<RecommendScreen> {
             : AppTheme.infoColor;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF25253D) : Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         boxShadow: isDark ? null : AppShadow.soft,
         border: Border(
           left: BorderSide(
             color: categoryColor,
-            width: 4,
+            width: 3,
           ),
         ),
       ),
@@ -503,8 +503,8 @@ class _RecommendScreenState extends State<RecommendScreen> {
             );
           },
           borderRadius: const BorderRadius.only(
-            topRight: Radius.circular(AppRadius.lg),
-            bottomRight: Radius.circular(AppRadius.lg),
+            topRight: Radius.circular(AppRadius.md),
+            bottomRight: Radius.circular(AppRadius.md),
           ),
           child: IntrinsicHeight(
             child: Row(
@@ -512,19 +512,19 @@ class _RecommendScreenState extends State<RecommendScreen> {
                 // 메인 콘텐츠
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // 뱃지 행: 카테고리 + 우선순위 + NEW
                         _buildBadgeRow(notice, categoryColor, isDark),
-                        const SizedBox(height: AppSpacing.sm),
+                        const SizedBox(height: 4),
 
                         // 제목
                         Text(
                           notice.title,
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color:
                                 isDark ? Colors.white : AppTheme.textPrimary,
@@ -534,13 +534,13 @@ class _RecommendScreenState extends State<RecommendScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
 
-                        // AI 요약
+                        // AI 요약 (1줄로 축소)
                         if (notice.aiSummary != null) ...[
-                          const SizedBox(height: AppSpacing.sm),
+                          const SizedBox(height: 3),
                           _buildAISummary(notice.aiSummary!, isDark),
                         ],
 
-                        const SizedBox(height: AppSpacing.sm),
+                        const SizedBox(height: 4),
 
                         // 메타 정보
                         _buildMetaRow(notice, isDark),
@@ -661,43 +661,29 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
-  /// AI 요약 박스
+  /// AI 요약 박스 (컴팩트)
   Widget _buildAISummary(String summary, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppTheme.primaryColor.withOpacity(0.1)
-            : AppTheme.primaryColor.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(
-          color: isDark
-              ? AppTheme.primaryColor.withOpacity(0.3)
-              : AppTheme.primaryColor.withOpacity(0.15),
+    return Row(
+      children: [
+        Icon(
+          Icons.auto_awesome,
+          size: 12,
+          color: AppTheme.primaryColor.withOpacity(isDark ? 0.7 : 0.8),
         ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.auto_awesome,
-            size: 14,
-            color: AppTheme.primaryColor.withOpacity(isDark ? 0.8 : 1.0),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              summary,
-              style: TextStyle(
-                fontSize: 12,
-                color: isDark ? Colors.white70 : AppTheme.textPrimary,
-                height: 1.3,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            summary,
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? Colors.white54 : AppTheme.textSecondary,
+              height: 1.2,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -707,25 +693,25 @@ class _RecommendScreenState extends State<RecommendScreen> {
 
     return Row(
       children: [
-        Icon(Icons.calendar_today_rounded, size: 13, color: metaColor),
-        const SizedBox(width: 4),
+        Icon(Icons.calendar_today_rounded, size: 11, color: metaColor),
+        const SizedBox(width: 3),
         Text(
           notice.formattedDate,
-          style: TextStyle(color: metaColor, fontSize: 12),
+          style: TextStyle(color: metaColor, fontSize: 11),
         ),
-        const SizedBox(width: AppSpacing.md),
-        Icon(Icons.visibility_outlined, size: 13, color: metaColor),
-        const SizedBox(width: 4),
+        const SizedBox(width: AppSpacing.sm),
+        Icon(Icons.visibility_outlined, size: 11, color: metaColor),
+        const SizedBox(width: 3),
         Text(
           '${notice.views}',
-          style: TextStyle(color: metaColor, fontSize: 12),
+          style: TextStyle(color: metaColor, fontSize: 11),
         ),
-        const SizedBox(width: AppSpacing.md),
-        Icon(Icons.bookmark_outlined, size: 13, color: metaColor),
-        const SizedBox(width: 4),
+        const SizedBox(width: AppSpacing.sm),
+        Icon(Icons.bookmark_outlined, size: 11, color: metaColor),
+        const SizedBox(width: 3),
         Text(
           '${notice.bookmarkCount}',
-          style: TextStyle(color: metaColor, fontSize: 12),
+          style: TextStyle(color: metaColor, fontSize: 11),
         ),
       ],
     );
@@ -737,12 +723,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
     final text = days == 0 ? 'D-Day' : 'D-$days';
 
     return Container(
-      width: 56,
+      width: 46,
       decoration: BoxDecoration(
         color: dDayColor.withOpacity(isDark ? 0.15 : 0.06),
         borderRadius: const BorderRadius.only(
-          topRight: Radius.circular(AppRadius.lg),
-          bottomRight: Radius.circular(AppRadius.lg),
+          topRight: Radius.circular(AppRadius.md),
+          bottomRight: Radius.circular(AppRadius.md),
         ),
       ),
       child: Column(
@@ -750,14 +736,14 @@ class _RecommendScreenState extends State<RecommendScreen> {
         children: [
           Icon(
             Icons.alarm_rounded,
-            size: 18,
+            size: 14,
             color: dDayColor,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             text,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
               color: dDayColor,
             ),

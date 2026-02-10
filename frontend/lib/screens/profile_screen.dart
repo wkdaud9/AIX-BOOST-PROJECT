@@ -610,7 +610,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Icon(Icons.email_outlined, size: 20, color: AppTheme.primaryColor),
                   SizedBox(width: AppSpacing.sm),
                   Text(
-                    'aix.boost@kunsan.ac.kr',
+                    'heybro@kunsan.ac.kr',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: AppTheme.primaryColor,

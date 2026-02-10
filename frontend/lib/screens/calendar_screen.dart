@@ -445,10 +445,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                     bgColor = Colors.grey;
                   }
 
-                  // 여러 개면 개수 표시
-                  final label = events.length > 1
-                      ? '$dDayText(${events.length})'
-                      : dDayText;
+                  final label = dDayText;
 
                   return Positioned(
                     bottom: 1,

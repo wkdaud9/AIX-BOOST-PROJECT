@@ -234,12 +234,13 @@ class Notice {
     return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
   }
 
-  /// 마감일까지 남은 일수 (있는 경우)
+  /// 마감일까지 남은 일수 (자정 기준, 모든 화면 통일)
   int? get daysUntilDeadline {
     if (deadline == null) return null;
     final now = DateTime.now();
-    final difference = deadline!.difference(now);
-    return difference.inDays;
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(deadline!.year, deadline!.month, deadline!.day);
+    return target.difference(today).inDays;
   }
 
   /// 마감 임박 여부 (3일 이내)

@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/notice.dart';
 import '../providers/notice_provider.dart';
 import '../theme/app_theme.dart';
@@ -780,9 +781,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
           ),
           const SizedBox(height: AppSpacing.sm),
           InkWell(
-            onTap: () {
-              // TODO: URL 열기 (url_launcher 패키지 사용)
-            },
+            onTap: () => _openUrl(_notice!.url!),
             child: Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
@@ -818,6 +817,40 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
         ],
       ),
     );
+  }
+
+  /// 외부 URL 열기
+  Future<void> _openUrl(String url) async {
+    // http/https 스킴 누락 시 보정
+    String targetUrl = url.trim();
+    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+      targetUrl = 'https://$targetUrl';
+    }
+
+    final uri = Uri.tryParse(targetUrl);
+    if (uri == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('올바르지 않은 링크 형식입니다.')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('링크를 열 수 없습니다.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('링크 열기 실패: $e')),
+        );
+      }
+    }
   }
 
   /// 에러 뷰
@@ -862,7 +895,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
 ${deadline.isNotEmpty ? '\n$deadline' : ''}
 ${url.isNotEmpty ? '\n$url' : ''}
 
-AIX-Boost 앱에서 확인하세요!
+HeyBro 앱에서 확인하세요!
 ''';
 
     try {

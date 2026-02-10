@@ -89,7 +89,7 @@ class TermsOfServiceModal extends StatelessWidget {
                         context,
                         title: '제1조 (목적)',
                         content: '''
-본 약관은 AIX-Boost(이하 "서비스")가 제공하는 공지사항 큐레이션 서비스의 이용조건 및 절차, 이용자와 서비스 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
+본 약관은 HeyBro(이하 "서비스")가 제공하는 공지사항 큐레이션 서비스의 이용조건 및 절차, 이용자와 서비스 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
 ''',
                       ),
 
@@ -99,7 +99,7 @@ class TermsOfServiceModal extends StatelessWidget {
                         content: '''
 본 약관에서 사용하는 용어의 정의는 다음과 같습니다:
 
-1. "서비스"란 AIX-Boost가 제공하는 공지사항 수집, 분석, 추천 및 알림 서비스를 말합니다.
+1. "서비스"란 HeyBro가 제공하는 공지사항 수집, 분석, 추천 및 알림 서비스를 말합니다.
 2. "이용자"란 본 약관에 따라 서비스를 이용하는 회원을 말합니다.
 3. "회원"이란 서비스에 가입하여 이용자 ID를 부여받은 자를 말합니다.
 4. "공지사항"이란 군산대학교에서 발행하는 각종 안내문을 말합니다.
@@ -207,7 +207,7 @@ class TermsOfServiceModal extends StatelessWidget {
 
                       Center(
                         child: Text(
-                          '© 2025 AIX-Boost. All rights reserved.',
+                          '© 2025 HeyBro. All rights reserved.',
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark ? Colors.white38 : AppTheme.textSecondary,

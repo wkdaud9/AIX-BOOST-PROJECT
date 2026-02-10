@@ -94,7 +94,7 @@ class VersionInfoModal extends StatelessWidget {
                             ),
                             const SizedBox(height: AppSpacing.md),
                             const Text(
-                              'AIX-Boost',
+                              'HeyBro',
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -138,17 +138,17 @@ class VersionInfoModal extends StatelessWidget {
                       _buildSectionTitle(context, '개발 정보'),
                       const SizedBox(height: AppSpacing.md),
 
-                      _buildInfoRow(context, '개발팀', 'AIX-Boost Team'),
+                      _buildInfoRow(context, '개발팀', 'HeyBro Team'),
                       _buildInfoRow(context, '기술 스택', 'Flutter, Flask, Supabase'),
                       _buildInfoRow(context, 'AI 엔진', 'Google Gemini 2.0'),
-                      _buildInfoRow(context, '문의', 'aix.boost@kunsan.ac.kr'),
+                      _buildInfoRow(context, '문의', 'heybro@kunsan.ac.kr'),
 
                       const SizedBox(height: AppSpacing.xl),
 
                       // 저작권
                       Center(
                         child: Text(
-                          '© 2025 AIX-Boost. All rights reserved.',
+                          '© 2025 HeyBro. All rights reserved.',
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark ? Colors.white38 : AppTheme.textSecondary,

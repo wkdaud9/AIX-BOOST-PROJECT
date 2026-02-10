@@ -488,11 +488,11 @@ class FullListModal extends StatelessWidget {
 
       case FullListType.savedEvents:
       case FullListType.weekly:
-        if (notice.deadline != null) {
-          final daysLeft = notice.deadline!.difference(DateTime.now()).inDays;
+        if (notice.daysUntilDeadline != null) {
+          final daysLeft = notice.daysUntilDeadline!;
           final isExpired = daysLeft < 0;
           return Text(
-            isExpired ? '마감됨' : 'D-$daysLeft',
+            isExpired ? '마감됨' : (daysLeft == 0 ? 'D-Day' : 'D-$daysLeft'),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -594,10 +594,10 @@ class FullListModal extends StatelessWidget {
         );
 
       case FullListType.deadlineSoon:
-        if (notice.deadline != null) {
-          final daysLeft = notice.deadline!.difference(DateTime.now()).inDays;
+        if (notice.daysUntilDeadline != null) {
+          final daysLeft = notice.daysUntilDeadline!;
           return Text(
-            'D-$daysLeft',
+            daysLeft == 0 ? 'D-Day' : 'D-$daysLeft',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,

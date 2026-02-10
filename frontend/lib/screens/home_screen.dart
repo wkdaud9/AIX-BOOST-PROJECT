@@ -623,73 +623,69 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const Divider(height: 1),
-              // 고정 레이아웃 (스크롤 없음)
+              // 리스트 레이아웃 (위→아래 정렬)
               Expanded(
-                child: Padding(
+                child: ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: popularNotices.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final notice = entry.value;
-                      return Expanded(
-                        child: InkWell(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => NoticeDetailScreen(noticeId: notice.id),
+                  itemCount: popularNotices.length,
+                  itemBuilder: (context, index) {
+                    final notice = popularNotices[index];
+                    return InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => NoticeDetailScreen(noticeId: notice.id),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 10.0),
+                        child: Row(
+                          children: [
+                            // 순위 표시
+                            SizedBox(
+                              width: 20,
+                              child: Text(
+                                '${index + 1}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: index < 3 ? AppTheme.warningColor : (isDark ? Colors.white54 : AppTheme.textSecondary),
+                                ),
                               ),
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2.0),
-                            child: Row(
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                notice.title,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                // 순위 표시
-                                Container(
-                                  width: 20,
-                                  child: Text(
-                                    '${index + 1}',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: index < 3 ? AppTheme.warningColor : (isDark ? Colors.white54 : AppTheme.textSecondary),
-                                    ),
+                                Icon(Icons.visibility, size: 12, color: isDark ? Colors.white38 : AppTheme.textSecondary),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '${notice.views}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDark ? Colors.white38 : AppTheme.textSecondary,
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    notice.title,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.visibility, size: 12, color: isDark ? Colors.white38 : AppTheme.textSecondary),
-                                    const SizedBox(width: 2),
-                                    Text(
-                                      '${notice.views}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: isDark ? Colors.white38 : AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                  ],
                                 ),
                               ],
                             ),
-                          ),
+                          ],
                         ),
-                      );
-                    }).toList(),
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -723,16 +719,21 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(20.0),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.infoColor.withOpacity(isDark ? 0.2 : 0.15),
-                        borderRadius: BorderRadius.circular(8),
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.infoColor.withOpacity(0.2),
+                            AppTheme.infoColor.withOpacity(0.1),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
                       ),
-                      child: Icon(Icons.event, color: AppTheme.infoColor),
+                      child: Icon(Icons.event, color: AppTheme.infoColor, size: 24),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -742,9 +743,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           Text(
                             '저장한 일정',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 17,
                               fontWeight: FontWeight.bold,
                               color: isDark ? Colors.white : AppTheme.textPrimary,
+                              letterSpacing: -0.3,
                             ),
                           ),
                           Text(
@@ -772,7 +774,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const Divider(height: 1),
-              // 고정 레이아웃 (스크롤 없음)
+              // 리스트 레이아웃 (아이템 수 무관하게 위→아래 정렬)
               Expanded(
                 child: topEvents.isEmpty
                     ? Center(
@@ -788,64 +790,62 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       )
-                    : Padding(
+                    : ListView.builder(
                         padding: const EdgeInsets.all(12),
-                        child: Column(
-                          children: topEvents.asMap().entries.map((entry) {
-                            final notice = entry.value;
-                            return Expanded(
-                              child: InkWell(
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) => NoticeDetailScreen(noticeId: notice.id),
+                        itemCount: topEvents.length,
+                        itemBuilder: (context, index) {
+                          final notice = topEvents[index];
+                          return InkWell(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => NoticeDetailScreen(noticeId: notice.id),
+                                ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      notice.title,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: isDark ? Colors.white : AppTheme.textPrimary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  );
-                                },
-                                borderRadius: BorderRadius.circular(8),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2.0),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          notice.title,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (notice.daysUntilDeadline != null) ...[
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: notice.daysUntilDeadline! <= 3
+                                            ? AppTheme.errorColor.withOpacity(isDark ? 0.2 : 0.12)
+                                            : AppTheme.infoColor.withOpacity(isDark ? 0.2 : 0.12),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'D-${notice.daysUntilDeadline}',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: notice.daysUntilDeadline! <= 3
+                                              ? AppTheme.errorColor
+                                              : AppTheme.infoColor,
                                         ),
                                       ),
-                                      if (notice.daysUntilDeadline != null) ...[
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: notice.daysUntilDeadline! <= 3
-                                                ? AppTheme.errorColor.withOpacity(isDark ? 0.2 : 0.12)
-                                                : AppTheme.infoColor.withOpacity(isDark ? 0.2 : 0.12),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            'D-${notice.daysUntilDeadline}',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: notice.daysUntilDeadline! <= 3
-                                                  ? AppTheme.errorColor
-                                                  : AppTheme.infoColor,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
+                                    ),
+                                  ],
+                                ],
                               ),
-                            );
-                          }).toList(),
-                        ),
+                            ),
+                          );
+                        },
                       ),
               ),
             ],
@@ -866,16 +866,21 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(20.0),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(isDark ? 0.2 : 0.15),
-                        borderRadius: BorderRadius.circular(8),
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.primaryColor.withOpacity(0.2),
+                            AppTheme.primaryColor.withOpacity(0.1),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
                       ),
-                      child: const Icon(Icons.auto_awesome, color: AppTheme.primaryColor),
+                      child: const Icon(Icons.auto_awesome, color: AppTheme.primaryColor, size: 24),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -885,9 +890,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           Text(
                             'AI 추천',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 17,
                               fontWeight: FontWeight.bold,
                               color: isDark ? Colors.white : AppTheme.textPrimary,
+                              letterSpacing: -0.3,
                             ),
                           ),
                           Text(
@@ -915,7 +921,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const Divider(height: 1),
-              // 고정 레이아웃 (스크롤 없음)
+              // 리스트 레이아웃 (위→아래 정렬)
               Expanded(
                 child: provider.isRecommendedLoading && aiRecommended.isEmpty
                     ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
@@ -933,63 +939,60 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                           )
-                        : Padding(
+                        : ListView.builder(
                             padding: const EdgeInsets.all(12),
-                            child: Column(
-                              children: aiRecommended.asMap().entries.map((entry) {
-                                final notice = entry.value;
-                                return Expanded(
-                                  child: InkWell(
-                                    onTap: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) => NoticeDetailScreen(noticeId: notice.id),
+                            itemCount: aiRecommended.length,
+                            itemBuilder: (context, index) {
+                              final notice = aiRecommended[index];
+                              return InkWell(
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => NoticeDetailScreen(noticeId: notice.id),
+                                    ),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 10.0),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          notice.title,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                      );
-                                    },
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2.0),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              notice.title,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (notice.category.isNotEmpty) ...[
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.getCategoryColor(notice.category).withOpacity(isDark ? 0.2 : 0.12),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            notice.category,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppTheme.getCategoryColor(notice.category),
                                             ),
                                           ),
-                                          if (notice.category.isNotEmpty) ...[
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 6,
-                                                vertical: 2,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: AppTheme.getCategoryColor(notice.category).withOpacity(isDark ? 0.2 : 0.12),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                notice.category,
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppTheme.getCategoryColor(notice.category),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
-                                );
-                              }).toList(),
-                            ),
+                                ),
+                              );
+                            },
                           ),
               ),
             ],
@@ -1021,16 +1024,21 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(20.0),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.successColor.withOpacity(isDark ? 0.2 : 0.15),
-                        borderRadius: BorderRadius.circular(8),
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.successColor.withOpacity(0.2),
+                            AppTheme.successColor.withOpacity(0.1),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
                       ),
-                      child: const Icon(Icons.calendar_today, color: AppTheme.successColor),
+                      child: const Icon(Icons.calendar_today, color: AppTheme.successColor, size: 24),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1040,9 +1048,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           Text(
                             '이번 주 일정',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 17,
                               fontWeight: FontWeight.bold,
                               color: isDark ? Colors.white : AppTheme.textPrimary,
+                              letterSpacing: -0.3,
                             ),
                           ),
                           Text(
@@ -1084,15 +1093,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       )
-                    : ListView.separated(
+                    : ListView.builder(
                         padding: const EdgeInsets.all(12),
                         itemCount: weeklyNotices.length,
-                        separatorBuilder: (context, index) => Divider(
-                          height: 1,
-                          color: isDark ? Colors.white10 : Colors.grey.shade200,
-                        ),
                         itemBuilder: (context, index) {
                           final notice = weeklyNotices[index];
+                          final dDay = notice.daysUntilDeadline;
                           return InkWell(
                             onTap: () {
                               Navigator.of(context).push(
@@ -1107,67 +1113,38 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Row(
                                 children: [
                                   Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          notice.title,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                            color: isDark ? Colors.white : AppTheme.textPrimary,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '마감: ${notice.deadline!.month}/${notice.deadline!.day}',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: isDark ? Colors.white54 : AppTheme.textSecondary,
-                                          ),
-                                        ),
-                                      ],
+                                    child: Text(
+                                      notice.title,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: isDark ? Colors.white : AppTheme.textPrimary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.getCategoryColor(notice.category).withOpacity(isDark ? 0.2 : 0.12),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      notice.category,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.getCategoryColor(notice.category),
+                                  if (dDay != null) ...[
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: dDay <= 3
+                                            ? AppTheme.errorColor.withOpacity(isDark ? 0.2 : 0.12)
+                                            : AppTheme.successColor.withOpacity(isDark ? 0.2 : 0.12),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'D-$dDay',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: dDay <= 3
+                                              ? AppTheme.errorColor
+                                              : AppTheme.successColor,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  // 북마크 아이콘
-                                  IconButton(
-                                    icon: Icon(
-                                      notice.isBookmarked
-                                          ? Icons.bookmark
-                                          : Icons.bookmark_border,
-                                      size: 18,
-                                    ),
-                                    color: notice.isBookmarked
-                                        ? Theme.of(context).colorScheme.primary
-                                        : (isDark ? Colors.white54 : AppTheme.textSecondary),
-                                    onPressed: () {
-                                      context.read<NoticeProvider>().toggleBookmark(notice.id);
-                                    },
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    tooltip: notice.isBookmarked ? '북마크 해제' : '북마크 추가',
-                                  ),
+                                  ],
                                 ],
                               ),
                             ),

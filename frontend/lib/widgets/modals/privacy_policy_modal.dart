@@ -89,7 +89,7 @@ class PrivacyPolicyModal extends StatelessWidget {
                         context,
                         title: '1. 개인정보의 수집 및 이용 목적',
                         content: '''
-AIX-Boost(이하 "서비스")는 다음의 목적을 위하여 개인정보를 처리합니다:
+HeyBro(이하 "서비스")는 다음의 목적을 위하여 개인정보를 처리합니다:
 
 • 회원 가입 및 관리: 회원제 서비스 이용에 따른 본인확인, 회원자격 유지·관리, 서비스 부정이용 방지
 • 서비스 제공: 맞춤형 공지사항 추천, 일정 관리, 알림 서비스 제공
@@ -174,7 +174,7 @@ AIX-Boost(이하 "서비스")는 다음의 목적을 위하여 개인정보를 �
                         content: '''
 서비스의 개인정보 관련 문의는 아래로 연락해 주시기 바랍니다:
 
-• 담당: AIX-Boost 개인정보 보호팀
+• 담당: HeyBro 개인정보 보호팀
 • 이메일: privacy@kunsan.ac.kr
 • 주소: 전라북도 군산시 대학로 558 군산대학교
 ''',
@@ -194,7 +194,7 @@ AIX-Boost(이하 "서비스")는 다음의 목적을 위하여 개인정보를 �
 
                       Center(
                         child: Text(
-                          '© 2025 AIX-Boost. All rights reserved.',
+                          '© 2025 HeyBro. All rights reserved.',
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark ? Colors.white38 : AppTheme.textSecondary,

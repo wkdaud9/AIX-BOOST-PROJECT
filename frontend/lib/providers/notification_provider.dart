@@ -256,7 +256,7 @@ class NotificationProvider with ChangeNotifier {
       AppNotification(
         id: 'sample_3_${DateTime.now().millisecondsSinceEpoch}',
         title: '앱 업데이트',
-        body: 'AIX-Boost가 새로운 기능으로 업데이트되었습니다.',
+        body: 'HeyBro가 새로운 기능으로 업데이트되었습니다.',
         type: NotificationType.system,
         createdAt: DateTime.now().subtract(const Duration(days: 1)),
       ),
