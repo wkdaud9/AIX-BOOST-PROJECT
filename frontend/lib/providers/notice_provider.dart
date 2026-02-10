@@ -13,9 +13,13 @@ class NoticeProvider with ChangeNotifier {
   List<Notice> _categoryNotices = [];
   List<Notice> _bookmarkedNotices = [];
   List<Notice> _recommendedNotices = [];
+  List<Notice> _departmentPopularNotices = [];
   bool _isLoading = false;
   bool _isRecommendedLoading = false;
+  bool _isDepartmentPopularLoading = false;
   String? _error;
+  String? _departmentPopularDept;
+  int? _departmentPopularGrade;
 
   // Getter
   List<Notice> get notices => _notices;
@@ -24,9 +28,14 @@ class NoticeProvider with ChangeNotifier {
   List<Notice> get bookmarkedNotices => _bookmarkedNotices;
   /// AI 맞춤 추천 공지사항 목록 (백엔드 하이브리드 검색 결과)
   List<Notice> get recommendedNotices => _recommendedNotices;
+  /// 학과/학년 인기 공지사항 목록 (백엔드 API 결과)
+  List<Notice> get departmentPopularNotices => _departmentPopularNotices;
   bool get isLoading => _isLoading;
   bool get isRecommendedLoading => _isRecommendedLoading;
+  bool get isDepartmentPopularLoading => _isDepartmentPopularLoading;
   String? get error => _error;
+  String? get departmentPopularDept => _departmentPopularDept;
+  int? get departmentPopularGrade => _departmentPopularGrade;
 
   /// 맞춤 공지사항 가져오기 (사용자 관심사 기반)
   List<Notice> get customizedNotices {
@@ -159,6 +168,34 @@ class NoticeProvider with ChangeNotifier {
     }
     _error = null;
     notifyListeners();
+  }
+
+  /// 학과/학년 인기 공지사항 가져오기 (백엔드 API 호출)
+  /// API 실패 시 로컬 getDepartmentPopularNotices로 폴백
+  Future<void> fetchDepartmentPopularNotices() async {
+    _isDepartmentPopularLoading = true;
+    notifyListeners();
+
+    try {
+      final result = await _apiService.getPopularInMyGroup(limit: 10);
+      final notices = (result['notices'] as List<dynamic>?) ?? [];
+      final group = result['group'] as Map<String, dynamic>?;
+
+      _departmentPopularNotices =
+          notices.map((json) => Notice.fromJson(Map<String, dynamic>.from(json))).toList();
+      _departmentPopularDept = group?['department']?.toString();
+      _departmentPopularGrade = group?['grade'] as int?;
+      _isDepartmentPopularLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isDepartmentPopularLoading = false;
+      if (kDebugMode) {
+        print('학과 인기 공지 API 실패, 로컬 폴백: $e');
+      }
+      // 로컬 폴백: 기존 로직 사용
+      _departmentPopularNotices = [];
+      notifyListeners();
+    }
   }
 
   /// 카테고리별 공지사항 가져오기 (로컬 필터링)

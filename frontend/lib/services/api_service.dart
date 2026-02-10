@@ -203,6 +203,22 @@ class ApiService {
     }
   }
 
+  /// 우리 학과/학년 인기 공지사항 조회
+  ///
+  /// [limit] 최대 결과 수 (기본 20)
+  /// 반환값: {"notices": [...], "total": N, "group": {"department": "...", "grade": N}}
+  Future<Map<String, dynamic>> getPopularInMyGroup({int limit = 20}) async {
+    try {
+      final response = await _dio.get(
+        '/api/notices/popular-in-my-group',
+        queryParameters: {'limit': limit},
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// 북마크 토글 (추가/제거)
   ///
   /// [noticeId] 공지사항 ID

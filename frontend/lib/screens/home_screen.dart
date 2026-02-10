@@ -12,6 +12,7 @@ import 'recommend_screen.dart';
 import 'profile_screen.dart';
 import 'category_notice_screen.dart';
 import 'notification_screen.dart';
+import 'search_screen.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -89,6 +90,18 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
         actions: [
+          // 검색 아이콘
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SearchScreen(),
+                ),
+              );
+            },
+          ),
           // 알림 아이콘 (읽지 않은 알림 개수 뱃지)
           Consumer<NotificationProvider>(
             builder: (context, notificationProvider, child) {
