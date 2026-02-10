@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS notification_logs (
     body TEXT,
     sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     is_read BOOLEAN DEFAULT FALSE,
+    notification_type TEXT DEFAULT 'new_notice',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
