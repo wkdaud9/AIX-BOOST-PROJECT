@@ -117,35 +117,48 @@ class NoticeProvider with ChangeNotifier {
   }
 
   /// AI 맞춤 추천 공지사항 가져오기 (백엔드 하이브리드 검색 API 호출)
+  /// 첫 시도 실패 시 1회 자동 재시도, 그래도 실패하면 최신순 폴백
   Future<void> fetchRecommendedNotices() async {
     _isRecommendedLoading = true;
     _error = null;
     notifyListeners();
 
-    try {
-      final results = await _apiService.getRecommendedNotices(
-        limit: 20,
-        minScore: 0.3,
-      );
+    // 최대 2회 시도 (첫 시도 + 재시도 1회)
+    for (int attempt = 1; attempt <= 2; attempt++) {
+      try {
+        final results = await _apiService.getRecommendedNotices(
+          limit: 20,
+          minScore: 0.3,
+        );
 
-      _recommendedNotices = results.map((json) => Notice.fromJson(_convertSearchResult(json))).toList();
-      _isRecommendedLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _isRecommendedLoading = false;
-      notifyListeners();
-
-      // API 에러 시 로컬 필터링으로 폴백 (개발용)
-      if (kDebugMode) {
-        print('AI 추천 API 에러, 로컬 필터링 사용: $e');
-        _recommendedNotices = _notices
-            .where((n) => n.priority != null || n.aiSummary != null)
-            .take(10)
-            .toList();
-        _error = null;
+        _recommendedNotices = results.map((json) => Notice.fromJson(_convertSearchResult(json))).toList();
+        _isRecommendedLoading = false;
         notifyListeners();
+        return; // 성공 시 즉시 종료
+      } catch (e) {
+        if (kDebugMode) {
+          print('AI 추천 API 시도 $attempt 실패: $e');
+        }
+        if (attempt < 2) {
+          // 재시도 전 잠시 대기 (서비스 초기화 시간 확보)
+          await Future.delayed(const Duration(seconds: 2));
+          continue;
+        }
       }
     }
+
+    // 2회 모두 실패 시 최신 공지로 폴백
+    _isRecommendedLoading = false;
+    if (_notices.isNotEmpty) {
+      final sorted = List<Notice>.from(_notices)
+        ..sort((a, b) => b.date.compareTo(a.date));
+      _recommendedNotices = sorted.take(10).toList();
+      if (kDebugMode) {
+        print('AI 추천 API 실패, 최신순 폴백 사용 (${_recommendedNotices.length}건)');
+      }
+    }
+    _error = null;
+    notifyListeners();
   }
 
   /// 카테고리별 공지사항 가져오기 (로컬 필터링)

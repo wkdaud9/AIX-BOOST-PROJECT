@@ -25,6 +25,26 @@ from utils.auth_middleware import login_required
 # Blueprint 생성 (URL 접두사: /api/search)
 search_bp = Blueprint('search', __name__, url_prefix='/api/search')
 
+# 서비스 싱글턴 캐싱 (매 요청마다 재초기화 방지)
+_search_service = None
+_reranking_service = None
+
+
+def _get_search_service() -> HybridSearchService:
+    """HybridSearchService 싱글턴 반환"""
+    global _search_service
+    if _search_service is None:
+        _search_service = HybridSearchService()
+    return _search_service
+
+
+def _get_reranking_service() -> RerankingService:
+    """RerankingService 싱글턴 반환"""
+    global _reranking_service
+    if _reranking_service is None:
+        _reranking_service = RerankingService()
+    return _reranking_service
+
 
 @search_bp.route('/notices', methods=['GET'])
 @login_required
@@ -76,8 +96,7 @@ def search_personalized_notices():
         print(f"   - 리랭킹: {rerank}")
 
         # 하이브리드 검색
-        search_service = HybridSearchService()
-        results = search_service.find_relevant_notices_for_user(
+        results = _get_search_service().find_relevant_notices_for_user(
             user_id=user_id,
             limit=limit,
             min_score=min_score
@@ -85,9 +104,9 @@ def search_personalized_notices():
 
         # 리랭킹 적용 (옵션)
         if rerank and len(results) > 5:
-            reranking_service = RerankingService()
-            if reranking_service.should_rerank(results):
-                results = reranking_service.rerank_notices_for_user(
+            rs = _get_reranking_service()
+            if rs.should_rerank(results):
+                results = rs.rerank_notices_for_user(
                     user_id=user_id,
                     candidate_notices=results
                 )
@@ -158,8 +177,7 @@ def search_by_keyword():
         print(f"   - 제한: {limit}개, 최소점수: {min_score}")
 
         # 벡터 검색
-        search_service = HybridSearchService()
-        results = search_service.search_by_keyword(
+        results = _get_search_service().search_by_keyword(
             query=query,
             limit=limit,
             min_score=min_score
@@ -236,8 +254,7 @@ def find_relevant_users():
         print(f"   - 최대: {max_users}명, 최소점수: {min_score}")
 
         # 하이브리드 검색
-        search_service = HybridSearchService()
-        results = search_service.find_relevant_users(
+        results = _get_search_service().find_relevant_users(
             notice_id=notice_id,
             min_score=min_score,
             max_users=max_users
@@ -245,9 +262,9 @@ def find_relevant_users():
 
         # 리랭킹 적용 (옵션)
         if rerank and len(results) > 5:
-            reranking_service = RerankingService()
-            if reranking_service.should_rerank(results):
-                results = reranking_service.rerank_users_for_notice(
+            rs = _get_reranking_service()
+            if rs.should_rerank(results):
+                results = rs.rerank_users_for_notice(
                     notice_id=notice_id,
                     candidate_users=results
                 )
@@ -412,7 +429,7 @@ def health_check():
     """
     try:
         # 서비스 초기화 테스트
-        search_service = HybridSearchService()
+        _get_search_service()
 
         return jsonify({
             "status": "success",

@@ -11,8 +11,8 @@ class ApiService {
       : baseUrl = baseUrl ?? dotenv.env['BACKEND_URL'] ?? 'http://localhost:5000' {
     _dio = Dio(BaseOptions(
       baseUrl: this.baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
       headers: {
         'Content-Type': 'application/json',
       },
@@ -193,6 +193,9 @@ class ApiService {
           'min_score': minScore,
           'rerank': 'true',
         },
+        options: Options(
+          receiveTimeout: const Duration(seconds: 30),
+        ),
       );
       return _handleListResponse(response, listKey: 'notices');
     } catch (e) {

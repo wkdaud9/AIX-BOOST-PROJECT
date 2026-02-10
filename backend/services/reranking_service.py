@@ -44,8 +44,8 @@ class RerankingService:
 
     # 리랭킹 설정
     RERANK_THRESHOLD = 10   # 결과가 이 수 초과 시 리랭킹 고려
-    RERANK_TOP_N = 5        # 상위 N개만 리랭킹
-    SCORE_VARIANCE_THRESHOLD = 0.1  # 점수 편차가 이보다 작으면 리랭킹
+    RERANK_TOP_N = 3        # 상위 N개만 리랭킹 (5→3: Gemini 호출 비용/시간 절감)
+    SCORE_VARIANCE_THRESHOLD = 0.05  # 점수 편차가 이보다 작으면 리랭킹 (0.1→0.05: 정말 변별력 없을 때만)
 
     def __init__(self):
         """리랭킹 서비스 초기화"""
@@ -196,11 +196,14 @@ class RerankingService:
         if not reranked:
             return candidate_notices
 
-        # 기존 정보 병합
+        # 기존 정보 병합 (id 또는 notice_id로 매칭)
         reranked_with_info = []
         for r in reranked:
             notice_id = r["notice_id"]
-            original = next((c for c in top_candidates if c.get("notice_id") == notice_id), {})
+            original = next(
+                (c for c in top_candidates if c.get("id") == notice_id or c.get("notice_id") == notice_id),
+                {}
+            )
             reranked_with_info.append({
                 **original,
                 "notice_id": notice_id,
@@ -310,8 +313,8 @@ class RerankingService:
         prompt = self._build_user_rerank_prompt(notice, user_profiles)
 
         try:
-            # Gemini API 호출
-            response = self.gemini.generate_text(prompt, temperature=0.2)
+            # Gemini API 호출 (리랭킹 응답은 짧은 JSON이므로 max_tokens 제한)
+            response = self.gemini.generate_text(prompt, max_tokens=512, temperature=0.2)
 
             # JSON 파싱
             result = self._parse_rerank_response(response)
@@ -338,7 +341,7 @@ class RerankingService:
         prompt = self._build_notice_rerank_prompt(user_profile, notices)
 
         try:
-            response = self.gemini.generate_text(prompt, temperature=0.2)
+            response = self.gemini.generate_text(prompt, max_tokens=512, temperature=0.2)
             result = self._parse_rerank_response(response)
 
             if result and "ranking" in result:
@@ -354,118 +357,61 @@ class RerankingService:
         notice: Dict[str, Any],
         user_profiles: List[Dict[str, Any]]
     ) -> str:
-        """사용자 리랭킹 프롬프트 생성"""
-        # 공지사항 정보
-        notice_info = f"""
-제목: {notice.get('title', 'N/A')}
-카테고리: {notice.get('category', 'N/A')}
-요약: {notice.get('ai_summary', 'N/A')}
-"""
-        enriched = notice.get('enriched_metadata', {})
-        if enriched:
-            if enriched.get('target_departments'):
-                notice_info += f"대상 학과: {', '.join(enriched['target_departments'])}\n"
-            if enriched.get('target_grades'):
-                notice_info += f"대상 학년: {', '.join(map(str, enriched['target_grades']))}\n"
+        """사용자 리랭킹 프롬프트 생성 (간결한 버전)"""
+        title = notice.get('title', '')
+        cat = notice.get('category', '')
+        summary = (notice.get('ai_summary', '') or '')[:80]
 
-        # 사용자 정보
-        users_text = ""
-        for i, user in enumerate(user_profiles, 1):
-            users_text += f"""
-[사용자 {i}]
-- ID: {user.get('id', 'N/A')}
-- 학과: {user.get('department', '미지정')}
-- 학년: {user.get('grade', '미지정')}학년
-- 관심사: {', '.join(user.get('interests', [])) or '없음'}
-- 관심 카테고리: {', '.join(user.get('categories', [])) or '없음'}
-"""
+        enriched = notice.get('enriched_metadata', {}) or {}
+        target_dept = ', '.join(enriched.get('target_departments', []))
+        target_grade = ', '.join(map(str, enriched.get('target_grades', [])))
 
-        return f"""
-당신은 대학 공지사항 추천 시스템입니다.
-아래 공지사항과 사용자 목록을 보고, 이 공지가 각 사용자에게 얼마나 관련이 있는지 평가하세요.
+        users_lines = []
+        for user in user_profiles:
+            uid = user.get('id', '')
+            dept = user.get('department', '미지정')
+            grade = user.get('grade', '미지정')
+            interests = ', '.join(user.get('interests', [])) or '없음'
+            users_lines.append(f"- {uid} | {dept} {grade}학년 | 관심사: {interests}")
 
-**공지사항:**
-{notice_info}
+        users_text = '\n'.join(users_lines)
 
-**사용자 목록:**
+        return f"""공지: {title} ({cat}) - {summary}
+대상: {target_dept or '전체'} {target_grade or '전학년'}
+
+사용자:
 {users_text}
 
-**평가 기준:**
-1. 학과 일치 여부 (대상 학과가 명시된 경우)
-2. 학년 일치 여부 (대상 학년이 명시된 경우)
-3. 관심사와의 연관성
-4. 관심 카테고리 일치 여부
-
-**응답 형식 (JSON만 출력):**
-```json
-{{
-    "ranking": [
-        {{"user_id": "실제ID", "score": 0.95, "reason": "학과, 학년 모두 일치하고 관심사도 연관됨"}},
-        {{"user_id": "실제ID", "score": 0.7, "reason": "관심사만 일치"}},
-        ...
-    ]
-}}
-```
-
-관련도가 높은 순서로 정렬하세요. score는 0~1 사이 값입니다.
-JSON만 응답하세요.
-"""
+위 사용자를 공지 관련도순으로 정렬. JSON만 출력:
+{{"ranking":[{{"user_id":"ID","score":0.9,"reason":"사유"}}]}}"""
 
     def _build_notice_rerank_prompt(
         self,
         user_profile: Dict[str, Any],
         notices: List[Dict[str, Any]]
     ) -> str:
-        """공지사항 리랭킹 프롬프트 생성"""
-        # 사용자 정보
-        user_info = f"""
-- 학과: {user_profile.get('department', '미지정')}
-- 학년: {user_profile.get('grade', '미지정')}학년
-- 관심사: {', '.join(user_profile.get('interests', [])) or '없음'}
-- 관심 카테고리: {', '.join(user_profile.get('categories', [])) or '없음'}
-"""
+        """공지사항 리랭킹 프롬프트 생성 (간결한 버전)"""
+        dept = user_profile.get('department', '미지정')
+        grade = user_profile.get('grade', '미지정')
+        interests = ', '.join(user_profile.get('interests', [])) or '없음'
+        categories = ', '.join(user_profile.get('categories', [])) or '없음'
 
-        # 공지사항 정보
-        notices_text = ""
-        for i, notice in enumerate(notices, 1):
-            notices_text += f"""
-[공지 {i}]
-- ID: {notice.get('notice_id', notice.get('id', 'N/A'))}
-- 제목: {notice.get('title', 'N/A')}
-- 카테고리: {notice.get('category', 'N/A')}
-- 요약: {notice.get('ai_summary', 'N/A')[:100] if notice.get('ai_summary') else 'N/A'}
-"""
+        notices_lines = []
+        for notice in notices:
+            nid = notice.get('notice_id', notice.get('id', ''))
+            title = notice.get('title', '')
+            cat = notice.get('category', '')
+            notices_lines.append(f"- {nid} | {title} | {cat}")
 
-        return f"""
-당신은 대학 공지사항 추천 시스템입니다.
-아래 사용자 프로필과 공지사항 목록을 보고, 사용자에게 가장 관련 있는 순서대로 공지를 정렬하세요.
+        notices_text = '\n'.join(notices_lines)
 
-**사용자 프로필:**
-{user_info}
+        return f"""사용자: {dept} {grade}학년, 관심사: {interests}, 카테고리: {categories}
 
-**공지사항 목록:**
+공지 목록:
 {notices_text}
 
-**평가 기준:**
-1. 사용자의 학과/학년과 공지 대상의 일치 여부
-2. 관심사와 공지 내용의 연관성
-3. 관심 카테고리 일치 여부
-4. 공지의 긴급도/중요도
-
-**응답 형식 (JSON만 출력):**
-```json
-{{
-    "ranking": [
-        {{"notice_id": "실제ID", "score": 0.95, "reason": "학과 관련 장학금 공지, 관심사 일치"}},
-        {{"notice_id": "실제ID", "score": 0.7, "reason": "관심 카테고리 일치"}},
-        ...
-    ]
-}}
-```
-
-관련도가 높은 순서로 정렬하세요. score는 0~1 사이 값입니다.
-JSON만 응답하세요.
-"""
+위 공지를 사용자 관련도순으로 정렬. JSON만 출력:
+{{"ranking":[{{"notice_id":"ID","score":0.9,"reason":"사유"}}]}}"""
 
     def _parse_rerank_response(self, response: str) -> Optional[Dict[str, Any]]:
         """AI 응답에서 JSON을 파싱합니다."""

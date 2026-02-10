@@ -436,15 +436,18 @@ class HybridSearchService:
 
             user = user_result.data
 
-            # user_preferences 테이블 조회
-            pref_result = self.supabase.table("user_preferences")\
-                .select("categories, keywords, interests_embedding, enriched_profile")\
-                .eq("user_id", user_id)\
-                .single()\
-                .execute()
+            # user_preferences 테이블 조회 (레코드 없어도 프로필 조회는 성공)
+            try:
+                pref_result = self.supabase.table("user_preferences")\
+                    .select("categories, keywords, interests_embedding, enriched_profile")\
+                    .eq("user_id", user_id)\
+                    .maybe_single()\
+                    .execute()
 
-            if pref_result.data:
-                user.update(pref_result.data)
+                if pref_result.data:
+                    user.update(pref_result.data)
+            except Exception as e:
+                print(f"[WARNING] user_preferences 조회 실패 (무시): {str(e)}")
 
             return user
 
