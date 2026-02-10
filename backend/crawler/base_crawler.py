@@ -294,10 +294,9 @@ class BaseCrawler:
         return {
             "title": self.clean_text(title),
             "content": self.clean_text(content),
-            "category": self.category,
+            "source_board": self.category,  # 게시판명 (category는 AI가 판별)
             "published_at": published_at,
             "source_url": source_url,
-            "crawled_at": datetime.now(),
             **kwargs  # 추가 정보
         }
 

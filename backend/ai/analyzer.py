@@ -2,12 +2,12 @@
 """
 공지사항 분석기 모듈
 
-🤔 이 파일이 하는 일:
+이 파일이 하는 일:
 크롤링한 공지사항을 Gemini AI로 분석해서 유용한 정보를 추출합니다.
 예를 들어, 긴 공지사항을 요약하거나, 어떤 카테고리인지 판단하거나,
 얼마나 중요한지 점수를 매깁니다.
 
-📚 비유:
+비유:
 - 공지사항 = 학교에서 받은 긴 가정통신문
 - 이 분석기 = 가정통신문을 읽고 중요한 부분만 형광펜으로 표시해주는 친구
 """
@@ -18,6 +18,10 @@ from . import prompts
 import json
 import time
 import re
+import requests
+import google.generativeai as genai
+from PIL import Image
+from io import BytesIO
 from datetime import datetime
 
 
@@ -38,12 +42,12 @@ class NoticeAnalyzer:
 
     # 지원하는 카테고리 목록
     CATEGORIES = [
-        "학사",      # 수강신청, 학적, 성적 등
-        "장학",      # 장학금, 학자금 대출 등
-        "취업",      # 채용, 인턴십, 취업특강 등
-        "행사",      # 축제, 세미나, 공모전 등
-        "시설",      # 도서관, 기숙사 등
-        "기타"       # 위 카테고리에 해당 안 되는 것
+        "학사",      # 수강신청, 학적, 성적, 졸업 등
+        "장학",      # 장학금, 학자금 대출, 등록금 등
+        "취업",      # 채용, 인턴십, 취업박람회 등
+        "행사",      # 입학식, 졸업식, 축제, 오리엔테이션 등
+        "교육",      # 특강, 교육 프로그램, 진로 교육, 세미나 등
+        "공모전"     # 대회, 경진대회, 공모전, 콘테스트 등
     ]
 
     def __init__(self, gemini_client: Optional[GeminiClient] = None):
@@ -110,7 +114,6 @@ class NoticeAnalyzer:
         # 각종 분석 수행
         summary = self.extract_summary(full_text)
         category = self.categorize(full_text)
-        importance = self.calculate_importance(full_text)
         keywords = self.extract_keywords(full_text)
 
         # 결과를 하나로 합치기
@@ -124,7 +127,6 @@ class NoticeAnalyzer:
             # 분석 결과
             "summary": summary,
             "category": category,
-            "importance": importance,
             "keywords": keywords,
 
             # 메타 정보
@@ -132,7 +134,7 @@ class NoticeAnalyzer:
             "analysis_model": self.client.model_name
         }
 
-        print(f"✅ 분석 완료: {category} / 중요도 {importance}점")
+        print(f"✅ 분석 완료: {category}")
         return analysis_result
 
     def extract_summary(self, text: str, max_length: int = 100) -> str:
@@ -172,7 +174,7 @@ class NoticeAnalyzer:
         - text: 분류할 공지사항 텍스트
 
         🎯 하는 일:
-        공지사항이 학사/장학/취업/행사/시설/기타 중 어디에 속하는지 판단합니다.
+        공지사항이 학사/장학/취업/행사/교육/공모전 중 어디에 속하는지 판단합니다.
 
         💡 예시:
         공지 = "2024년 1학기 수강신청 안내..."
@@ -196,67 +198,13 @@ class NoticeAnalyzer:
         category = self.client.generate_text(prompt, temperature=0.1)  # 일관성을 위해 낮은 temperature
         category = category.strip()
 
-        # 카테고리 목록에 없으면 "기타"로 처리
+        # 카테고리 목록에 없으면 "학사"로 처리 (기본값)
         if category not in self.CATEGORIES:
-            print(f"⚠️ 알 수 없는 카테고리 '{category}' -> '기타'로 변경")
-            category = "기타"
+            print(f"⚠️ 알 수 없는 카테고리 '{category}' -> '학사'로 변경")
+            category = "학사"
 
         return category
 
-    def calculate_importance(self, text: str) -> int:
-        """
-        공지사항의 중요도를 1~5점으로 평가합니다.
-
-        🔧 매개변수:
-        - text: 평가할 공지사항 텍스트
-
-        🎯 하는 일:
-        공지사항이 얼마나 중요한지 1점(별로 안 중요)부터 5점(매우 중요)까지 점수를 매깁니다.
-
-        📊 점수 기준:
-        - 1점: 선택 사항, 관심 있는 사람만 보면 됨
-        - 2점: 알아두면 좋음
-        - 3점: 해당되면 확인 필요
-        - 4점: 대부분 학생이 확인해야 함
-        - 5점: 모든 학생 필독 (수강신청, 등록금 납부 등)
-
-        💡 예시:
-        공지 = "수강신청 안내"
-        점수 = analyzer.calculate_importance(공지)
-        print(점수)  # 5
-        """
-        prompt = f"""
-        다음 공지사항의 중요도를 1~5점으로 평가해주세요.
-
-        평가 기준:
-        1점: 선택 사항, 관심 있는 사람만
-        2점: 알아두면 좋음
-        3점: 해당되면 확인 필요
-        4점: 대부분 학생 확인 필요
-        5점: 전체 학생 필독 (마감일 있음, 의무사항 등)
-
-        숫자만 답해주세요. (예: 4)
-
-        공지사항:
-        {text}
-
-        중요도 점수:
-        """
-
-        importance_str = self.client.generate_text(prompt, temperature=0.2)
-
-        # 숫자로 변환 시도
-        try:
-            importance = int(importance_str.strip())
-            # 1~5 범위 확인
-            if importance < 1 or importance > 5:
-                print(f"⚠️ 중요도 범위 초과 ({importance}) -> 3점으로 조정")
-                importance = 3
-        except ValueError:
-            print(f"⚠️ 중요도 파싱 실패 ('{importance_str}') -> 3점으로 설정")
-            importance = 3
-
-        return importance
 
     def extract_keywords(self, text: str, max_keywords: int = 5) -> List[str]:
         """
@@ -361,7 +309,6 @@ class NoticeAnalyzer:
                 "deadline": "YYYY-MM-DD"
             },
             "category": "카테고리",
-            "priority": "중요도",
             "analyzed": True,
             "analysis_model": "gemini-1.5-flash"
         }
@@ -373,12 +320,22 @@ class NoticeAnalyzer:
         """
         title = notice_data.get("title", "")
         content = notice_data.get("content", "")
+        ocr_text = notice_data.get("_ocr_text", "")
+        content_images = notice_data.get("content_images", [])
+
+        # AI 분석용 텍스트 조합 (OCR 텍스트는 참고 정보로만 전달)
         full_text = f"제목: {title}\n\n내용: {content}"
+        if ocr_text:
+            full_text += f"\n\n[이미지에서 추출한 텍스트 (참고용)]\n{ocr_text}"
 
         print(f"📄 [종합 분석] 시작: {title[:30]}...")
 
-        # 프롬프트 생성
-        prompt = prompts.get_comprehensive_analysis_prompt(full_text)
+        # 프롬프트 생성 (이미지 정보 포함)
+        prompt = prompts.get_comprehensive_analysis_prompt(
+            full_text,
+            has_images=len(content_images) > 0,
+            image_count=len(content_images)
+        )
         config = prompts.get_prompt_config("comprehensive")
 
         # 재시도 로직으로 AI 호출
@@ -399,19 +356,36 @@ class NoticeAnalyzer:
             if "dates" in parsed_result and isinstance(parsed_result["dates"], dict):
                 parsed_result["dates"] = self._normalize_dates(parsed_result["dates"])
 
+            # display_mode 유효성 검증
+            valid_display_modes = {"POSTER", "DOCUMENT", "HYBRID"}
+            display_mode = parsed_result.get("display_mode", "DOCUMENT")
+            if display_mode not in valid_display_modes:
+                display_mode = "DOCUMENT"
+
+            # 이미지가 없으면 강제로 DOCUMENT 모드
+            if not content_images:
+                display_mode = "DOCUMENT"
+                has_important_image = False
+            else:
+                has_important_image = parsed_result.get("has_important_image", False)
+
             # 결과 구조화
             analysis_result = {
-                # 원본 데이터
+                # 원본 데이터 (DB 저장용 필드명 유지)
+                "title": title,
+                "content": content,
                 "original_title": title,
                 "original_content": content,
-                "url": notice_data.get("url", ""),
-                "published_date": notice_data.get("date", ""),
+                "url": notice_data.get("url") or notice_data.get("source_url", ""),
+                "source_url": notice_data.get("source_url") or notice_data.get("url", ""),
+                "published_date": notice_data.get("date") or notice_data.get("published_at", ""),
 
                 # 분석 결과
                 "summary": parsed_result.get("summary", ""),
                 "dates": parsed_result.get("dates", {}),
-                "category": parsed_result.get("category", "기타"),
-                "priority": parsed_result.get("priority", "일반"),
+                "category": parsed_result.get("category", "학사"),
+                "display_mode": display_mode,
+                "has_important_image": has_important_image,
 
                 # 메타 정보
                 "analyzed": True,
@@ -419,24 +393,42 @@ class NoticeAnalyzer:
                 "analysis_timestamp": datetime.now().isoformat()
             }
 
-            print(f"✅ 분석 완료: {analysis_result['category']} / {analysis_result['priority']}")
+            # 크롤러에서 전달된 추가 필드 유지
+            for field in ["original_id", "author", "views", "attachments",
+                          "source_board", "board_seq", "content_images"]:
+                if field in notice_data:
+                    analysis_result[field] = notice_data[field]
+
+            print(f"✅ 분석 완료: {analysis_result['category']}")
             return analysis_result
 
         except Exception as e:
             print(f"❌ 종합 분석 실패: {str(e)}")
-            # 실패 시 기본 구조 반환
-            return {
+            # 실패 시 기본 구조 반환 (DB 저장용 필드명 유지)
+            fallback_result = {
+                "title": title,
+                "content": content,
                 "original_title": title,
                 "original_content": content,
-                "url": notice_data.get("url", ""),
-                "published_date": notice_data.get("date", ""),
-                "summary": "",
+                "url": notice_data.get("url") or notice_data.get("source_url", ""),
+                "source_url": notice_data.get("source_url") or notice_data.get("url", ""),
+                "published_date": notice_data.get("date") or notice_data.get("published_at", ""),
+                "summary": title[:200] if title else "",
                 "dates": {},
-                "category": "기타",
-                "priority": "일반",
+                "category": "학사",
+                "display_mode": "DOCUMENT",
+                "has_important_image": False,
                 "analyzed": False,
                 "error": str(e)
             }
+
+            # 크롤러에서 전달된 추가 필드 유지
+            for field in ["original_id", "author", "views", "attachments",
+                          "source_board", "board_seq", "content_images"]:
+                if field in notice_data:
+                    fallback_result[field] = notice_data[field]
+
+            return fallback_result
 
     def _retry_with_backoff(self, func, max_retries: int = 3, initial_delay: float = 1.0):
         """
@@ -516,6 +508,97 @@ class NoticeAnalyzer:
             print(f"응답 내용: {response[:200]}...")
             raise ValueError(f"JSON 파싱 실패: {str(e)}")
 
+    def analyze_images(
+        self,
+        image_urls: List[str],
+        title: str = "",
+        base_url: str = "https://www.kunsan.ac.kr"
+    ) -> str:
+        """
+        이미지 URL들을 Gemini Vision으로 분석하여 텍스트 내용을 추출합니다.
+
+        🎯 목적:
+        공지사항이 이미지로만 구성된 경우, 이미지 내용을 텍스트로 변환합니다.
+
+        🔧 매개변수:
+        - image_urls: 분석할 이미지 URL 리스트
+        - title: 공지사항 제목 (컨텍스트 제공용)
+        - base_url: 상대 경로 변환용 기본 URL
+
+        📊 반환값:
+        - 이미지에서 추출한 텍스트 내용
+
+        💡 예시:
+        urls = ["/upload_data/editor/BBS_0000010/177034525863919.jpg"]
+        content = analyzer.analyze_images(urls, title="장학금 안내")
+        print(content)  # "2026학년도 국가장학금 신청 안내..."
+        """
+        if not image_urls:
+            return ""
+
+        print(f"🖼️ 이미지 분석 시작: {len(image_urls)}개 이미지")
+
+        # 이미지 다운로드 및 PIL Image로 변환
+        images = []
+        for url in image_urls[:5]:  # 최대 5개까지만 처리 (비용 절감)
+            try:
+                # 상대 경로면 절대 경로로 변환
+                if not url.startswith("http"):
+                    url = base_url + url
+
+                # 이미지 다운로드
+                response = requests.get(url, timeout=10)
+                response.raise_for_status()
+
+                # PIL Image로 변환
+                img = Image.open(BytesIO(response.content))
+                images.append(img)
+                print(f"  ✅ 이미지 로드 성공: {url[-30:]}")
+
+            except Exception as e:
+                print(f"  ⚠️ 이미지 로드 실패: {url[-30:]} ({str(e)})")
+                continue
+
+        if not images:
+            print("  ❌ 로드된 이미지 없음")
+            return ""
+
+        # Gemini Vision 모델로 이미지 분석
+        try:
+            # Gemini 2.0 Flash 모델 사용 (Vision 지원)
+            vision_model = genai.GenerativeModel("models/gemini-2.0-flash")
+
+            # 프롬프트 구성
+            prompt = f"""
+다음은 대학교 공지사항에 포함된 이미지입니다.
+공지사항 제목: {title}
+
+이미지에서 모든 텍스트 내용을 추출해주세요.
+표, 목록, 날짜, 연락처 등 중요한 정보를 빠짐없이 포함해주세요.
+추출된 내용만 작성하고, 설명이나 해석은 하지 마세요.
+
+추출된 내용:
+"""
+
+            # 이미지와 함께 요청
+            content_parts = [prompt] + images
+            response = vision_model.generate_content(
+                content_parts,
+                generation_config={
+                    "max_output_tokens": 4096,
+                    "temperature": 0.1
+                }
+            )
+
+            extracted_text = response.text.strip()
+            print(f"  ✅ 이미지 분석 완료: {len(extracted_text)}자 추출")
+
+            return extracted_text
+
+        except Exception as e:
+            print(f"  ❌ 이미지 분석 실패: {str(e)}")
+            return ""
+
     def _normalize_dates(self, dates: Dict[str, Any]) -> Dict[str, Optional[str]]:
         """
         날짜 정보를 ISO 8601 형식(YYYY-MM-DD)으로 정규화합니다.
@@ -547,6 +630,25 @@ class NoticeAnalyzer:
         normalized = {}
 
         for key, value in dates.items():
+            # date_type은 날짜가 아닌 분류 필드이므로 그대로 유지
+            if key == "date_type":
+                normalized[key] = value
+                continue
+
+            # deadlines 배열은 각 항목의 date를 정규화
+            if key == "deadlines" and isinstance(value, list):
+                normalized_deadlines = []
+                for item in value:
+                    if isinstance(item, dict) and "date" in item:
+                        norm_date = self._normalize_single_date(item["date"])
+                        if norm_date:
+                            normalized_deadlines.append({
+                                "label": item.get("label", "전체 마감"),
+                                "date": norm_date
+                            })
+                normalized[key] = normalized_deadlines
+                continue
+
             # null 값 처리
             if value is None or value == "null" or value == "":
                 normalized[key] = None
@@ -554,23 +656,40 @@ class NoticeAnalyzer:
 
             # 문자열인 경우 정규화
             if isinstance(value, str):
-                # 이미 YYYY-MM-DD 형식인지 확인
-                if re.match(r'^\d{4}-\d{2}-\d{2}$', value):
-                    normalized[key] = value
-                # YYYY/MM/DD 형식
-                elif re.match(r'^\d{4}/\d{2}/\d{2}$', value):
-                    normalized[key] = value.replace("/", "-")
-                # YYYY.MM.DD 형식
-                elif re.match(r'^\d{4}\.\d{2}\.\d{2}$', value):
-                    normalized[key] = value.replace(".", "-")
-                else:
-                    # 형식이 맞지 않으면 원본 유지
-                    print(f"⚠️ 날짜 형식 불일치: {key}={value}")
-                    normalized[key] = value
+                normalized[key] = self._normalize_single_date(value) or value
             else:
                 normalized[key] = value
 
         return normalized
+
+    def _normalize_single_date(self, value: str) -> Optional[str]:
+        """
+        단일 날짜 문자열을 YYYY-MM-DD 형식으로 정규화합니다.
+
+        🔧 처리 가능한 형식:
+        - YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
+
+        반환값:
+        - 정규화된 날짜 문자열 또는 None
+        """
+        if value is None or value == "null" or value == "":
+            return None
+
+        if not isinstance(value, str):
+            return None
+
+        # 이미 YYYY-MM-DD 형식
+        if re.match(r'^\d{4}-\d{2}-\d{2}$', value):
+            return value
+        # YYYY/MM/DD 형식
+        elif re.match(r'^\d{4}/\d{2}/\d{2}$', value):
+            return value.replace("/", "-")
+        # YYYY.MM.DD 형식
+        elif re.match(r'^\d{4}\.\d{2}\.\d{2}$', value):
+            return value.replace(".", "-")
+        else:
+            print(f"⚠️ 날짜 형식 불일치: {value}")
+            return None
 
 
 # 🧪 테스트 코드

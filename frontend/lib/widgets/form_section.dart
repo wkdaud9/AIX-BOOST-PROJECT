@@ -17,6 +17,8 @@ class FormSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -28,7 +30,6 @@ class FormSection extends StatelessWidget {
               title!,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
                   ),
             ),
           ),
@@ -37,15 +38,15 @@ class FormSection extends StatelessWidget {
         // 입력 필드를 감싸는 카드
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? const Color(0xFF0F2854) : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: errorMessage != null
                   ? AppTheme.errorColor
-                  : Colors.grey.shade300,
+                  : isDark ? Colors.white12 : Colors.grey.shade300,
               width: errorMessage != null ? 2 : 1,
             ),
-            boxShadow: [
+            boxShadow: isDark ? null : [
               BoxShadow(
                 color: Colors.black.withOpacity(0.05),
                 blurRadius: 10,
@@ -68,7 +69,7 @@ class FormSection extends StatelessWidget {
                   Divider(
                     height: 1,
                     thickness: 1,
-                    color: Colors.grey.shade200,
+                    color: isDark ? Colors.white10 : Colors.grey.shade200,
                     indent: 16,
                     endIndent: 16,
                   ),

@@ -2,11 +2,11 @@
 """
 Gemini AI 클라이언트 모듈
 
-🤔 이 파일이 하는 일:
+이 파일이 하는 일:
 이 파일은 구글의 Gemini AI와 대화할 수 있게 해주는 "번역기" 같은 역할을 합니다.
 우리가 공지사항 텍스트를 주면, Gemini에게 물어보고 답변을 받아오는 일을 합니다.
 
-📚 비유:
+비유:
 - 우리 = 한국어만 하는 학생
 - Gemini AI = 영어만 하는 똑똑한 선생님
 - 이 파일 = 한국어를 영어로, 영어를 한국어로 통역해주는 통역사
@@ -25,10 +25,10 @@ class GeminiClient:
     """
     Gemini AI와 통신하는 클라이언트 클래스
 
-    🎯 목적:
+    목적:
     구글 Gemini AI에게 질문을 보내고 답변을 받아오는 역할을 합니다.
 
-    🏗️ 구조:
+    구조:
     1. __init__: Gemini AI와 연결 준비 (전화기 켜기)
     2. generate_text: 텍스트를 보내고 답변 받기 (문자 보내기)
     3. analyze_with_prompt: 특정 질문으로 분석하기 (특정 주제로 질문하기)
@@ -38,15 +38,15 @@ class GeminiClient:
         """
         Gemini 클라이언트를 초기화합니다.
 
-        🔧 매개변수:
+        매개변수:
         - api_key: Gemini API 키 (없으면 .env 파일에서 자동으로 가져옴)
 
-        💡 예시:
+        예시:
         client = GeminiClient()  # .env에서 자동으로 키 가져옴
         또는
         client = GeminiClient(api_key="내_API_키")  # 직접 키 전달
 
-        🎯 하는 일:
+        하는 일:
         1. API 키를 가져옵니다 (직접 주거나, .env에서 자동으로)
         2. Gemini에 연결합니다
         3. 사용할 AI 모델을 준비합니다 (gemini-1.5-pro 또는 gemini-1.5-flash)
@@ -57,7 +57,7 @@ class GeminiClient:
         # API 키가 없으면 에러 발생
         if not self.api_key:
             raise ValueError(
-                "❌ Gemini API 키가 없습니다! "
+                "[오류] Gemini API 키가 없습니다! "
                 ".env 파일에 GEMINI_API_KEY를 설정하거나 "
                 "GeminiClient(api_key='your-key')로 직접 전달하세요."
             )
@@ -71,7 +71,7 @@ class GeminiClient:
         self.model_name = "models/gemini-2.0-flash"  # 2024년 최신 모델
         self.model = genai.GenerativeModel(self.model_name)
 
-        print(f"✅ Gemini AI 클라이언트 초기화 완료 (모델: {self.model_name})")
+        print(f"[완료] Gemini AI 클라이언트 초기화 완료 (모델: {self.model_name})")
 
     def generate_text(
         self,
@@ -82,21 +82,21 @@ class GeminiClient:
         """
         Gemini AI에게 텍스트를 보내고 답변을 받습니다.
 
-        🔧 매개변수:
+        매개변수:
         - prompt: Gemini에게 보낼 질문이나 요청 (예: "이 공지사항 요약해줘")
         - max_tokens: 최대 답변 길이 (숫자가 클수록 긴 답변, 기본값: 2048)
         - temperature: 창의성 수준 (0~1, 높을수록 창의적/랜덤, 기본값: 0.7)
 
-        🎯 하는 일:
+        하는 일:
         1. 우리가 준 질문(prompt)을 Gemini에게 보냅니다
         2. Gemini가 생각해서 답변을 보냅니다
         3. 그 답변을 텍스트로 돌려줍니다
 
-        💡 예시:
+        예시:
         답변 = client.generate_text("안녕하세요! 오늘 날씨 어때?")
         print(답변)  # Gemini의 답변이 출력됨
 
-        📌 Temperature란?
+        Temperature란?
         - 0.0: 항상 똑같은 답변 (로봇처럼)
         - 0.5: 적당히 일관적
         - 1.0: 매번 다른 창의적 답변
@@ -108,7 +108,8 @@ class GeminiClient:
                 generation_config={
                     "max_output_tokens": max_tokens,  # 최대 답변 길이
                     "temperature": temperature,  # 창의성 수준
-                }
+                },
+                request_options={"timeout": 30}  # 30초 타임아웃
             )
 
             # 답변 텍스트 추출
@@ -116,7 +117,7 @@ class GeminiClient:
 
         except Exception as e:
             # 에러 발생 시 어떤 에러인지 알려줌
-            raise Exception(f"❌ Gemini AI 호출 실패: {str(e)}")
+            raise Exception(f"[오류] Gemini AI 호출 실패: {str(e)}")
 
     def analyze_with_prompt(
         self,
@@ -126,7 +127,7 @@ class GeminiClient:
         """
         특정 목적에 맞게 공지사항을 분석합니다.
 
-        🔧 매개변수:
+        매개변수:
         - content: 분석할 공지사항 내용
         - analysis_type: 분석 종류
           * "summary": 요약 (긴 글을 짧게)
@@ -134,12 +135,12 @@ class GeminiClient:
           * "category": 카테고리 분류 (학사/장학/취업 등)
           * "importance": 중요도 판단 (별 1개~5개)
 
-        🎯 하는 일:
+        하는 일:
         1. 분석 종류에 맞는 질문을 만듭니다
         2. Gemini에게 그 질문과 함께 공지사항을 보냅니다
         3. Gemini의 답변을 정리해서 돌려줍니다
 
-        💡 예시:
+        예시:
         result = client.analyze_with_prompt(
             content="2024년 1학기 수강신청은 2월 1일부터입니다.",
             analysis_type="schedule"
@@ -173,7 +174,7 @@ class GeminiClient:
 
             "category": f"""
                 다음 공지사항을 카테고리로 분류해주세요.
-                카테고리 종류: 학사, 장학, 취업, 행사, 기타
+                카테고리 종류: 학사, 장학, 취업, 행사, 교육, 공모전
                 카테고리 이름만 답해주세요.
 
                 공지사항:
@@ -199,7 +200,7 @@ class GeminiClient:
         # 선택한 분석 종류의 프롬프트 가져오기
         if analysis_type not in prompts:
             raise ValueError(
-                f"❌ 지원하지 않는 분석 타입: {analysis_type}\n"
+                f"[오류] 지원하지 않는 분석 타입: {analysis_type}\n"
                 f"사용 가능한 타입: {', '.join(prompts.keys())}"
             )
 
@@ -219,18 +220,18 @@ class GeminiClient:
         """
         사용할 Gemini 모델을 변경합니다.
 
-        🔧 매개변수:
+        매개변수:
         - model_name: 변경할 모델 이름
           * "gemini-1.5-pro": 똑똑하지만 느림
           * "gemini-1.5-flash": 빠르지만 덜 똑똑함
 
-        💡 예시:
+        예시:
         client.switch_model("gemini-1.5-pro")  # 복잡한 분석할 때
         client.switch_model("gemini-1.5-flash")  # 빠른 처리 필요할 때
         """
         self.model_name = model_name
         self.model = genai.GenerativeModel(self.model_name)
-        print(f"✅ 모델 변경됨: {self.model_name}")
+        print(f"[완료] 모델 변경됨: {self.model_name}")
 
 
 # =====================================
@@ -241,25 +242,24 @@ def get_gemini_model():
     """
     Gemini 모델 인스턴스를 반환합니다.
 
-    🎯 목적:
     다른 모듈에서 간편하게 Gemini 모델을 사용할 수 있도록 합니다.
 
-    💡 예시:
+    예시:
     from ai.gemini_client import get_gemini_model
     model = get_gemini_model()
     response = model.generate_content("안녕하세요!")
 
-    📊 반환값:
+    반환값:
     - GenerativeModel 인스턴스 (Gemini API 직접 호출 가능)
     """
     client = GeminiClient()
     return client.model
 
 
-# 🧪 테스트 코드 (이 파일을 직접 실행했을 때만 작동)
+# 테스트 코드 (이 파일을 직접 실행했을 때만 작동)
 if __name__ == "__main__":
     print("=" * 50)
-    print("🧪 Gemini 클라이언트 테스트 시작")
+    print("[테스트] Gemini 클라이언트 테스트 시작")
     print("=" * 50)
 
     try:
@@ -270,7 +270,7 @@ if __name__ == "__main__":
         # 2. 간단한 텍스트 생성 테스트
         print("\n[2단계] 간단한 질문 테스트...")
         response = client.generate_text("안녕하세요! 간단히 인사해주세요.")
-        print(f"✅ Gemini 응답: {response}")
+        print(f"[완료] Gemini 응답: {response}")
 
         # 3. 공지사항 분석 테스트
         print("\n[3단계] 공지사항 분석 테스트...")
@@ -287,28 +287,58 @@ if __name__ == "__main__":
         """
 
         # 요약 분석
-        print("\n  📝 요약 분석 중...")
+        print("\n  [진행] 요약 분석 중...")
         summary_result = client.analyze_with_prompt(test_notice, "summary")
-        print(f"  ✅ 요약: {summary_result['result']}")
+        print(f"  [완료] 요약: {summary_result['result']}")
 
         # 일정 추출
-        print("\n  📅 일정 추출 중...")
+        print("\n  [진행] 일정 추출 중...")
         schedule_result = client.analyze_with_prompt(test_notice, "schedule")
-        print(f"  ✅ 일정: {schedule_result['result']}")
+        print(f"  [완료] 일정: {schedule_result['result']}")
 
         # 카테고리 분류
-        print("\n  🏷️ 카테고리 분류 중...")
+        print("\n  [진행] 카테고리 분류 중...")
         category_result = client.analyze_with_prompt(test_notice, "category")
-        print(f"  ✅ 카테고리: {category_result['result']}")
+        print(f"  [완료] 카테고리: {category_result['result']}")
 
         # 중요도 판단
-        print("\n  ⭐ 중요도 판단 중...")
+        print("\n  [진행] 중요도 판단 중...")
         importance_result = client.analyze_with_prompt(test_notice, "importance")
-        print(f"  ✅ 중요도: {importance_result['result']}")
+        print(f"  [완료] 중요도: {importance_result['result']}")
 
         print("\n" + "=" * 50)
-        print("✅ 모든 테스트 완료!")
+        print("[완료] 모든 테스트 완료!")
         print("=" * 50)
 
     except Exception as e:
-        print(f"\n❌ 테스트 실패: {str(e)}")
+        print(f"\n[오류] 테스트 실패: {str(e)}")
+
+
+def get_gemini_model(model_name: str = "models/gemini-2.0-flash"):
+    """
+    Gemini 모델 인스턴스를 반환하는 헬퍼 함수
+
+    목적:
+    GeminiClient 클래스 없이 간단하게 Gemini 모델을 사용할 때 활용합니다.
+
+    매개변수:
+    - model_name: 사용할 모델 이름 (기본값: gemini-2.0-flash)
+
+    예시:
+    model = get_gemini_model()
+    response = model.generate_content("안녕하세요")
+    """
+    # 환경 변수에서 API 키 로드
+    api_key = os.getenv('GEMINI_API_KEY')
+
+    if not api_key:
+        raise ValueError(
+            "[오류] Gemini API 키가 없습니다! "
+            ".env 파일에 GEMINI_API_KEY를 설정하세요."
+        )
+
+    # Gemini AI 설정
+    genai.configure(api_key=api_key)
+
+    # 모델 인스턴스 반환
+    return genai.GenerativeModel(model_name)

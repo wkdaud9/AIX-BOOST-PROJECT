@@ -258,10 +258,12 @@ class ScheduleExtractor:
 
         # 카테고리별 키워드
         category_keywords = {
-            "학사": ["수강", "학기", "성적", "학점", "졸업", "휴학", "복학"],
+            "학사": ["수강", "학기", "성적", "학점", "졸업", "휴학", "복학", "학적"],
             "장학": ["장학", "학자금", "등록금"],
-            "취업": ["채용", "인턴", "취업", "구직", "면접"],
-            "행사": ["축제", "행사", "세미나", "공모전", "대회"],
+            "취업": ["채용", "인턴", "취업", "구직", "면접", "취업박람회"],
+            "행사": ["축제", "입학식", "졸업식", "오리엔테이션", "OT", "행사"],
+            "교육": ["특강", "교육", "진로", "워크숍", "세미나", "강좌", "프로그램"],
+            "공모전": ["공모전", "대회", "경진대회", "콘테스트", "챌린지"],
         }
 
         for category, keywords in category_keywords.items():
@@ -269,7 +271,7 @@ class ScheduleExtractor:
                 if keyword in event_name:
                     return category
 
-        return "기타"
+        return "학사"
 
     def _create_default_reminders(self, all_day: bool) -> List[Dict[str, Any]]:
         """

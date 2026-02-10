@@ -5,15 +5,42 @@ import '../providers/notice_provider.dart';
 import '../theme/app_theme.dart';
 import 'notice_detail_screen.dart';
 
+enum BookmarkSortMode { recent, deadline, views }
+
 /// 북마크 화면 - 저장된 공지사항 목록
-class BookmarkScreen extends StatelessWidget {
+class BookmarkScreen extends StatefulWidget {
   const BookmarkScreen({super.key});
+
+  @override
+  State<BookmarkScreen> createState() => _BookmarkScreenState();
+}
+
+class _BookmarkScreenState extends State<BookmarkScreen> {
+  BookmarkSortMode _sortMode = BookmarkSortMode.recent;
 
   @override
   Widget build(BuildContext context) {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
-        final bookmarkedNotices = provider.bookmarkedNotices;
+        var bookmarkedNotices = List<Notice>.from(provider.bookmarkedNotices);
+
+        // 정렬
+        switch (_sortMode) {
+          case BookmarkSortMode.recent:
+            bookmarkedNotices.sort((a, b) => b.date.compareTo(a.date));
+            break;
+          case BookmarkSortMode.deadline:
+            bookmarkedNotices.sort((a, b) {
+              if (a.deadline == null && b.deadline == null) return 0;
+              if (a.deadline == null) return 1;
+              if (b.deadline == null) return -1;
+              return a.deadline!.compareTo(b.deadline!);
+            });
+            break;
+          case BookmarkSortMode.views:
+            bookmarkedNotices.sort((a, b) => b.views.compareTo(a.views));
+            break;
+        }
 
         if (provider.isLoading) {
           return const Center(
@@ -25,18 +52,73 @@ class BookmarkScreen extends StatelessWidget {
           return _buildEmptyView();
         }
 
-        return RefreshIndicator(
-          onRefresh: () async {
-            await provider.fetchNotices();
-          },
-          child: ListView.builder(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            itemCount: bookmarkedNotices.length,
-            itemBuilder: (context, index) {
-              final notice = bookmarkedNotices[index];
-              return _buildBookmarkCard(context, notice, provider);
-            },
-          ),
+        return Column(
+          children: [
+            // 정렬 옵션
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  const Text(
+                    '정렬',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: SegmentedButton<BookmarkSortMode>(
+                      segments: const [
+                        ButtonSegment<BookmarkSortMode>(
+                          value: BookmarkSortMode.recent,
+                          label: Text('최신순', style: TextStyle(fontSize: 12)),
+                          icon: Icon(Icons.schedule, size: 16),
+                        ),
+                        ButtonSegment<BookmarkSortMode>(
+                          value: BookmarkSortMode.deadline,
+                          label: Text('마감순', style: TextStyle(fontSize: 12)),
+                          icon: Icon(Icons.alarm, size: 16),
+                        ),
+                        ButtonSegment<BookmarkSortMode>(
+                          value: BookmarkSortMode.views,
+                          label: Text('조회순', style: TextStyle(fontSize: 12)),
+                          icon: Icon(Icons.trending_up, size: 16),
+                        ),
+                      ],
+                      selected: {_sortMode},
+                      onSelectionChanged: (Set<BookmarkSortMode> newSelection) {
+                        setState(() {
+                          _sortMode = newSelection.first;
+                        });
+                      },
+                      style: ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+
+            // 북마크 리스트
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  await provider.fetchNotices();
+                },
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  itemCount: bookmarkedNotices.length,
+                  itemBuilder: (context, index) {
+                    final notice = bookmarkedNotices[index];
+                    return _buildBookmarkCard(context, notice, provider);
+                  },
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -138,9 +220,11 @@ class BookmarkScreen extends StatelessWidget {
                     ),
                     const Spacer(),
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.bookmark,
-                        color: AppTheme.primaryColor,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? AppTheme.primaryLight
+                            : AppTheme.primaryColor,
                       ),
                       onPressed: () {
                         provider.toggleBookmark(notice.id);
@@ -240,19 +324,21 @@ class BookmarkScreen extends StatelessWidget {
                     spacing: AppSpacing.xs,
                     runSpacing: AppSpacing.xs,
                     children: notice.tags.take(3).map((tag) {
+                      final tagIsDark = Theme.of(context).brightness == Brightness.dark;
+                      final tagColor = tagIsDark ? AppTheme.primaryLight : AppTheme.primaryColor;
                       return Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.sm,
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          color: tagColor.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(AppRadius.sm),
                         ),
                         child: Text(
                           '#$tag',
-                          style: const TextStyle(
-                            color: AppTheme.primaryColor,
+                          style: TextStyle(
+                            color: tagColor,
                             fontSize: 10,
                           ),
                         ),
@@ -270,14 +356,23 @@ class BookmarkScreen extends StatelessWidget {
 
   /// 빈 북마크 뷰
   Widget _buildEmptyView() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.bookmark_outline,
-            size: 80,
-            color: Colors.grey[400],
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white12 : AppTheme.textHint.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.bookmark_outline,
+              size: 48,
+              color: isDark ? Colors.white38 : AppTheme.textHint,
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
@@ -285,7 +380,7 @@ class BookmarkScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
+              color: isDark ? Colors.white70 : AppTheme.textPrimary,
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -293,7 +388,7 @@ class BookmarkScreen extends StatelessWidget {
             '관심있는 공지사항을 북마크에 저장해보세요',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey[600],
+              color: isDark ? Colors.white54 : AppTheme.textSecondary,
             ),
             textAlign: TextAlign.center,
           ),
