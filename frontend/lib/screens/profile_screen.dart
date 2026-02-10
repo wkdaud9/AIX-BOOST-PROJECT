@@ -104,65 +104,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // 프로필 헤더 카드
           _buildProfileHeader(context, isDark),
 
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
 
-          // 빠른 액션 버튼 그리드
-          _buildQuickActions(context, isDark),
-
-          const SizedBox(height: AppSpacing.lg),
-
-          // 알림 설정 섹션
-          Consumer<SettingsProvider>(
-            builder: (context, settings, child) {
-              return _buildModernSection(
+          // 프로필 편집 (독립 Card 섹션)
+          _buildModernSection(
+            context,
+            isDark: isDark,
+            title: '내 정보',
+            icon: Icons.person_outline_rounded,
+            children: [
+              _buildModernTile(
                 context,
                 isDark: isDark,
-                title: '알림',
-                icon: Icons.notifications_none_rounded,
-                children: [
-                  _buildModernTile(
+                icon: Icons.edit_rounded,
+                iconColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                title: '프로필 편집',
+                subtitle: '이름, 학과, 관심 카테고리 변경',
+                trailing: Icon(
+                  Icons.chevron_right_rounded,
+                  color: isDark ? Colors.white30 : Colors.grey.shade400,
+                ),
+                onTap: () {
+                  ProfileEditModal.show(
                     context,
-                    isDark: isDark,
-                    icon: Icons.campaign_rounded,
-                    iconColor: AppTheme.infoColor,
-                    title: '푸시 알림',
-                    subtitle: '새로운 공지사항 알림',
-                    trailing: Switch(
-                      value: settings.pushNotificationEnabled,
-                      onChanged: (value) {
-                        settings.setPushNotificationEnabled(value);
-                      },
-                      activeColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
-                    ),
-                  ),
-                  Divider(
-                    height: 1,
-                    indent: 56,
-                    color: isDark ? Colors.white10 : Colors.grey.shade100,
-                  ),
-                  _buildModernTile(
-                    context,
-                    isDark: isDark,
-                    icon: Icons.event_available_rounded,
-                    iconColor: AppTheme.successColor,
-                    title: '일정 알림',
-                    subtitle: '마감 ${settings.deadlineReminderDays}일 전 알림',
-                    trailing: Switch(
-                      value: settings.scheduleNotificationEnabled,
-                      onChanged: (value) {
-                        settings.setScheduleNotificationEnabled(value);
-                      },
-                      activeColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
-                    ),
-                  ),
-                ],
-              );
-            },
+                    initialProfile: _userProfile,
+                    onSaved: _loadUserProfile,
+                  );
+                },
+              ),
+            ],
           ),
 
           const SizedBox(height: AppSpacing.md),
 
-          // 앱 정보 섹션
+          // 앱 정보 섹션 (고객센터 통합)
           _buildModernSection(
             context,
             isDark: isDark,
@@ -181,6 +156,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   color: isDark ? Colors.white30 : Colors.grey.shade400,
                 ),
                 onTap: () => VersionInfoModal.show(context),
+              ),
+              Divider(
+                height: 1,
+                indent: 56,
+                color: isDark ? Colors.white10 : Colors.grey.shade100,
+              ),
+              _buildModernTile(
+                context,
+                isDark: isDark,
+                icon: Icons.headset_mic_rounded,
+                iconColor: AppTheme.infoColor,
+                title: '고객센터',
+                subtitle: 'heybro@kunsan.ac.kr',
+                trailing: Icon(
+                  Icons.chevron_right_rounded,
+                  color: isDark ? Colors.white30 : Colors.grey.shade400,
+                ),
+                onTap: () => _showContactDialog(context),
               ),
               Divider(
                 height: 1,
@@ -267,23 +260,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           child: Row(
             children: [
-              // 아바타
+              // 아바타 (강조 - 시각적 존재감)
               Container(
-                width: 56,
-                height: 56,
+                width: 64,
+                height: 64,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white.withOpacity(0.2),
                   border: Border.all(
                     color: Colors.white.withOpacity(0.4),
-                    width: 2,
+                    width: 2.5,
                   ),
                 ),
                 child: Center(
                   child: Text(
                     initials,
                     style: const TextStyle(
-                      fontSize: 24,
+                      fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
@@ -341,91 +334,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                   ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 빠른 액션 버튼 그리드
-  Widget _buildQuickActions(BuildContext context, bool isDark) {
-    return Row(
-      children: [
-        // 프로필 편집 버튼
-        Expanded(
-          child: _buildActionButton(
-            context,
-            isDark: isDark,
-            icon: Icons.edit_rounded,
-            label: '프로필 편집',
-            color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
-            onTap: () {
-              ProfileEditModal.show(
-                context,
-                initialProfile: _userProfile,
-                onSaved: _loadUserProfile,
-              );
-            },
-          ),
-        ),
-        const SizedBox(width: 12),
-        // 고객센터 버튼
-        Expanded(
-          child: _buildActionButton(
-            context,
-            isDark: isDark,
-            icon: Icons.headset_mic_rounded,
-            label: '고객센터',
-            color: isDark ? AppTheme.primaryLight : AppTheme.secondaryColor,
-            onTap: () => _showContactDialog(context),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// 빠른 액션 버튼 위젯
-  Widget _buildActionButton(
-    BuildContext context, {
-    required bool isDark,
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: isDark ? const Color(0xFF1C4D8D) : Colors.white,
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            boxShadow: isDark ? null : AppShadow.soft,
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
-                child: Icon(icon, color: color, size: 22),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? Colors.white : AppTheme.textPrimary,
                 ),
               ),
             ],
