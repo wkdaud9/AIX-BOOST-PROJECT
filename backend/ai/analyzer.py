@@ -538,7 +538,10 @@ class NoticeAnalyzer:
 
         print(f"🖼️ 이미지 분석 시작: {len(image_urls)}개 이미지")
 
-        # 이미지 다운로드 및 PIL Image로 변환
+        # 이미지 다운로드 및 PIL Image로 변환 (메모리 최적화: 크기 제한 + 즉시 해제)
+        MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB 제한
+        MAX_IMAGE_DIMENSION = 2048  # 최대 가로/세로 픽셀
+
         images = []
         for url in image_urls[:5]:  # 최대 5개까지만 처리 (비용 절감)
             try:
@@ -546,12 +549,34 @@ class NoticeAnalyzer:
                 if not url.startswith("http"):
                     url = base_url + url
 
-                # 이미지 다운로드
-                response = requests.get(url, timeout=10)
+                # 이미지 다운로드 (스트리밍으로 크기 먼저 확인)
+                response = requests.get(url, timeout=10, stream=True)
                 response.raise_for_status()
 
-                # PIL Image로 변환
-                img = Image.open(BytesIO(response.content))
+                # Content-Length 확인하여 너무 큰 이미지 스킵
+                content_length = int(response.headers.get('content-length', 0))
+                if content_length > MAX_IMAGE_SIZE:
+                    print(f"  ⚠️ 이미지 크기 초과({content_length // 1024}KB) 스킵: {url[-30:]}")
+                    response.close()
+                    continue
+
+                # 이미지 데이터 읽기
+                image_data = response.content
+                response.close()  # 응답 즉시 해제
+
+                if len(image_data) > MAX_IMAGE_SIZE:
+                    print(f"  ⚠️ 이미지 크기 초과 스킵: {url[-30:]}")
+                    del image_data
+                    continue
+
+                # PIL Image로 변환 후 리사이즈 (메모리 절약)
+                img = Image.open(BytesIO(image_data))
+                del image_data  # 원본 바이트 즉시 해제
+
+                # 큰 이미지는 리사이즈하여 메모리 절약
+                if max(img.size) > MAX_IMAGE_DIMENSION:
+                    img.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION), Image.LANCZOS)
+
                 images.append(img)
                 print(f"  ✅ 이미지 로드 성공: {url[-30:]}")
 
@@ -598,6 +623,12 @@ class NoticeAnalyzer:
         except Exception as e:
             print(f"  ❌ 이미지 분석 실패: {str(e)}")
             return ""
+
+        finally:
+            # 이미지 객체 명시적 해제 (메모리 절약)
+            for img in images:
+                img.close()
+            images.clear()
 
     def _normalize_dates(self, dates: Dict[str, Any]) -> Dict[str, Optional[str]]:
         """

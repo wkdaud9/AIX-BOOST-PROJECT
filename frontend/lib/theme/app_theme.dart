@@ -45,6 +45,30 @@ class AppTheme {
     '기타': Color(0xFF8B95A5),       // 쿨 슬레이트
   };
 
+  // MyBro 탭 색상 - 라이트 모드 (Muted & Dusty 톤)
+  static const Map<String, Color> myBroColors = {
+    'AI 맞춤 추천': Color(0xFF6E7FC4),   // 소프트 퍼리윙클
+    '오늘 필수': Color(0xFFC87068),      // 더스티 코랄
+    '학과 인기': Color(0xFF6BA68A),      // 세이지 그린
+    '마감 임박': Color(0xFFCB8B5A),      // 더스티 앰버
+  };
+
+  // MyBro 탭 색상 - 다크 모드 (채도·밝기 보정)
+  static const Map<String, Color> myBroColorsDark = {
+    'AI 맞춤 추천': Color(0xFF8E9FDB),   // 브라이트 퍼리윙클
+    '오늘 필수': Color(0xFFDE8D86),      // 브라이트 코랄
+    '학과 인기': Color(0xFF88C4A6),      // 브라이트 세이지
+    '마감 임박': Color(0xFFDEA87A),      // 브라이트 앰버
+  };
+
+  /// MyBro 탭 색상 조회 (다크모드 자동 분기)
+  static Color getMyBroColor(String tabName, {bool isDark = false}) {
+    if (isDark) {
+      return myBroColorsDark[tabName] ?? myBroColorsDark['AI 맞춤 추천']!;
+    }
+    return myBroColors[tabName] ?? myBroColors['AI 맞춤 추천']!;
+  }
+
   // 공지사항 카테고리 컬러 - 다크 모드 (채도·밝기 보정)
   static const Map<String, Color> categoryColorsDark = {
     '학사': Color(0xFF7BA0D6),       // 브라이트 블루

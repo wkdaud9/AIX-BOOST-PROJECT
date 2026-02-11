@@ -23,11 +23,9 @@ class NoticeProvider with ChangeNotifier {
   DateTime? _recommendedLastFetched;
   DateTime? _departmentPopularLastFetched;
 
-  /// 추천 공지 프리페치 버퍼 (10개 가져와서 5개씩 표시)
-  static const _displaySize = 5;
+  /// 추천 공지 풀 (무한 환형 스크롤용, 전체 노출)
   static const _fetchSize = 10;
-  List<Notice> _recommendedPool = [];  // 전체 풀 (10개씩 누적)
-  int _recommendedDisplayStart = 0;    // 현재 표시 시작 인덱스
+  List<Notice> _recommendedPool = [];  // 전체 풀 (프리페치로 누적)
   int _backendOffset = 0;              // 백엔드 요청 오프셋
 
   String? _error;
@@ -39,12 +37,8 @@ class NoticeProvider with ChangeNotifier {
   /// 카테고리별 공지사항 목록 (fetchNoticesByCategory 결과)
   List<Notice> get categoryNotices => _categoryNotices;
   List<Notice> get bookmarkedNotices => _bookmarkedNotices;
-  /// AI 맞춤 추천 공지사항 목록 (풀에서 현재 표시 윈도우 반환)
-  List<Notice> get recommendedNotices {
-    if (_recommendedPool.isEmpty) return [];
-    final end = (_recommendedDisplayStart + _displaySize).clamp(0, _recommendedPool.length);
-    return _recommendedPool.sublist(_recommendedDisplayStart, end);
-  }
+  /// AI 맞춤 추천 공지사항 목록 (전체 풀 반환, 무한 환형 스크롤용)
+  List<Notice> get recommendedNotices => _recommendedPool;
   /// 학과/학년 인기 공지사항 목록 (백엔드 API 결과)
   List<Notice> get departmentPopularNotices => _departmentPopularNotices;
   bool get isLoading => _isLoading;
@@ -97,7 +91,7 @@ class NoticeProvider with ChangeNotifier {
     }).toList();
 
     scored.sort((a, b) => b.value.compareTo(a.value));
-    return scored.take(5).map((e) => e.key).toList();
+    return scored.take(30).map((e) => e.key).toList();
   }
 
   /// 오늘 꼭 봐야 할 공지 (priority + 마감임박 + 최신 + 조회수 종합 점수)
@@ -163,7 +157,6 @@ class NoticeProvider with ChangeNotifier {
         );
 
         _recommendedPool = results.map((json) => Notice.fromJson(_convertSearchResult(json))).toList();
-        _recommendedDisplayStart = 0;
         _backendOffset = _fetchSize;
         _recommendedLastFetched = DateTime.now();
         _isRecommendedLoading = false;
@@ -189,36 +182,13 @@ class NoticeProvider with ChangeNotifier {
     if (_notices.isNotEmpty) {
       final sorted = List<Notice>.from(_notices)
         ..sort((a, b) => b.date.compareTo(a.date));
-      _recommendedPool = sorted.take(10).toList();
-      _recommendedDisplayStart = 0;
+      _recommendedPool = sorted.take(30).toList();
       if (kDebugMode) {
         print('AI 추천 API 실패, 최신순 폴백 사용 (${_recommendedPool.length}건)');
       }
     }
     _error = null;
     notifyListeners();
-  }
-
-  /// 다음 5개 배치로 즉시 전환 (리롤 버튼용)
-  /// 버퍼에 다음 배치가 있으면 즉시 표시, 부족하면 처음으로 순환
-  void nextRecommendedBatch() {
-    if (_recommendedPool.isEmpty) return;
-
-    final nextStart = _recommendedDisplayStart + _displaySize;
-    if (nextStart < _recommendedPool.length) {
-      // 버퍼에 다음 배치가 있음 → 즉시 전환
-      _recommendedDisplayStart = nextStart;
-    } else {
-      // 버퍼 소진 → 처음으로 순환
-      _recommendedDisplayStart = 0;
-    }
-    notifyListeners();
-
-    // 버퍼 잔여량이 적으면 백그라운드 프리페치
-    final remaining = _recommendedPool.length - _recommendedDisplayStart - _displaySize;
-    if (remaining <= _displaySize) {
-      _prefetchNextRecommendedBatch();
-    }
   }
 
   /// 백그라운드에서 다음 10개 프리페치 (풀에 추가)
@@ -414,7 +384,7 @@ class NoticeProvider with ChangeNotifier {
 
     try {
       // 백엔드 API 호출 (is_bookmarked, bookmark_count 포함)
-      final noticesData = await _apiService.getNotices(limit: 20);
+      final noticesData = await _apiService.getNotices(limit: 100);
 
       // Notice 객체로 변환 (API가 is_bookmarked, bookmark_count 직접 반환)
       _notices = noticesData.map((json) => Notice.fromJson(json)).toList();

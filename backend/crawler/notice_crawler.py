@@ -649,6 +649,10 @@ class NoticeCrawler(BaseCrawler):
             print(f"    [ERROR] 상세 페이지 파싱 실패: {str(e)}")
             return None
 
+        finally:
+            # BeautifulSoup 객체 명시적 해제 (메모리 절약)
+            del soup
+
 
 # 🧪 테스트 코드
 if __name__ == "__main__":

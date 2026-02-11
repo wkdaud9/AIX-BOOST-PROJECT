@@ -22,20 +22,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
   late PageController _categoryPageController;
   int _currentCategoryIndex = 0;
 
-  /// 로컬 카테고리 페이지네이션 (카테고리 1~3: 오늘필수, 학과인기, 마감임박)
-  /// 새로고침 시 다음 5개 배치를 표시
-  static const _localPageSize = 5;
-  final List<int> _localOffsets = [0, 0, 0];
-
-  /// 리롤 카운터 (FlipCardSection Key 갱신 → 카드 위치 초기화)
-  int _refreshCount = 0;
-
-  /// 카테고리 정보 (제목, 아이콘, 악센트 색상)
+  /// 카테고리 정보 (제목, 아이콘)
   static const List<_CategoryInfo> _categories = [
-    _CategoryInfo('AI 맞춤 추천', Icons.auto_awesome_rounded, AppTheme.primaryColor),
-    _CategoryInfo('오늘 필수', Icons.push_pin_rounded, AppTheme.errorColor),
-    _CategoryInfo('학과 인기', Icons.star_rounded, AppTheme.infoColor),
-    _CategoryInfo('마감 임박', Icons.alarm_rounded, AppTheme.warningColor),
+    _CategoryInfo('AI 맞춤 추천', Icons.auto_awesome_rounded),
+    _CategoryInfo('오늘 필수', Icons.push_pin_rounded),
+    _CategoryInfo('학과 인기', Icons.star_rounded),
+    _CategoryInfo('마감 임박', Icons.alarm_rounded),
   ];
 
   @override
@@ -60,39 +52,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
     });
   }
 
-  /// 리롤 (즉시 다음 5개 배치 표시, API 대기 없음)
-  /// Pull-to-refresh 콜백으로 사용 (Future<void> 반환)
-  Future<void> _onRefresh() async {
-    final provider = context.read<NoticeProvider>();
-
-    // AI 추천: 버퍼에서 즉시 다음 배치 (프리페치 완료된 데이터)
-    provider.nextRecommendedBatch();
-
-    // 로컬 카테고리: 즉시 다음 5개 슬라이싱 + 리프레시 카운터 증가
-    setState(() {
-      for (int i = 0; i < _localOffsets.length; i++) {
-        _localOffsets[i] += _localPageSize;
-      }
-      _refreshCount++;
-    });
-  }
-
-  /// 리스트를 offset 기준으로 5개씩 잘라서 반환 (초과 시 처음으로 순환)
-  List<Notice> _paginateList(List<Notice> fullList, int offsetIndex) {
-    if (fullList.isEmpty) return fullList;
-    // offset이 리스트 길이를 초과하면 처음으로 순환
-    final effectiveOffset = _localOffsets[offsetIndex] % fullList.length;
-    final end = effectiveOffset + _localPageSize;
-    if (end <= fullList.length) {
-      return fullList.sublist(effectiveOffset, end);
-    }
-    // 끝을 넘으면 나머지 + 앞부분으로 순환
-    return [
-      ...fullList.sublist(effectiveOffset),
-      ...fullList.sublist(0, end - fullList.length),
-    ];
-  }
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -114,18 +73,26 @@ class _RecommendScreenState extends State<RecommendScreen> {
                 authService.department, authService.grade);
           }
 
-          // 카테고리별 데이터 매핑 (각 카테고리 5개씩 리롤)
+          // 카테고리별 데이터 매핑 (전체 리스트 → 무한 환형 스크롤)
           final categoryData = <int, _CategoryData>{
             0: _CategoryData(provider.recommendedNotices, provider.isRecommendedLoading, '추천 공지가 없습니다'),
-            1: _CategoryData(_paginateList(provider.todayMustSeeNotices, 0), false, '오늘 필수 공지가 없습니다'),
-            2: _CategoryData(_paginateList(deptPopular, 1), provider.isDepartmentPopularLoading, '학과 인기 공지가 없습니다'),
-            3: _CategoryData(_paginateList(deadlineSoon, 2), false, '마감 임박 공지가 없습니다'),
+            1: _CategoryData(provider.todayMustSeeNotices, false, '오늘 필수 공지가 없습니다'),
+            2: _CategoryData(deptPopular, provider.isDepartmentPopularLoading, '학과 인기 공지가 없습니다'),
+            3: _CategoryData(deadlineSoon, false, '마감 임박 공지가 없습니다'),
           };
 
           return Column(
             children: [
               // 헤더
               _buildHeader(colorScheme),
+
+              // 헤더-탭 구분선
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: colorScheme.onSurface.withOpacity(
+                    Theme.of(context).brightness == Brightness.dark ? 0.06 : 0.04),
+              ),
 
               // 카테고리 탭 인디케이터
               _buildCategoryTabs(colorScheme),
@@ -141,16 +108,16 @@ class _RecommendScreenState extends State<RecommendScreen> {
                   itemBuilder: (context, index) {
                     final cat = _categories[index];
                     final data = categoryData[index]!;
+                    final isDark = Theme.of(context).brightness == Brightness.dark;
+                    final accentColor = AppTheme.getMyBroColor(cat.title, isDark: isDark);
                     return FlipCardSection(
-                      key: ValueKey('cat_${index}_$_refreshCount'),
                       title: cat.title,
                       icon: cat.icon,
-                      accentColor: cat.color,
+                      accentColor: accentColor,
                       notices: data.notices,
                       isLoading: data.isLoading,
                       emptyMessage: data.emptyMessage,
                       showHeader: false,
-                      onRefresh: _onRefresh,
                     );
                   },
                 ),
@@ -162,85 +129,94 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
-  /// 다크모드에서 보이는 카테고리 색상 반환
+  /// 다크모드 대응 카테고리 색상 반환
   Color _categoryDisplayColor(_CategoryInfo cat, bool isDark) {
-    // primaryColor(0xFF0F2854)는 다크모드 배경과 동일하므로 primaryLight 사용
-    if (isDark && cat.color == AppTheme.primaryColor) {
-      return AppTheme.primaryLight;
-    }
-    return cat.color;
+    return AppTheme.getMyBroColor(cat.title, isDark: isDark);
   }
 
-  /// 카테고리 탭 인디케이터
+  /// 카테고리 탭 인디케이터 (필 탭 스타일)
   Widget _buildCategoryTabs(ColorScheme colorScheme) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       color: colorScheme.surface,
-      child: Row(
-        children: List.generate(_categories.length, (index) {
-          final cat = _categories[index];
-          final isSelected = _currentCategoryIndex == index;
-          final displayColor = _categoryDisplayColor(cat, isDark);
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withOpacity(0.06)
+              : const Color(0xFFF2F4F7),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: List.generate(_categories.length, (index) {
+            final cat = _categories[index];
+            final isSelected = _currentCategoryIndex == index;
+            final displayColor = _categoryDisplayColor(cat, isDark);
 
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                _categoryPageController.animateToPage(
-                  index,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: EdgeInsets.only(
-                  left: index == 0 ? 0 : 3,
-                  right: index == _categories.length - 1 ? 0 : 3,
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? displayColor.withOpacity(isDark ? 0.15 : 0.1)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                  border: Border.all(
+            return Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  _categoryPageController.animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  decoration: BoxDecoration(
                     color: isSelected
-                        ? displayColor.withOpacity(0.3)
-                        : colorScheme.onSurface.withOpacity(isDark ? 0.12 : 0.06),
+                        ? (isDark ? const Color(0xFF1E2A3E) : Colors.white)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(11),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(isDark ? 0.25 : 0.06),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : [],
                   ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      cat.icon,
-                      size: 16,
-                      color: isSelected
-                          ? displayColor
-                          : colorScheme.onSurface.withOpacity(isDark ? 0.5 : 0.3),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      cat.title,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight:
-                            isSelected ? FontWeight.w700 : FontWeight.w500,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        cat.icon,
+                        size: 13,
                         color: isSelected
                             ? displayColor
-                            : colorScheme.onSurface.withOpacity(isDark ? 0.6 : 0.4),
+                            : colorScheme.onSurface.withOpacity(isDark ? 0.35 : 0.3),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          cat.title,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected
+                                ? (isDark ? Colors.white.withOpacity(0.95) : colorScheme.onSurface)
+                                : colorScheme.onSurface.withOpacity(isDark ? 0.4 : 0.35),
+                            letterSpacing: -0.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        }),
+            );
+          }),
+        ),
       ),
     );
   }
@@ -253,7 +229,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
-          20, MediaQuery.of(context).padding.top + 16, 20, 12),
+          20, MediaQuery.of(context).padding.top + 16, 20, 6),
       decoration: BoxDecoration(
         color: colorScheme.surface,
       ),
@@ -290,13 +266,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
   }
 }
 
-/// 카테고리 정보 (제목, 아이콘, 색상)
+/// 카테고리 정보 (제목, 아이콘)
 class _CategoryInfo {
   final String title;
   final IconData icon;
-  final Color color;
 
-  const _CategoryInfo(this.title, this.icon, this.color);
+  const _CategoryInfo(this.title, this.icon);
 }
 
 /// 카테고리별 데이터 (공지 목록, 로딩 상태, 빈 메시지)

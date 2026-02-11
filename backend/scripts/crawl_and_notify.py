@@ -19,6 +19,7 @@
 python backend/scripts/crawl_and_notify.py
 """
 
+import gc
 import os
 import re
 import sys
@@ -194,6 +195,7 @@ class CrawlAndNotifyPipeline:
 
                     bv_txt01 = soup.select_one('div.bv_txt01')
                     if not bv_txt01:
+                        del soup  # BeautifulSoup 객체 즉시 해제
                         continue
 
                     new_views = None
@@ -203,6 +205,8 @@ class CrawlAndNotifyPipeline:
                             if match:
                                 new_views = int(match.group(1))
                                 break
+
+                    del soup  # BeautifulSoup 객체 즉시 해제
 
                     if new_views is None:
                         continue
@@ -324,6 +328,7 @@ class CrawlAndNotifyPipeline:
                         )
                         embedding = self.embedding_service.create_embedding(embedding_text)
                         analysis["content_embedding"] = embedding
+                        del embedding_text  # 임베딩 텍스트 즉시 해제
 
                         print(f"  [완료] 분석+임베딩 완료 - {analysis.get('category', '학사')}")
                     except Exception as embed_err:
@@ -340,6 +345,11 @@ class CrawlAndNotifyPipeline:
                 # AI 분석 자체가 실패한 경우 원본 데이터 유지
                 notice['analyzed'] = False
                 analyzed_notices.append(notice)
+
+            finally:
+                # 매 공지 처리 후 메모리 정리 (이미지/OCR 텍스트 등 임시 데이터 해제)
+                notice.pop('_ocr_text', None)
+                gc.collect()
 
         print(f"\n[통계] AI 분석 완료: {len(analyzed_notices)}개")
         return analyzed_notices
