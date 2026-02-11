@@ -30,11 +30,8 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fistBump;
   late Animation<double> _broFade;
 
-  // Phase 3: 하이파이브 (🖐🖐) + HeyBro 등장
+  // Phase 3: HeyBro 로고 등장
   late AnimationController _highFiveController;
-  late Animation<double> _highFiveFade;
-  late Animation<double> _leftHandSlide;
-  late Animation<double> _rightHandSlide;
   late Animation<double> _logoScale;
   late Animation<double> _logoFade;
   late Animation<double> _sloganFade;
@@ -53,7 +50,7 @@ class _SplashScreenState extends State<SplashScreen>
     super.didChangeDependencies();
     // 이미지 미리 캐싱 (Phase 3 도달 전 로드 완료)
     precacheImage(
-      const AssetImage('assets/images/icon_main.png'),
+      const AssetImage('assets/images/icon_transparency.png'),
       context,
     );
   }
@@ -144,66 +141,41 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  /// Phase 3 초기화: 하이파이브 + HeyBro 로고
+  /// Phase 3 초기화: HeyBro 로고 등장
   void _initPhase3() {
     _highFiveController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
 
-    _highFiveFade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _highFiveController,
-        curve: const Interval(0, 0.15, curve: Curves.easeOut),
-      ),
-    );
-
-    // 양손이 안으로 모였다가 → 부딪힘 → 벌어짐
-    _leftHandSlide = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: -100, end: 0), weight: 25),
-      TweenSequenceItem(tween: Tween(begin: 0, end: 0), weight: 15),
-      TweenSequenceItem(tween: Tween(begin: 0, end: -120), weight: 60),
-    ]).animate(CurvedAnimation(
-      parent: _highFiveController,
-      curve: const Interval(0, 0.7, curve: Curves.easeInOut),
-    ));
-
-    _rightHandSlide = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 100, end: 0), weight: 25),
-      TweenSequenceItem(tween: Tween(begin: 0, end: 0), weight: 15),
-      TweenSequenceItem(tween: Tween(begin: 0, end: 120), weight: 60),
-    ]).animate(CurvedAnimation(
-      parent: _highFiveController,
-      curve: const Interval(0, 0.7, curve: Curves.easeInOut),
-    ));
-
-    // 손이 벌어질 때 로고 등장 (더 일찍, 더 빠르게)
+    // 로고 스케일: 바로 시작하여 부드럽게 등장
     _logoScale = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0, end: 0), weight: 25),
       TweenSequenceItem(
         tween: Tween(begin: 0, end: 1.1),
-        weight: 25,
+        weight: 40,
       ),
       TweenSequenceItem(
         tween: Tween(begin: 1.1, end: 1),
-        weight: 50,
+        weight: 60,
       ),
     ]).animate(CurvedAnimation(
       parent: _highFiveController,
-      curve: const Interval(0, 0.75, curve: Curves.easeOut),
+      curve: const Interval(0, 0.5, curve: Curves.easeOut),
     ));
 
+    // 로고 페이드: 바로 시작
     _logoFade = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _highFiveController,
-        curve: const Interval(0.25, 0.45, curve: Curves.easeOut),
+        curve: const Interval(0, 0.3, curve: Curves.easeOut),
       ),
     );
 
+    // 슬로건 페이드: 로고 등장 후
     _sloganFade = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _highFiveController,
-        curve: const Interval(0.6, 0.85, curve: Curves.easeOut),
+        curve: const Interval(0.4, 0.7, curve: Curves.easeOut),
       ),
     );
   }
@@ -431,7 +403,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  /// Phase 3: 하이파이브 🖐🖐 → 벌어지면서 HeyBro 로고 등장
+  /// Phase 3: HeyBro 로고 등장
   Widget _buildHighFivePhase() {
     return AnimatedBuilder(
       animation: _highFiveController,
@@ -439,70 +411,31 @@ class _SplashScreenState extends State<SplashScreen>
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 하이파이브 + 로고 영역
-            SizedBox(
-              height: 140,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // 왼손 (흰색)
-                  Opacity(
-                    opacity: _highFiveFade.value,
-                    child: Transform.translate(
-                      offset: Offset(_leftHandSlide.value, 0),
-                      child: _whiteEmoji('🤚', 64),
-                    ),
-                  ),
-
-                  // 오른손 (흰색)
-                  Opacity(
-                    opacity: _highFiveFade.value,
-                    child: Transform.translate(
-                      offset: Offset(_rightHandSlide.value, 0),
-                      child: _whiteEmoji('🖐', 64),
-                    ),
-                  ),
-
-                  // HeyBro 로고 (손이 벌어질 때 등장)
-                  Opacity(
-                    opacity: _logoFade.value,
-                    child: Transform.scale(
-                      scale: _logoScale.value,
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
+            // HeyBro 로고 이미지
+            Opacity(
+              opacity: _logoFade.value,
+              child: Transform.scale(
+                scale: _logoScale.value,
+                child: SizedBox(
+                  width: 120,
+                  height: 120,
+                  child: Image.asset(
+                    'assets/images/icon_transparency.png',
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                    isAntiAlias: true,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Text(
+                        'HeyBro',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(AppRadius.xl),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                            ),
-                          ],
                         ),
-                        padding: const EdgeInsets.all(8),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(AppRadius.lg),
-                          child: Image.asset(
-                            'assets/images/icon_main.png',
-                            fit: BoxFit.contain,
-                            filterQuality: FilterQuality.high,
-                            isAntiAlias: true,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Icon(
-                                Icons.handshake,
-                                size: 64,
-                                color: AppTheme.primaryColor,
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
-                ],
+                ),
               ),
             ),
 

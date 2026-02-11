@@ -213,16 +213,26 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
     );
   }
 
-  /// 공지사항 카드 - Row 기반 레이아웃 (Stack/Positioned 제거)
+  /// 공지사항 카드 - Row 기반 레이아웃
   Widget _buildNoticeCard(Notice notice, bool isDark) {
     // D-day 표시 로직: 미만료 건만 표시
     final showDDay = notice.deadline != null &&
         notice.daysUntilDeadline != null &&
         notice.daysUntilDeadline! >= 0;
+    // 마감 표시 로직: 마감일이 지난 건
+    final showExpired = notice.deadline != null &&
+        notice.daysUntilDeadline != null &&
+        notice.daysUntilDeadline! < 0;
     final dDayColor =
         (notice.daysUntilDeadline != null && notice.daysUntilDeadline! <= 3)
             ? AppTheme.errorColor
             : AppTheme.infoColor;
+
+    // 뱃지 유무 판단 (레이아웃 조건부 표시용)
+    final hasBadges = (notice.priority != null && notice.priority != '일반') ||
+        notice.isNew ||
+        showDDay ||
+        showExpired;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -245,27 +255,26 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
           borderRadius: BorderRadius.circular(AppRadius.lg),
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 좌측: 콘텐츠 영역
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 인라인 뱃지 행 (고정 높이 - 뱃지 유무와 무관)
-                      SizedBox(
-                        height: 22,
-                        child: _buildInlineBadges(
-                            notice, showDDay, dDayColor, isDark),
-                      ),
-
-                      const SizedBox(height: AppSpacing.sm),
-
-                      // 제목 (고정 높이 영역 - 2줄 기준)
-                      SizedBox(
-                        height: 40,
-                        child: Text(
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 좌측: 콘텐츠 영역
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 뱃지 행 (뱃지가 있을 때만 표시)
+                        if (hasBadges) ...[
+                          SizedBox(
+                            height: 20,
+                            child: _buildInlineBadges(
+                                notice, showDDay, dDayColor, isDark, showExpired),
+                          ),
+                          const SizedBox(height: 2),
+                        ],
+                        // 제목 (2줄)
+                        Text(
                           notice.title,
                           style: TextStyle(
                             fontSize: 15,
@@ -278,35 +287,51 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-
-                      const SizedBox(height: AppSpacing.sm),
-
-                      // 메타 정보 행
-                      _buildMetaRow(notice, isDark),
-                    ],
+                        const SizedBox(height: 8),
+                        // 하단: 메타 정보 행 (조회수 + 북마크)
+                        _buildMetaRow(notice, isDark),
+                      ],
+                    ),
                   ),
-                ),
 
-                const SizedBox(width: AppSpacing.md),
+                  const SizedBox(width: AppSpacing.md),
 
-                // 우측: 썸네일 + 북마크 오버레이
-                SizedBox(
-                  width: 72,
-                  height: 72,
-                  child: Stack(
-                    clipBehavior: Clip.none,
+                  // 우측: 썸네일 + 북마크 + 날짜
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      _buildThumbnail(notice, isDark),
-                      Positioned(
-                        top: -4,
-                        right: -4,
-                        child: _buildBookmarkButton(notice, isDark),
+                      // 썸네일 + 북마크 오버레이
+                      SizedBox(
+                        width: 72,
+                        height: 72,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            _buildThumbnail(notice, isDark),
+                            Positioned(
+                              top: -4,
+                              right: -4,
+                              child: _buildBookmarkButton(notice, isDark),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // 날짜 (썸네일 아래 고정)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          notice.formattedDate,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? Colors.white24 : AppTheme.textHint,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -314,19 +339,14 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
     );
   }
 
-  /// 인라인 뱃지 행 (우선순위 + NEW + D-day)
+  /// 인라인 뱃지 행 (우선순위 + NEW + D-day + 마감)
   Widget _buildInlineBadges(
     Notice notice,
     bool showDDay,
     Color dDayColor,
     bool isDark,
+    bool showExpired,
   ) {
-    final hasBadges = (notice.priority != null && notice.priority != '일반') ||
-        notice.isNew ||
-        showDDay;
-
-    if (!hasBadges) return const SizedBox.shrink();
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
       child: Wrap(
@@ -400,15 +420,38 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
                 ),
               ),
             ),
+
+          // 마감 뱃지
+          if (showExpired)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 3,
+              ),
+              decoration: BoxDecoration(
+                color: (isDark ? Colors.white38 : Colors.grey).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(AppRadius.xs),
+                border: Border.all(
+                  color: (isDark ? Colors.white38 : Colors.grey).withOpacity(0.4),
+                ),
+              ),
+              child: Text(
+                '마감',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white38 : Colors.grey,
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  /// 메타 정보 행 (조회수 + 북마크 수 + 날짜)
+  /// 메타 정보 행 (조회수 + 북마크 수)
   Widget _buildMetaRow(Notice notice, bool isDark) {
     final metaColor = isDark ? Colors.white38 : AppTheme.textSecondary;
-    final hintColor = isDark ? Colors.white24 : AppTheme.textHint;
 
     return Row(
       children: [
@@ -434,17 +477,6 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
             fontSize: 12,
             color: metaColor,
             fontWeight: FontWeight.w500,
-          ),
-        ),
-
-        const Spacer(),
-
-        // 날짜
-        Text(
-          notice.formattedDate,
-          style: TextStyle(
-            fontSize: 12,
-            color: hintColor,
           ),
         ),
       ],

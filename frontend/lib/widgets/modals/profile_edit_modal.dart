@@ -446,22 +446,8 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
 
   /// 학년 드롭다운 (아래로 펼쳐지는 방식)
   Widget _buildGradeDropdown(bool isDark) {
-    return PopupMenuButton<String>(
-      initialValue: _selectedGrade,
-      position: PopupMenuPosition.under,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      color: isDark ? AppTheme.secondaryColor : Colors.white,
-      onSelected: (value) {
-        setState(() => _selectedGrade = value);
-      },
-      itemBuilder: (context) => AppData.grades.map((grade) {
-        return PopupMenuItem(
-          value: grade,
-          child: Text(grade),
-        );
-      }).toList(),
+    return GestureDetector(
+      onTap: () => _showGradeSheet(isDark),
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
@@ -491,6 +477,74 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
               color: isDark ? Colors.white54 : AppTheme.textSecondary,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// 학년 선택 Bottom Sheet
+  void _showGradeSheet(bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 드래그 핸들
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // 제목
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Text(
+                  '학년 선택',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+              Divider(height: 1, color: isDark ? Colors.white12 : Colors.grey.shade200),
+              // 옵션 리스트
+              ...AppData.grades.map((grade) {
+                final isSelected = _selectedGrade == grade;
+                return ListTile(
+                  title: Text(
+                    grade,
+                    style: TextStyle(
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: isSelected
+                          ? (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                          : (isDark ? Colors.white : AppTheme.textPrimary),
+                    ),
+                  ),
+                  trailing: isSelected
+                      ? Icon(Icons.check, color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                      : null,
+                  onTap: () {
+                    setState(() => _selectedGrade = grade);
+                    Navigator.pop(context);
+                  },
+                );
+              }),
+              const SizedBox(height: AppSpacing.md),
+            ],
+          ),
         ),
       ),
     );

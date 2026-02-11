@@ -713,8 +713,12 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     return MarkdownBody(
       data: contentWithoutImages,
       selectable: true,
+      onTapLink: (text, href, title) {
+        if (href != null) _openUrl(href);
+      },
       styleSheet: MarkdownStyleSheet(
         p: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6),
+        a: TextStyle(color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor, decoration: TextDecoration.underline),
         h1: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
         h2: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         h3: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
