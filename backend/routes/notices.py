@@ -186,6 +186,7 @@ def get_notices():
         category = request.args.get('category', None)
         limit = int(request.args.get('limit', 20))
         offset = int(request.args.get('offset', 0))
+        deadline_from = request.args.get('deadline_from', None)
         user_id = g.user_id  # optional_login으로 설정됨 (없으면 None)
 
         # Supabase에서 조회
@@ -194,7 +195,8 @@ def get_notices():
             category=category,
             limit=limit,
             offset=offset,
-            user_id=user_id
+            user_id=user_id,
+            deadline_from=deadline_from
         )
 
         return jsonify({

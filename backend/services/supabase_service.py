@@ -130,16 +130,18 @@ class SupabaseService:
         category: Optional[str] = None,
         limit: int = 20,
         offset: int = 0,
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
+        deadline_from: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         공지사항 목록을 조회합니다
 
         매개변수:
         - category: 카테고리 필터 (선택)
-        - limit: 가져올 개수 (기본 20)
+        - limit: 가져올 개수 (기본 20, 0이면 무제한)
         - offset: 건너뛸 개수 (페이지네이션)
         - user_id: 사용자 ID (있으면 is_bookmarked 포함)
+        - deadline_from: 마감일 필터 (이 날짜 이후 마감인 공지만, ISO 형식)
 
         반환값:
         - 공지사항 리스트 (bookmark_count, is_bookmarked 포함)
@@ -152,12 +154,21 @@ class SupabaseService:
                     "view_count, ai_summary, author, deadline, deadlines, "
                     "bookmark_count, source_board, board_seq, attachments, "
                     "content_images, display_mode, has_important_image"
-                )\
-                .order("published_at", desc=True)\
-                .range(offset, offset + limit - 1)
+                )
 
             if category:
                 query = query.eq("category", category)
+
+            # 마감일 필터: deadline_from 이후 마감인 공지만
+            if deadline_from:
+                query = query.gte("deadline", deadline_from)
+                query = query.order("deadline", desc=False)
+            else:
+                query = query.order("published_at", desc=True)
+
+            # limit=0이면 무제한, 아니면 페이지네이션 적용
+            if limit > 0:
+                query = query.range(offset, offset + limit - 1)
 
             result = query.execute()
             notices = result.data if result.data else []

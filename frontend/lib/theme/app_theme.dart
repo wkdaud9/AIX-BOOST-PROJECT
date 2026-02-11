@@ -41,7 +41,7 @@ class AppTheme {
     '학생활동': Color(0xFF9678C4),   // 더스티 플럼
     '시설': Color(0xFF52A6A0),       // 뮤티드 틸
     '교육': Color(0xFF4A96B0),       // 오션 틸
-    '공모전': Color(0xFFAD8070),     // 더스티 시에나
+    '공모전': Color(0xFFB89B5E),     // 더스티 골드
     '기타': Color(0xFF8B95A5),       // 쿨 슬레이트
   };
 
@@ -79,7 +79,7 @@ class AppTheme {
     '학생활동': Color(0xFFB094D8),   // 브라이트 플럼
     '시설': Color(0xFF6BBEB6),       // 브라이트 틸
     '교육': Color(0xFF64B2C8),       // 브라이트 오션
-    '공모전': Color(0xFFC49A8A),     // 브라이트 시에나
+    '공모전': Color(0xFFD0B878),     // 브라이트 골드
     '기타': Color(0xFFA3ADB8),       // 브라이트 슬레이트
   };
 

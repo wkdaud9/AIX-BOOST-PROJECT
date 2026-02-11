@@ -256,10 +256,6 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
                 ),
               ),
             ),
-            Icon(
-              Icons.keyboard_arrow_down,
-              color: isDark ? Colors.white54 : AppTheme.textSecondary,
-            ),
           ],
         ),
       ),
@@ -464,17 +460,19 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
         ),
         child: Row(
           children: [
+            Icon(
+              Icons.grade_outlined,
+              color: isDark ? Colors.white54 : AppTheme.textSecondary,
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 _selectedGrade,
                 style: TextStyle(
+                  fontSize: 16,
                   color: isDark ? Colors.white : AppTheme.textPrimary,
                 ),
               ),
-            ),
-            Icon(
-              Icons.keyboard_arrow_down,
-              color: isDark ? Colors.white54 : AppTheme.textSecondary,
             ),
           ],
         ),

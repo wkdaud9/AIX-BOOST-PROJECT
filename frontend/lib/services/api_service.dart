@@ -60,6 +60,7 @@ class ApiService {
     String? category,
     int limit = 20,
     int offset = 0,
+    String? deadlineFrom,
   }) async {
     try {
       final queryParams = <String, dynamic>{
@@ -68,6 +69,9 @@ class ApiService {
       };
       if (category != null) {
         queryParams['category'] = category;
+      }
+      if (deadlineFrom != null) {
+        queryParams['deadline_from'] = deadlineFrom;
       }
 
       final response = await _dio.get('/api/notices/', queryParameters: queryParams);

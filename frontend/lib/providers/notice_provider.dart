@@ -14,19 +14,20 @@ class NoticeProvider with ChangeNotifier {
   List<Notice> _bookmarkedNotices = [];
   List<Notice> _popularNotices = [];
   List<Notice> _departmentPopularNotices = [];
+  List<Notice> _upcomingDeadlineNotices = [];
   bool _isLoading = false;
   bool _isRecommendedLoading = false;
   bool _isDepartmentPopularLoading = false;
+  bool _isUpcomingDeadlineLoading = false;
 
   /// 추천 캐시 유효시간 (5분)
   static const _cacheDuration = Duration(minutes: 5);
   DateTime? _recommendedLastFetched;
   DateTime? _departmentPopularLastFetched;
 
-  /// 추천 공지 풀 (무한 환형 스크롤용, 전체 노출)
-  static const _fetchSize = 10;
-  List<Notice> _recommendedPool = [];  // 전체 풀 (프리페치로 누적)
-  int _backendOffset = 0;              // 백엔드 요청 오프셋
+  /// 추천 공지 풀 (무한 환형 스크롤용, 한번에 로드)
+  static const _fetchSize = 30;
+  List<Notice> _recommendedPool = [];
 
   String? _error;
   String? _departmentPopularDept;
@@ -41,9 +42,15 @@ class NoticeProvider with ChangeNotifier {
   List<Notice> get recommendedNotices => _recommendedPool;
   /// 학과/학년 인기 공지사항 목록 (백엔드 API 결과)
   List<Notice> get departmentPopularNotices => _departmentPopularNotices;
+  /// 마감 임박 공지사항 풀 (오늘 이후 마감인 공지 전부, 마감일 가까운 순)
+  List<Notice> get upcomingDeadlineNotices => _upcomingDeadlineNotices;
+  /// 마감 임박 공지사항 (3일 이내, isDeadlineSoon 필터)
+  List<Notice> get deadlineSoonNotices =>
+      _upcomingDeadlineNotices.where((n) => n.isDeadlineSoon).toList();
   bool get isLoading => _isLoading;
   bool get isRecommendedLoading => _isRecommendedLoading;
   bool get isDepartmentPopularLoading => _isDepartmentPopularLoading;
+  bool get isUpcomingDeadlineLoading => _isUpcomingDeadlineLoading;
   String? get error => _error;
   String? get departmentPopularDept => _departmentPopularDept;
   int? get departmentPopularGrade => _departmentPopularGrade;
@@ -132,7 +139,7 @@ class NoticeProvider with ChangeNotifier {
     return scored.take(30).map((e) => e.key).toList();
   }
 
-  /// AI 맞춤 추천 공지사항 초기 로드 (10개 프리페치)
+  /// AI 맞춤 추천 공지사항 로드 (30개 한번에)
   /// 캐시가 유효하면 재호출 스킵
   Future<void> fetchRecommendedNotices({bool force = false}) async {
     // 캐시 유효 시 스킵 (데이터가 있고, TTL 내)
@@ -157,13 +164,9 @@ class NoticeProvider with ChangeNotifier {
         );
 
         _recommendedPool = results.map((json) => Notice.fromJson(_convertSearchResult(json))).toList();
-        _backendOffset = _fetchSize;
         _recommendedLastFetched = DateTime.now();
         _isRecommendedLoading = false;
         notifyListeners();
-
-        // 다음 배치 백그라운드 프리페치
-        _prefetchNextRecommendedBatch();
         return;
       } catch (e) {
         if (kDebugMode) {
@@ -178,7 +181,6 @@ class NoticeProvider with ChangeNotifier {
 
     // 2회 모두 실패 시 최신 공지로 폴백
     _isRecommendedLoading = false;
-    _backendOffset = 0;
     if (_notices.isNotEmpty) {
       final sorted = List<Notice>.from(_notices)
         ..sort((a, b) => b.date.compareTo(a.date));
@@ -189,35 +191,6 @@ class NoticeProvider with ChangeNotifier {
     }
     _error = null;
     notifyListeners();
-  }
-
-  /// 백그라운드에서 다음 10개 프리페치 (풀에 추가)
-  Future<void> _prefetchNextRecommendedBatch() async {
-    try {
-      final results = await _apiService.getRecommendedNotices(
-        limit: _fetchSize,
-        offset: _backendOffset,
-        minScore: 0.3,
-      );
-
-      if (results.isEmpty) {
-        // 더 이상 결과 없음 → offset 리셋 (다음 순환 대비)
-        _backendOffset = 0;
-        return;
-      }
-
-      final newNotices = results.map((json) => Notice.fromJson(_convertSearchResult(json))).toList();
-      _recommendedPool.addAll(newNotices);
-      _backendOffset += _fetchSize;
-
-      if (kDebugMode) {
-        print('추천 프리페치 완료: +${newNotices.length}개 (풀 총 ${_recommendedPool.length}개)');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('추천 프리페치 실패 (무시): $e');
-      }
-    }
   }
 
   /// 학과/학년 인기 공지사항 가져오기 (백엔드 API 호출)
@@ -263,6 +236,35 @@ class NoticeProvider with ChangeNotifier {
       }
       // 로컬 폴백: 기존 로직 사용
       _departmentPopularNotices = [];
+      notifyListeners();
+    }
+  }
+
+  /// 마감 임박 공지사항 가져오기 (오늘 이후 마감인 공지 전부)
+  /// 백엔드 deadline_from 필터로 마감일 >= 오늘인 공지를 마감일순으로 조회
+  Future<void> fetchUpcomingDeadlineNotices() async {
+    _isUpcomingDeadlineLoading = true;
+    notifyListeners();
+
+    try {
+      final today = DateTime.now().toIso8601String().split('T').first;
+      final data = await _apiService.getNotices(
+        limit: 0,
+        deadlineFrom: today,
+      );
+      _upcomingDeadlineNotices = data.map((json) => Notice.fromJson(json)).toList();
+      _isUpcomingDeadlineLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isUpcomingDeadlineLoading = false;
+      if (kDebugMode) {
+        print('마감 임박 공지 조회 실패, 로컬 폴백: $e');
+      }
+      // 로컬 폴백: _notices에서 마감일 있는 공지 필터링
+      _upcomingDeadlineNotices = _notices
+          .where((n) => n.deadline != null && n.deadline!.isAfter(DateTime.now()))
+          .toList()
+        ..sort((a, b) => a.deadline!.compareTo(b.deadline!));
       notifyListeners();
     }
   }
