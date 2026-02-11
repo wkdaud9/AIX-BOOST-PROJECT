@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/fcm_service.dart';
 import '../providers/notification_provider.dart';
+import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
 
@@ -19,31 +20,38 @@ class AuthWrapper extends StatefulWidget {
 
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _fcmInitialized = false;
+  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthService>(
       builder: (context, authService, child) {
         if (authService.isAuthenticated) {
-          // 로그인 상태: FCM 초기화
-          _initFCMIfNeeded(context);
+          // 로그인 직후 로딩 화면 표시
+          if (!_fcmInitialized) {
+            _startInitialization(context);
+            return _buildLoadingScreen(context);
+          }
+          if (_isLoading) {
+            return _buildLoadingScreen(context);
+          }
           return const HomeScreen();
         } else {
-          // 로그아웃 상태: FCM 초기화 플래그 리셋
+          // 로그아웃 상태: 플래그 리셋
           _fcmInitialized = false;
+          _isLoading = false;
           return const LoginScreen();
         }
       },
     );
   }
 
-  /// FCM 초기화 (로그인 후 1회만 실행)
-  void _initFCMIfNeeded(BuildContext context) {
-    if (_fcmInitialized) return;
+  /// 로그인 후 초기화 시작 (FCM + 알림 로드)
+  void _startInitialization(BuildContext context) {
     _fcmInitialized = true;
+    _isLoading = true;
 
-    // build 완료 후 비동기로 FCM 초기화
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final fcmService = context.read<FCMService>();
       final notificationProvider = context.read<NotificationProvider>();
 
@@ -76,6 +84,70 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
       // 백엔드에서 알림 내역 조회
       notificationProvider.fetchFromBackend();
+
+      // 최소 로딩 시간 보장 (빈 화면 방지)
+      await Future.delayed(const Duration(milliseconds: 1200));
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     });
+  }
+
+  /// 로딩 화면 UI
+  Widget _buildLoadingScreen(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: isDark
+                ? [const Color(0xFF060E1F), const Color(0xFF0F2854)]
+                : [AppTheme.primaryColor, AppTheme.primaryDark],
+          ),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 앱 로고 텍스트
+              Text(
+                'HeyBro',
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: -1.0,
+                ),
+              ),
+              SizedBox(height: 24),
+              // 로딩 인디케이터
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+                ),
+              ),
+              SizedBox(height: 16),
+              // 안내 텍스트
+              Text(
+                '공지사항을 불러오는 중...',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white60,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

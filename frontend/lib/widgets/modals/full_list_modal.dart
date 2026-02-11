@@ -215,7 +215,7 @@ class FullListModal extends StatelessWidget {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF060E1F) : Colors.white,
+            color: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.white,
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppRadius.xl),
             ),
@@ -446,7 +446,7 @@ class FullListModal extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const Spacer(),
 
                       // 추가 정보 (리스트 타입에 따라 다름)
                       _buildExtraInfo(notice, isDark),

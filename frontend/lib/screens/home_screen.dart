@@ -29,14 +29,14 @@ class _HomeScreenState extends State<HomeScreen> {
   late PageController _cardPageController; // 카드 페이지 컨트롤러
   final ScrollController _homeScrollController = ScrollController(); // 홈 탭 스크롤 컨트롤러
 
-  // 카테고리 목록 (아이콘 포함)
+  // 카테고리 목록 (이모지 포함)
   final List<Map<String, dynamic>> _categories = [
-    {'name': '학사', 'icon': Icons.school, 'color': AppTheme.getCategoryColor('학사')},
-    {'name': '장학', 'icon': Icons.attach_money, 'color': AppTheme.getCategoryColor('장학')},
-    {'name': '취업', 'icon': Icons.work, 'color': AppTheme.getCategoryColor('취업')},
-    {'name': '행사', 'icon': Icons.event, 'color': AppTheme.getCategoryColor('행사')},
-    {'name': '교육', 'icon': Icons.menu_book, 'color': AppTheme.getCategoryColor('교육')},
-    {'name': '공모전', 'icon': Icons.emoji_events, 'color': AppTheme.getCategoryColor('공모전')},
+    {'name': '학사', 'emoji': '🎓', 'color': AppTheme.getCategoryColor('학사')},
+    {'name': '장학', 'emoji': '💰', 'color': AppTheme.getCategoryColor('장학')},
+    {'name': '취업', 'emoji': '💼', 'color': AppTheme.getCategoryColor('취업')},
+    {'name': '행사', 'emoji': '🎉', 'color': AppTheme.getCategoryColor('행사')},
+    {'name': '교육', 'emoji': '📚', 'color': AppTheme.getCategoryColor('교육')},
+    {'name': '공모전', 'emoji': '🏆', 'color': AppTheme.getCategoryColor('공모전')},
   ];
 
   @override
@@ -602,13 +602,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // 아이콘 (배경 없이 깔끔하게)
-                    Icon(
-                      category['icon'] as IconData,
-                      size: 28,
-                      color: isSelected
-                          ? categoryColor
-                          : isDark ? Colors.white70 : AppTheme.textSecondary,
+                    // 이모지 (배경 없이 깔끔하게)
+                    Text(
+                      category['emoji'] as String,
+                      style: TextStyle(
+                        fontSize: 26,
+                        color: isSelected
+                            ? null
+                            : isDark ? Colors.white70 : null,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     // 카테고리 이름

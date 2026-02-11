@@ -653,7 +653,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     return Container(
       height: 200,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C4D8D) : Colors.grey.shade100,
+        color: isDark ? AppTheme.secondaryColor : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: const Center(
@@ -671,7 +671,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     return Container(
       height: 120,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C4D8D) : Colors.grey.shade100,
+        color: isDark ? AppTheme.secondaryColor : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
       ),

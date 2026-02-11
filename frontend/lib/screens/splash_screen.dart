@@ -53,7 +53,7 @@ class _SplashScreenState extends State<SplashScreen>
     super.didChangeDependencies();
     // 이미지 미리 캐싱 (Phase 3 도달 전 로드 완료)
     precacheImage(
-      const AssetImage('assets/images/icon_transparency.png'),
+      const AssetImage('assets/images/icon_main.png'),
       context,
     );
   }
@@ -486,7 +486,7 @@ class _SplashScreenState extends State<SplashScreen>
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(AppRadius.lg),
                           child: Image.asset(
-                            'assets/images/icon_transparency.png',
+                            'assets/images/icon_main.png',
                             fit: BoxFit.contain,
                             filterQuality: FilterQuality.high,
                             isAntiAlias: true,

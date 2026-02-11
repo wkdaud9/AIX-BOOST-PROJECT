@@ -148,7 +148,7 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
           ),
         ],
       ),
-      color: isDark ? const Color(0xFF1C4D8D) : Colors.white,
+      color: isDark ? AppTheme.secondaryColor : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
@@ -451,34 +451,32 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
     );
   }
 
-  /// 카테고리별 아이콘 매핑
-  IconData _getCategoryIcon(String category) {
+  /// 카테고리별 이모지 매핑
+  String _getCategoryEmoji(String category) {
     switch (category) {
       case '학사':
       case '학사공지':
-        return Icons.school_rounded;
+        return '🎓';
       case '장학':
-        return Icons.attach_money_rounded;
+        return '💰';
       case '취업':
-        return Icons.work_rounded;
+        return '💼';
       case '행사':
       case '학생활동':
-        return Icons.event_rounded;
+        return '🎉';
       case '교육':
-        return Icons.menu_book_rounded;
+        return '📚';
       case '공모전':
-        return Icons.emoji_events_rounded;
+        return '🏆';
       case '시설':
-        return Icons.apartment_rounded;
+        return '🏢';
       default:
-        return Icons.article_outlined;
+        return '📋';
     }
   }
 
-  /// 썸네일 (카테고리 아이콘)
+  /// 썸네일 (카테고리 이모지)
   Widget _buildThumbnail(Notice notice, bool isDark) {
-    final categoryIcon = _getCategoryIcon(notice.category);
-
     return Container(
       width: 72,
       height: 72,
@@ -488,10 +486,11 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
             : widget.categoryColor.withOpacity(0.08),
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
-      child: Icon(
-        categoryIcon,
-        size: 32,
-        color: widget.categoryColor.withOpacity(isDark ? 0.7 : 0.5),
+      child: Center(
+        child: Text(
+          _getCategoryEmoji(notice.category),
+          style: const TextStyle(fontSize: 30),
+        ),
       ),
     );
   }
@@ -506,7 +505,7 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: (isDark ? Colors.black54 : Colors.white.withOpacity(0.85)),
+              color: (isDark ? Colors.white.withOpacity(0.1) : Colors.white.withOpacity(0.85)),
               borderRadius: BorderRadius.circular(AppRadius.xs),
             ),
             alignment: Alignment.center,
@@ -541,12 +540,12 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
                   : widget.categoryColor.withOpacity(0.08),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              _getCategoryIcon(widget.categoryName),
-              size: 44,
-              color: isDark
-                  ? Colors.white24
-                  : widget.categoryColor.withOpacity(0.4),
+            child: Text(
+              _getCategoryEmoji(widget.categoryName),
+              style: TextStyle(
+                fontSize: 40,
+                color: isDark ? Colors.white24 : null,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.lg),

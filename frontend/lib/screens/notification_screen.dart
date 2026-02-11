@@ -202,7 +202,7 @@ class NotificationScreen extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
             color: notification.isRead
-                ? (isDark ? const Color(0xFF0F2854) : Colors.white)
+                ? (isDark ? Theme.of(context).colorScheme.surface : Colors.white)
                 : (isDark
                     ? AppTheme.primaryLight.withOpacity(0.1)
                     : AppTheme.primaryColor.withOpacity(0.05)),

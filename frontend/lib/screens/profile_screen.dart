@@ -380,7 +380,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // 섹션 콘텐츠 카드
         Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C4D8D) : Colors.white,
+            color: isDark ? AppTheme.secondaryColor : Colors.white,
             borderRadius: BorderRadius.circular(AppRadius.lg),
             boxShadow: isDark ? null : AppShadow.soft,
           ),
