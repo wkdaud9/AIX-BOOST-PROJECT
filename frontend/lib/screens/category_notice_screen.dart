@@ -228,12 +228,6 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
             ? AppTheme.errorColor
             : AppTheme.infoColor;
 
-    // 뱃지 유무 판단 (레이아웃 조건부 표시용)
-    final hasBadges = (notice.priority != null && notice.priority != '일반') ||
-        notice.isNew ||
-        showDDay ||
-        showExpired;
-
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       decoration: BoxDecoration(
@@ -264,15 +258,13 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 뱃지 행 (뱃지가 있을 때만 표시)
-                        if (hasBadges) ...[
-                          SizedBox(
-                            height: 20,
-                            child: _buildInlineBadges(
-                                notice, showDDay, dDayColor, isDark, showExpired),
-                          ),
-                          const SizedBox(height: 2),
-                        ],
+                        // 뱃지 행 (항상 고정 높이 — 뱃지 유무와 무관하게 제목 시작 Y좌표 통일)
+                        SizedBox(
+                          height: 20,
+                          child: _buildInlineBadges(
+                              notice, showDDay, dDayColor, isDark, showExpired),
+                        ),
+                        const SizedBox(height: 2),
                         // 제목 (2줄)
                         Text(
                           notice.title,
@@ -347,105 +339,113 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
     bool isDark,
     bool showExpired,
   ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Wrap(
-        spacing: AppSpacing.xs,
-        runSpacing: AppSpacing.xs,
-        children: [
-          // 우선순위 뱃지
-          if (notice.priority != null && notice.priority != '일반')
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: 3,
-              ),
-              decoration: BoxDecoration(
-                color: _getPriorityColor(notice.priority!, isDark),
-                borderRadius: BorderRadius.circular(AppRadius.xs),
-              ),
-              child: Text(
-                notice.priority!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
+    final hasBadges = (notice.priority != null && notice.priority != '일반') ||
+        notice.isNew ||
+        showDDay ||
+        showExpired;
 
-          // NEW 뱃지
-          if (notice.isNew)
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: 3,
-              ),
-              decoration: BoxDecoration(
-                color: AppTheme.errorColor,
-                borderRadius: BorderRadius.circular(AppRadius.xs),
-              ),
-              child: const Text(
-                'NEW',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
+    // 뱃지가 없어도 부모 SizedBox(height:20)가 공간 유지
+    if (!hasBadges) return const SizedBox.shrink();
 
-          // D-day 뱃지
-          if (showDDay)
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: 3,
-              ),
-              decoration: BoxDecoration(
-                color: dDayColor.withOpacity(isDark ? 0.2 : 0.1),
-                borderRadius: BorderRadius.circular(AppRadius.xs),
-                border: Border.all(
-                  color: dDayColor.withOpacity(0.4),
-                ),
-              ),
-              child: Text(
-                notice.daysUntilDeadline == 0
-                    ? 'D-Day'
-                    : 'D-${notice.daysUntilDeadline}',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: dDayColor,
-                ),
-              ),
-            ),
+    // 마감 뱃지 색상: D-day와 동일한 톤앤매너 (textSecondary 계열)
+    final expiredColor = isDark ? Colors.white54 : AppTheme.textSecondary;
 
-          // 마감 뱃지
-          if (showExpired)
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: 3,
-              ),
-              decoration: BoxDecoration(
-                color: (isDark ? Colors.white38 : Colors.grey).withOpacity(0.15),
-                borderRadius: BorderRadius.circular(AppRadius.xs),
-                border: Border.all(
-                  color: (isDark ? Colors.white38 : Colors.grey).withOpacity(0.4),
-                ),
-              ),
-              child: Text(
-                '마감',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white38 : Colors.grey,
-                ),
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      children: [
+        // 우선순위 뱃지
+        if (notice.priority != null && notice.priority != '일반')
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 3,
+            ),
+            decoration: BoxDecoration(
+              color: _getPriorityColor(notice.priority!, isDark),
+              borderRadius: BorderRadius.circular(AppRadius.xs),
+            ),
+            child: Text(
+              notice.priority!,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
               ),
             ),
-        ],
-      ),
+          ),
+
+        // NEW 뱃지
+        if (notice.isNew)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 3,
+            ),
+            decoration: BoxDecoration(
+              color: AppTheme.errorColor,
+              borderRadius: BorderRadius.circular(AppRadius.xs),
+            ),
+            child: const Text(
+              'NEW',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+
+        // D-day 뱃지
+        if (showDDay)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 3,
+            ),
+            decoration: BoxDecoration(
+              color: dDayColor.withOpacity(isDark ? 0.2 : 0.1),
+              borderRadius: BorderRadius.circular(AppRadius.xs),
+              border: Border.all(
+                color: dDayColor.withOpacity(0.4),
+              ),
+            ),
+            child: Text(
+              notice.daysUntilDeadline == 0
+                  ? 'D-Day'
+                  : 'D-${notice.daysUntilDeadline}',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: dDayColor,
+              ),
+            ),
+          ),
+
+        // 마감 뱃지 (D-day와 동일한 컴포넌트 스타일)
+        if (showExpired)
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 3,
+            ),
+            decoration: BoxDecoration(
+              color: expiredColor.withOpacity(isDark ? 0.2 : 0.1),
+              borderRadius: BorderRadius.circular(AppRadius.xs),
+              border: Border.all(
+                color: expiredColor.withOpacity(0.4),
+              ),
+            ),
+            child: Text(
+              '마감',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: expiredColor,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
