@@ -6,6 +6,7 @@ import '../providers/notification_provider.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
+import 'reset_password_screen.dart';
 
 /// 인증 상태 래퍼
 /// 앱 시작 시 로그인 상태를 확인하고 적절한 화면으로 이동합니다.
@@ -27,6 +28,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
     return Consumer<AuthService>(
       builder: (context, authService, child) {
         if (authService.isAuthenticated) {
+          // 비밀번호 재설정 세션인 경우 재설정 화면으로 이동
+          if (authService.isPasswordRecovery) {
+            return const ResetPasswordScreen();
+          }
           // 로그인 직후 로딩 화면 표시
           if (!_fcmInitialized) {
             _startInitialization(context);

@@ -698,3 +698,82 @@ def delete_user(user_id):
             "status": "error",
             "message": str(e)
         }), 500
+
+
+@users_bp.route('/find-email', methods=['POST'])
+def find_email():
+    """
+    아이디(이메일) 찾기
+
+    학번과 이름으로 사용자의 마스킹된 이메일을 조회합니다.
+    인증 불필요 (비로그인 상태에서 사용)
+    """
+    try:
+        data = request.get_json()
+
+        # 필수 필드 검증
+        if not data or 'student_id' not in data or 'name' not in data:
+            return jsonify({
+                "status": "error",
+                "message": "학번과 이름을 입력해주세요."
+            }), 400
+
+        student_id = data['student_id'].strip()
+        name = data['name'].strip()
+
+        if not student_id or not name:
+            return jsonify({
+                "status": "error",
+                "message": "학번과 이름을 입력해주세요."
+            }), 400
+
+        # Supabase에서 학번 + 이름으로 사용자 조회
+        supabase = SupabaseService()
+        result = supabase.client.table("users") \
+            .select("email") \
+            .eq("student_id", student_id) \
+            .eq("name", name) \
+            .execute()
+
+        if not result.data:
+            return jsonify({
+                "status": "error",
+                "message": "일치하는 사용자를 찾을 수 없습니다."
+            }), 404
+
+        # 이메일 마스킹 처리
+        email = result.data[0]['email']
+        masked_email = _mask_email(email)
+
+        print(f"[아이디 찾기] 조회 완료: {student_id} / {name} -> {masked_email}")
+
+        return jsonify({
+            "status": "success",
+            "data": {
+                "masked_email": masked_email
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] 아이디 찾기 에러: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": "아이디 찾기에 실패했습니다."
+        }), 500
+
+
+def _mask_email(email: str) -> str:
+    """
+    이메일 주소를 마스킹합니다. 실제 길이에 맞게 *를 표시합니다.
+    예시: "hong@..." -> "h***@...", "honggildong@..." -> "hon********@..."
+    """
+    try:
+        local_part, domain = email.split('@')
+        if len(local_part) <= 2:
+            masked_local = local_part[0] + '*' * (len(local_part) - 1)
+        else:
+            show = max(1, len(local_part) // 3)
+            masked_local = local_part[:show] + '*' * (len(local_part) - show)
+        return f"{masked_local}@{domain}"
+    except Exception:
+        return '***@***'

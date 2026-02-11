@@ -27,6 +27,10 @@ class AuthService extends ChangeNotifier {
 
   bool get isAuthenticated => _currentUser != null;
 
+  /// 비밀번호 재설정(recovery) 세션 여부
+  bool _isPasswordRecovery = false;
+  bool get isPasswordRecovery => _isPasswordRecovery;
+
   AuthService(this._apiService) {
     _currentUser = _supabase.auth.currentUser;
     _updateApiToken();
@@ -44,15 +48,22 @@ class AuthService extends ChangeNotifier {
 
       _currentUser = session?.user;
 
-      if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.tokenRefreshed) {
+      if (event == AuthChangeEvent.passwordRecovery) {
+        // 비밀번호 재설정 링크로 진입한 경우
+        _isPasswordRecovery = true;
         _apiService.setToken(session?.accessToken);
-        _loadCachedProfile();
-        fetchUserName();
+      } else if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.tokenRefreshed) {
+        _apiService.setToken(session?.accessToken);
+        if (!_isPasswordRecovery) {
+          _loadCachedProfile();
+          fetchUserName();
+        }
       } else if (event == AuthChangeEvent.signedOut) {
         _apiService.setToken(null);
         _userName = null;
         _department = null;
         _grade = null;
+        _isPasswordRecovery = false;
         _clearCachedProfile();
       }
 
@@ -178,5 +189,51 @@ class AuthService extends ChangeNotifier {
       debugPrint('로그아웃 에러: $e');
       rethrow;
     }
+  }
+
+  /// 비밀번호 재설정 이메일 전송
+  Future<void> resetPassword(String email) async {
+    try {
+      await _supabase.auth.resetPasswordForEmail(email);
+    } catch (e) {
+      debugPrint('비밀번호 재설정 에러: $e');
+      rethrow;
+    }
+  }
+
+  /// OTP 코드로 비밀번호 재설정 인증
+  /// Supabase verifyOTP(type: recovery)로 세션을 생성합니다.
+  Future<void> verifyRecoveryOtp(String email, String token) async {
+    try {
+      await _supabase.auth.verifyOTP(
+        email: email,
+        token: token,
+        type: OtpType.recovery,
+      );
+      _isPasswordRecovery = true;
+    } catch (e) {
+      debugPrint('OTP 인증 에러: $e');
+      rethrow;
+    }
+  }
+
+  /// 비밀번호 변경 (recovery 세션에서 새 비밀번호 설정)
+  Future<void> updatePassword(String newPassword) async {
+    try {
+      await _supabase.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+      _isPasswordRecovery = false;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('비밀번호 변경 에러: $e');
+      rethrow;
+    }
+  }
+
+  /// recovery 상태 초기화 (취소 시)
+  void clearPasswordRecovery() {
+    _isPasswordRecovery = false;
+    notifyListeners();
   }
 }

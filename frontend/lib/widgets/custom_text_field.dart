@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// 재사용 가능한 입력 필드 위젯
 /// 이메일, 비밀번호 등 다양한 입력 타입을 지원합니다.
@@ -14,6 +15,7 @@ class CustomTextField extends StatefulWidget {
   final int? maxLines;
   final Widget? prefixIcon;
   final VoidCallback? onEditingComplete;
+  final List<TextInputFormatter>? inputFormatters;
 
   const CustomTextField({
     super.key,
@@ -28,6 +30,7 @@ class CustomTextField extends StatefulWidget {
     this.maxLines = 1,
     this.prefixIcon,
     this.onEditingComplete,
+    this.inputFormatters,
   });
 
   @override
@@ -53,6 +56,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
       enabled: widget.enabled,
       maxLines: widget.maxLines,
       onEditingComplete: widget.onEditingComplete,
+      inputFormatters: widget.inputFormatters,
       decoration: InputDecoration(
         labelText: widget.labelText,
         // hintText 제거 - 더 깔끔한 UI를 위해

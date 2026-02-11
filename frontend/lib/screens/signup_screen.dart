@@ -225,7 +225,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           e.message.contains('already been registered')) {
         errorMessage = '이미 가입된 이메일입니다.';
       } else if (e.message.contains('Password should be')) {
-        errorMessage = '비밀번호는 6자 이상이어야 합니다.';
+        errorMessage = '비밀번호는 8자 이상이며 특수문자를 포함해야 합니다.';
       }
 
       setState(() {
@@ -560,14 +560,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return null;
   }
 
-  /// 비밀번호 유효성 검사
+  /// 비밀번호 유효성 검사 (최소 8자 + 특수문자 1개 이상)
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) {
       return '비밀번호를 입력해주세요';
     }
 
-    if (value.length < 6) {
-      return '6자 이상 입력해주세요';
+    if (value.length < 8) {
+      return '8자 이상 입력해주세요';
+    }
+
+    // 특수문자 포함 여부 확인
+    final specialCharRegex = RegExp(r'[!@#$%^&*(),.?":{}|<>]');
+    if (!specialCharRegex.hasMatch(value)) {
+      return '특수문자를 1개 이상 포함해주세요';
     }
 
     return null;

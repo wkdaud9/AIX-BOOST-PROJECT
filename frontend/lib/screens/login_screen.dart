@@ -7,6 +7,8 @@ import '../widgets/loading_button.dart';
 import '../widgets/form_section.dart';
 import '../theme/app_theme.dart';
 import 'signup_screen.dart';
+import 'find_email_screen.dart';
+import 'forgot_password_screen.dart';
 
 /// 로그인 화면
 /// 이메일과 비밀번호를 입력받아 Supabase Auth로 인증합니다.
@@ -117,8 +119,8 @@ class _LoginScreenState extends State<LoginScreen> {
       return '비밀번호를 입력해주세요.';
     }
 
-    if (value.length < 6) {
-      return '비밀번호는 6자 이상이어야 합니다.';
+    if (value.length < 8) {
+      return '비밀번호는 8자 이상이어야 합니다.';
     }
 
     return null;
@@ -202,7 +204,61 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: double.infinity,
                   height: 52,
                 ),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
+
+                // 아이디 찾기 | 비밀번호 찾기 링크
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const FindEmailScreen(),
+                                ),
+                              );
+                            },
+                      style: TextButton.styleFrom(
+                        foregroundColor: isDark
+                            ? Colors.white54
+                            : colorScheme.onSurface.withOpacity(0.5),
+                        textStyle: const TextStyle(fontSize: 13),
+                      ),
+                      child: const Text('아이디 찾기'),
+                    ),
+                    Text(
+                      '|',
+                      style: TextStyle(
+                        color: isDark
+                            ? Colors.white24
+                            : colorScheme.onSurface.withOpacity(0.3),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const ForgotPasswordScreen(),
+                                ),
+                              );
+                            },
+                      style: TextButton.styleFrom(
+                        foregroundColor: isDark
+                            ? Colors.white54
+                            : colorScheme.onSurface.withOpacity(0.5),
+                        textStyle: const TextStyle(fontSize: 13),
+                      ),
+                      child: const Text('비밀번호 찾기'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
 
                 // 회원가입 링크
                 TextButton(

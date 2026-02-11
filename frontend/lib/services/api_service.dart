@@ -207,6 +207,24 @@ class ApiService {
     }
   }
 
+  /// 아이디(이메일) 찾기
+  /// 학번과 이름으로 마스킹된 이메일을 조회합니다.
+  Future<String> findEmail({
+    required String studentId,
+    required String name,
+  }) async {
+    try {
+      final response = await _dio.post('/api/users/find-email', data: {
+        'student_id': studentId,
+        'name': name,
+      });
+      final data = _handleResponse(response);
+      return data['masked_email'] as String;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// AI 맞춤 추천 공지사항 조회 (사용자 관심사 기반 하이브리드 검색)
   ///
   /// [limit] 최대 결과 수 (기본 20)
