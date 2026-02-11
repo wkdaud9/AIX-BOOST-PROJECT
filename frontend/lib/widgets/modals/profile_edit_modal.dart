@@ -634,7 +634,23 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
       final userId = authService.currentUser?.id;
 
       if (userId != null) {
-        // 카테고리 업데이트
+        // 학년 문자열 → 정수 변환 ('1학년' → 1, '대학원' → 5)
+        int gradeInt;
+        if (_selectedGrade == '대학원') {
+          gradeInt = 5;
+        } else {
+          gradeInt = int.tryParse(_selectedGrade.replaceAll('학년', '')) ?? 1;
+        }
+
+        // 1. 사용자 프로필 업데이트 (이름, 학과, 학년 → users 테이블)
+        await apiService.updateUserProfile(
+          userId: userId,
+          name: _nameController.text.trim(),
+          department: _selectedDepartment,
+          grade: gradeInt,
+        );
+
+        // 2. 카테고리 업데이트 (→ user_preferences 테이블)
         await apiService.updateUserPreferences(
           userId: userId,
           categories: _selectedCategories.toList(),

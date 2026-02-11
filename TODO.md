@@ -9,21 +9,28 @@
 - ⬜ 카테고리 아이콘 변경
 
 ### 🐛 버그 수정
-- ⬜ 마이페이지 학과/학년 변경 시 DB 미반영 버그 수정
 - ⬜ 스플래시 스크린 투명 이미지 로드 실패 수정
 
-### 🔧 배포/운영 (수동 작업 필요)
-
-#### Render Cron Job 설정
-- ⬜ 디데이 알림 Cron Job 등록
-  - 명령: `python backend/scripts/send_deadline_reminders.py`
-  - 스케줄: `0 15 * * *` (매일 00:00 KST = UTC 15:00)
+### ✅ 완료된 배포/운영 작업
+- ✅ 디데이 알림 스케줄러 등록 (APScheduler cron, 매일 09:00 KST)
 
 ---
 
 ## ✅ 완료된 작업
 
 ### 2026-02-11
+
+#### 🐛 마이페이지 학과/학년 변경 시 DB 미반영 버그 수정
+- ✅ `backend/routes/users.py`: `PUT /api/users/profile/<user_id>` 엔드포인트 추가 (name, department, grade 업데이트 + 임베딩 재생성)
+- ✅ `frontend/lib/services/api_service.dart`: `updateUserProfile()` 메서드 추가
+- ✅ `frontend/lib/widgets/modals/profile_edit_modal.dart`: `_saveProfile()`에서 프로필 + 카테고리 순차 저장
+
+#### 🐛 공지 조회 기록 미저장 버그 수정
+- ✅ `frontend/lib/providers/notice_provider.dart`: `getNoticeDetail()`에서 `recordNoticeView()` 호출 추가
+
+#### 🐛 알림 중복 표시 버그 수정
+- ✅ `frontend/lib/screens/auth_wrapper.dart`: FCM 포그라운드 핸들러에서 로컬 알림 생성 → `fetchFromBackend()` 호출로 변경
+- ✅ `backend/scripts/crawl_and_notify.py`: 알림 로그 insert 전 중복 체크 추가
 
 #### 🗄️ Supabase 마이그레이션 실행
 - ✅ `docs/migrations/014_add_notice_views.sql` — Supabase SQL Editor에서 실행 완료

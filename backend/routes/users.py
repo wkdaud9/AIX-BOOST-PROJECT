@@ -276,6 +276,118 @@ def get_user_profile(user_id):
         }), 500
 
 
+@users_bp.route('/profile/<user_id>', methods=['PUT'])
+@login_required
+def update_user_profile(user_id):
+    """
+    사용자 프로필(이름, 학과, 학년) 업데이트
+
+    PUT /api/users/profile/<user_id>
+    Body (JSON):
+    {
+        "name": "홍길동",
+        "department": "컴퓨터정보공학과",
+        "grade": 3
+    }
+
+    응답:
+    {
+        "status": "success",
+        "data": {
+            "message": "프로필이 업데이트되었습니다.",
+            "user": {...}
+        }
+    }
+    """
+    try:
+        # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
+        if g.user.id != user_id:
+            return jsonify({
+                "status": "error",
+                "message": "자신의 프로필만 변경할 수 있습니다."
+            }), 403
+
+        data = request.get_json()
+
+        # 업데이트할 필드 수집
+        update_data = {}
+        if 'name' in data and data['name']:
+            update_data['name'] = data['name'].strip()
+        if 'department' in data and data['department']:
+            update_data['department'] = data['department']
+        if 'grade' in data and data['grade'] is not None:
+            update_data['grade'] = int(data['grade'])
+
+        if not update_data:
+            return jsonify({
+                "status": "error",
+                "message": "변경할 필드가 없습니다."
+            }), 400
+
+        supabase = SupabaseService()
+
+        # users 테이블 업데이트
+        result = supabase.client.table("users")\
+            .update(update_data)\
+            .eq("id", user_id)\
+            .execute()
+
+        if not result.data:
+            return jsonify({
+                "status": "error",
+                "message": "프로필 업데이트에 실패했습니다."
+            }), 500
+
+        # 학과/학년이 변경된 경우 임베딩 재생성
+        if 'department' in update_data or 'grade' in update_data:
+            try:
+                # 현재 카테고리 조회
+                pref_result = supabase.client.table("user_preferences")\
+                    .select("categories")\
+                    .eq("user_id", user_id)\
+                    .single()\
+                    .execute()
+
+                if pref_result.data and pref_result.data.get("categories"):
+                    updated_user = result.data[0]
+                    interests_embedding, enriched_profile = _generate_user_embedding_and_profile(
+                        department=updated_user.get("department", ""),
+                        categories=pref_result.data["categories"],
+                        grade=updated_user.get("grade")
+                    )
+
+                    pref_update = {}
+                    if interests_embedding:
+                        pref_update["interests_embedding"] = interests_embedding
+                    if enriched_profile:
+                        pref_update["enriched_profile"] = enriched_profile
+
+                    if pref_update:
+                        supabase.client.table("user_preferences")\
+                            .update(pref_update)\
+                            .eq("user_id", user_id)\
+                            .execute()
+            except Exception as embed_err:
+                print(f"[임베딩] 프로필 변경 후 임베딩 재생성 실패 (무시): {embed_err}")
+
+        print(f"[프로필 업데이트] 완료: {user_id} - {update_data}")
+
+        return jsonify({
+            "status": "success",
+            "data": {
+                "message": "프로필이 업데이트되었습니다.",
+                "user": result.data[0]
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] 프로필 업데이트 에러: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
 @users_bp.route('/preferences/<user_id>', methods=['PUT'])
 @login_required
 def update_user_preferences(user_id):

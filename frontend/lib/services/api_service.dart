@@ -153,6 +153,26 @@ class ApiService {
     }
   }
 
+  /// 사용자 프로필(이름, 학과, 학년) 업데이트
+  Future<Map<String, dynamic>> updateUserProfile({
+    required String userId,
+    String? name,
+    String? department,
+    int? grade,
+  }) async {
+    try {
+      final data = <String, dynamic>{};
+      if (name != null) data['name'] = name;
+      if (department != null) data['department'] = department;
+      if (grade != null) data['grade'] = grade;
+
+      final response = await _dio.put('/api/users/profile/$userId', data: data);
+      return _handleResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// 사용자 선호도(카테고리) 업데이트
   Future<Map<String, dynamic>> updateUserPreferences({
     required String userId,

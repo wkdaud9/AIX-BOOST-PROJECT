@@ -451,6 +451,20 @@ class CrawlAndNotifyPipeline:
                         skipped_count += 1
                         continue
 
+                    # 중복 발송 체크
+                    try:
+                        existing = self.supabase.table("notification_logs")\
+                            .select("id")\
+                            .eq("user_id", user_id)\
+                            .eq("notice_id", notice_id)\
+                            .eq("notification_type", "new_notice")\
+                            .execute()
+                        if existing.data and len(existing.data) > 0:
+                            skipped_count += 1
+                            continue
+                    except Exception:
+                        pass
+
                     # 알림 로그 저장 (notification_logs 테이블) - FCM 발송 전에 저장
                     try:
                         self.supabase.table("notification_logs").insert({

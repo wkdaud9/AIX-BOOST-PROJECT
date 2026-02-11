@@ -437,6 +437,9 @@ class NoticeProvider with ChangeNotifier {
       final noticeData = await _apiService.getNoticeById(noticeId);
       final notice = Notice.fromJson(noticeData);
 
+      // 조회 기록 저장 (인기 공지 집계용, 실패해도 무시)
+      _apiService.recordNoticeView(noticeId);
+
       // 로컬 상태 업데이트 (기존 북마크 상태 유지)
       final index = _notices.indexWhere((n) => n.id == noticeId);
       if (index != -1) {
