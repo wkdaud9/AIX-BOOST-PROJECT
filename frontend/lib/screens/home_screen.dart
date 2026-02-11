@@ -5,6 +5,7 @@ import '../providers/notice_provider.dart';
 import '../providers/notification_provider.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/animated_bookmark_button.dart';
 import '../widgets/modals/full_list_modal.dart';
 import 'notice_detail_screen.dart';
 import 'calendar_screen.dart';
@@ -1408,23 +1409,18 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Stack(
             children: [
-              // 북마크 오버레이 (오른쪽 상단)
+              // 북마크 오버레이 (오른쪽 상단, 애니메이션)
               Positioned(
                 top: 0,
                 right: 0,
                 child: Consumer<NoticeProvider>(
                   builder: (context, provider, child) {
-                    return GestureDetector(
+                    return AnimatedBookmarkButton(
+                      isBookmarked: notice.isBookmarked,
                       onTap: () => provider.toggleBookmark(notice.id),
-                      child: Icon(
-                        notice.isBookmarked
-                            ? Icons.bookmark_rounded
-                            : Icons.bookmark_border_rounded,
-                        size: 22,
-                        color: notice.isBookmarked
-                            ? categoryColor
-                            : (isDark ? Colors.white38 : AppTheme.textSecondary),
-                      ),
+                      activeColor: categoryColor,
+                      inactiveColor: isDark ? Colors.white38 : AppTheme.textSecondary,
+                      size: 22,
                     );
                   },
                 ),

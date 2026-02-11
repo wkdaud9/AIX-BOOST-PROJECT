@@ -4,6 +4,7 @@ import '../../models/notice.dart';
 import '../../providers/notice_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../screens/notice_detail_screen.dart';
+import '../animated_bookmark_button.dart';
 
 /// 모던 공지 카드 위젯
 ///
@@ -176,34 +177,16 @@ class ModernFlipCard extends StatelessWidget {
           ),
         ],
         const Spacer(),
-        // 북마크 버튼
+        // 북마크 버튼 (애니메이션)
         Consumer<NoticeProvider>(
           builder: (context, provider, child) {
             final isBookmarked = notice.isBookmarked;
-            return GestureDetector(
+            return AnimatedBookmarkButton(
+              isBookmarked: isBookmarked,
               onTap: () => provider.toggleBookmark(notice.id),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isBookmarked
-                      ? categoryColor.withOpacity(isDark ? 0.15 : 0.08)
-                      : (isDark
-                          ? Colors.white.withOpacity(0.05)
-                          : Colors.grey.withOpacity(0.06)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  isBookmarked
-                      ? Icons.bookmark_rounded
-                      : Icons.bookmark_border_rounded,
-                  size: 20,
-                  color: isBookmarked
-                      ? categoryColor
-                      : (isDark ? Colors.white30 : AppTheme.textHint),
-                ),
-              ),
+              activeColor: categoryColor,
+              inactiveColor: isDark ? Colors.white30 : AppTheme.textHint,
+              size: 20,
             );
           },
         ),

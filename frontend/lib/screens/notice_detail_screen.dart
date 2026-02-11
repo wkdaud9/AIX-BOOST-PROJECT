@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/notice.dart';
 import '../providers/notice_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/animated_bookmark_button.dart';
 
 /// 공지사항 상세 화면
 class NoticeDetailScreen extends StatefulWidget {
@@ -66,15 +67,16 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                 // Provider의 북마크 상태를 기준으로 표시 (캘린더/목록과 동기화)
                 final isBookmarked = provider.bookmarkedNotices
                     .any((n) => n.id == _notice!.id);
-                return IconButton(
-                  icon: Icon(
-                    isBookmarked
-                        ? Icons.bookmark
-                        : Icons.bookmark_outline,
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: AnimatedBookmarkButton(
+                    isBookmarked: isBookmarked,
+                    onTap: () => provider.toggleBookmark(_notice!.id),
+                    activeColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                    inactiveColor: AppTheme.textSecondary,
+                    size: 26,
                   ),
-                  onPressed: () {
-                    provider.toggleBookmark(_notice!.id);
-                  },
                 );
               },
             ),

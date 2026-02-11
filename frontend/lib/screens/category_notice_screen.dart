@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/notice.dart';
 import '../providers/notice_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/animated_bookmark_button.dart';
 import 'notice_detail_screen.dart';
 
 /// 정렬 타입
@@ -548,31 +549,12 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
         final isBookmarked = notice.isBookmarked;
-        return GestureDetector(
+        return AnimatedBookmarkButton(
+          isBookmarked: isBookmarked,
           onTap: () => provider.toggleBookmark(notice.id),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: isBookmarked
-                  ? categoryColor.withOpacity(isDark ? 0.2 : 0.1)
-                  : (isDark
-                      ? Colors.white.withOpacity(0.06)
-                      : Colors.grey.withOpacity(0.06)),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            alignment: Alignment.center,
-            child: Icon(
-              isBookmarked
-                  ? Icons.bookmark_rounded
-                  : Icons.bookmark_border_rounded,
-              size: 18,
-              color: isBookmarked
-                  ? categoryColor
-                  : (isDark ? Colors.white38 : AppTheme.textHint),
-            ),
-          ),
+          activeColor: categoryColor,
+          inactiveColor: isDark ? Colors.white38 : AppTheme.textHint,
+          size: 18,
         );
       },
     );
