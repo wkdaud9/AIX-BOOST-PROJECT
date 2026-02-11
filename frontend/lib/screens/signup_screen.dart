@@ -38,21 +38,63 @@ class _SignUpScreenState extends State<SignUpScreen> {
   /// 학과 입력 컨트롤러
   final _departmentController = TextEditingController();
 
+  /// 학년 표시용 컨트롤러
+  final _gradeController = TextEditingController();
+
   /// 선택된 학년
   int? _selectedGrade;
 
   /// 선택된 관심 카테고리
   final Set<String> _selectedCategories = {};
 
-  /// 사용 가능한 카테고리 목록
+  /// 사용 가능한 카테고리 목록 (백엔드 카테고리와 일치)
   final List<String> _availableCategories = [
-    '학사공지',
+    '학사',
     '장학',
     '취업',
-    '학생활동',
-    '시설',
-    '기타',
+    '행사',
+    '교육',
+    '공모전',
   ];
+
+  /// 2026학년도 군산대학교 대학별 학과/학부 목록
+  static const Map<String, List<String>> _departmentsByCollege = {
+    '컴퓨터소프트웨어특성화대학': [
+      '컴퓨터정보공학과', '인공지능융합학과', '임베디드소프트웨어학과',
+      '소프트웨어학과', 'IT융합통신공학과',
+    ],
+    '인문콘텐츠융합대학': [
+      '국어국문학과', '영어영문학과', '일어일문학과',
+      '중어중문학과', '역사학과', '철학과',
+    ],
+    '해양·바이오특성화대학': [
+      '생명과학과', '해양수산공공인재학과', '해양생명과학과',
+      '해양생물자원학과', '수산생명의학과', '식품영양학과',
+      '기관공학과', '식품생명공학과',
+    ],
+    'ICC특성화대학부': [
+      '미디어문화학부', '아동학부', '사회복지학부',
+      '법행정경찰학부', '간호학부', '의류학부', '해양경찰학부',
+      '체육학부', '산업디자인학부', '기계공학부',
+      '건축공학부', '공간디자인융합기술학부',
+    ],
+    '경영특성화대학': [
+      '경영학부', '국제물류학과', '무역학과', '회계학부',
+      '금융부동산경제학과', '벤처창업학과',
+    ],
+    '자율전공대학': [
+      '자율전공학부', '미술학과', '음악과', '조선공학과',
+    ],
+    '첨단·에너지대학': [
+      '이차전지·에너지학부', '스마트오션모빌리티공학과',
+      '바이오헬스학과', '스마트시티학과',
+    ],
+    '융합과학공학대학': [
+      '전자공학과', '전기공학과', '신소재공학과', '화학공학과',
+      '환경공학과', '토목공학과', '해양건설공학과',
+      '첨단과학기술학부', '수학과',
+    ],
+  };
 
   /// 로딩 상태
   bool _isLoading = false;
@@ -71,6 +113,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _nameController.dispose();
     _studentIdController.dispose();
     _departmentController.dispose();
+    _gradeController.dispose();
     super.dispose();
   }
 
@@ -182,7 +225,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           e.message.contains('already been registered')) {
         errorMessage = '이미 가입된 이메일입니다.';
       } else if (e.message.contains('Password should be')) {
-        errorMessage = '비밀번호는 6자 이상이어야 합니다.';
+        errorMessage = '비밀번호는 8자 이상이며 특수문자를 포함해야 합니다.';
       }
 
       setState(() {
@@ -234,9 +277,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _showCategoryDialog() async {
     await showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
+        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
+        final accentColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogContext, setDialogState) {
             return AlertDialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -250,7 +295,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     return CheckboxListTile(
                       title: Text(category),
                       value: isSelected,
-                      activeColor: AppTheme.primaryColor,
+                      activeColor: accentColor,
                       onChanged: (value) {
                         setDialogState(() {
                           setState(() {
@@ -269,13 +314,233 @@ class _SignUpScreenState extends State<SignUpScreen> {
               actions: [
                 TextButton(
                   onPressed: () {
-                    Navigator.of(context).pop();
+                    Navigator.of(dialogContext).pop();
                   },
-                  child: const Text('완료'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: isDark ? Colors.white : accentColor,
+                  ),
+                  child: const Text('완료',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ],
             );
           },
+        );
+      },
+    );
+  }
+
+  /// 학과 선택 바텀시트
+  Future<void> _showDepartmentPicker() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
+        final accentColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+        final sheetColorScheme = Theme.of(sheetContext).colorScheme;
+        String searchQuery = '';
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            // 검색어로 학과 필터링
+            final filteredColleges = <String, List<String>>{};
+            _departmentsByCollege.forEach((college, depts) {
+              if (searchQuery.isEmpty) {
+                filteredColleges[college] = depts;
+              } else {
+                final matched = depts
+                    .where((d) => d.contains(searchQuery))
+                    .toList();
+                if (matched.isNotEmpty) {
+                  filteredColleges[college] = matched;
+                }
+              }
+            });
+
+            return DraggableScrollableSheet(
+              initialChildSize: 0.7,
+              maxChildSize: 0.9,
+              minChildSize: 0.5,
+              expand: false,
+              builder: (context, scrollController) {
+                // 리스트 아이템 빌드
+                final items = <Widget>[];
+                filteredColleges.forEach((college, depts) {
+                  // 대학 헤더
+                  items.add(
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                      child: Text(
+                        college,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: accentColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ),
+                  );
+                  // 학과 항목
+                  for (final dept in depts) {
+                    final isSelected = _departmentController.text == dept;
+                    items.add(
+                      ListTile(
+                        dense: true,
+                        title: Text(
+                          dept,
+                          style: TextStyle(
+                            color: isSelected
+                                ? accentColor
+                                : sheetColorScheme.onSurface,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? Icon(Icons.check,
+                                color: accentColor, size: 20)
+                            : null,
+                        onTap: () {
+                          setState(() {
+                            _departmentController.text = dept;
+                            _studentInfoError = null;
+                          });
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                    );
+                  }
+                });
+
+                return Column(
+                  children: [
+                    // 상단 핸들 바
+                    Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: sheetColorScheme.onSurface.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    // 제목
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        '학과 선택',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                      ),
+                    ),
+                    // 검색 필드
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TextField(
+                        autofocus: false,
+                        decoration: InputDecoration(
+                          hintText: '학과 검색...',
+                          prefixIcon: const Icon(Icons.search),
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          setSheetState(() {
+                            searchQuery = value.trim();
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // 학과 목록
+                    Expanded(
+                      child: items.isEmpty
+                          ? const Center(child: Text('검색 결과가 없습니다'))
+                          : ListView(
+                              controller: scrollController,
+                              children: items,
+                            ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// 학년 선택 바텀시트
+  Future<void> _showGradePicker() async {
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
+        final accentColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+        final sheetColorScheme = Theme.of(sheetContext).colorScheme;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 상단 핸들 바
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: sheetColorScheme.onSurface.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // 제목
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  '학년 선택',
+                  style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ),
+              // 학년 목록
+              ...[1, 2, 3, 4].map((grade) {
+                final isSelected = _selectedGrade == grade;
+                return ListTile(
+                  title: Text(
+                    '$grade학년',
+                    style: TextStyle(
+                      color: isSelected ? accentColor : sheetColorScheme.onSurface,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  trailing: isSelected
+                      ? Icon(Icons.check, color: accentColor, size: 20)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      _selectedGrade = grade;
+                      _gradeController.text = '$grade학년';
+                      _studentInfoError = null;
+                    });
+                    Navigator.of(sheetContext).pop();
+                  },
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
         );
       },
     );
@@ -295,14 +560,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return null;
   }
 
-  /// 비밀번호 유효성 검사
+  /// 비밀번호 유효성 검사 (최소 8자 + 특수문자 1개 이상)
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) {
       return '비밀번호를 입력해주세요';
     }
 
-    if (value.length < 6) {
-      return '6자 이상 입력해주세요';
+    if (value.length < 8) {
+      return '8자 이상 입력해주세요';
+    }
+
+    // 특수문자 포함 여부 확인
+    final specialCharRegex = RegExp(r'[!@#$%^&*(),.?":{}|<>]');
+    if (!specialCharRegex.hasMatch(value)) {
+      return '특수문자를 1개 이상 포함해주세요';
     }
 
     return null;
@@ -333,7 +604,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   /// 학과 유효성 검사
   String? _validateDepartment(String? value) {
     if (value == null || value.isEmpty) {
-      return '학과를 입력해주세요';
+      return '학과를 선택해주세요';
     }
 
     return null;
@@ -350,8 +621,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('회원가입'),
         leading: IconButton(
@@ -374,7 +646,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   '군산대학교 학생 정보를 입력해주세요',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.textSecondary,
+                        color: colorScheme.onSurface.withOpacity(0.6),
                       ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
@@ -432,167 +704,161 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       prefixIcon: const Icon(Icons.badge_outlined),
                       onEditingComplete: () => FocusScope.of(context).nextFocus(),
                     ),
-                    CustomTextField(
+                    TextFormField(
                       controller: _departmentController,
-                      labelText: '학과',
-                      validator: _validateDepartment,
-                      prefixIcon: const Icon(Icons.school_outlined),
-                      onEditingComplete: () => FocusScope.of(context).nextFocus(),
-                    ),
-                    // 학년 선택 드롭다운
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: DropdownButtonFormField<int>(
-                        decoration: const InputDecoration(
-                          labelText: '학년',
-                          prefixIcon: Icon(Icons.stairs_outlined),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        items: [1, 2, 3, 4].map((grade) {
-                          return DropdownMenuItem(
-                            value: grade,
-                            child: Text('$grade학년'),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedGrade = value;
-                            _studentInfoError = null;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null) {
-                            return '학년을 선택해주세요';
-                          }
-                          return null;
-                        },
+                      readOnly: true,
+                      onTap: _showDepartmentPicker,
+                      decoration: const InputDecoration(
+                        labelText: '학과',
+                        prefixIcon: Icon(Icons.school_outlined),
                       ),
+                      validator: _validateDepartment,
+                    ),
+                    // 학년 선택 (바텀시트)
+                    TextFormField(
+                      readOnly: true,
+                      onTap: _showGradePicker,
+                      controller: _gradeController,
+                      decoration: const InputDecoration(
+                        labelText: '학년',
+                        prefixIcon: Icon(Icons.stairs_outlined),
+                      ),
+                      validator: (value) {
+                        if (_selectedGrade == null) {
+                          return '학년을 선택해주세요';
+                        }
+                        return null;
+                      },
                     ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xl),
 
                 // 관심 카테고리 섹션 (강조된 박스 디자인)
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
-                      width: 2,
+                Builder(builder: (context) {
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
+                  final accentColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: accentColor.withOpacity(isDark ? 0.1 : 0.05),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: accentColor.withOpacity(0.3),
+                        width: 2,
+                      ),
                     ),
-                  ),
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 헤더 섹션
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor,
-                              borderRadius: BorderRadius.circular(12),
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 헤더 섹션
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: accentColor,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.star_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
                             ),
-                            child: const Icon(
-                              Icons.star_rounded,
-                              color: Colors.white,
-                              size: 24,
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '관심 카테고리',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: accentColor,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '맞춤 공지사항을 위해 선택해주세요',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: colorScheme.onSurface.withOpacity(0.6),
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: AppSpacing.lg),
+
+                        // 카테고리 선택 버튼
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _showCategoryDialog,
+                            icon: const Icon(Icons.category_outlined),
+                            label: Text(
+                              _selectedCategories.isEmpty
+                                  ? '카테고리 선택하기'
+                                  : '${_selectedCategories.length}개 카테고리 선택됨',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: accentColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.lg,
+                                vertical: AppSpacing.md,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '관심 카테고리',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.primaryColor,
-                                      ),
+                        ),
+
+                        // 선택된 카테고리 칩 표시
+                        if (_selectedCategories.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _selectedCategories.map((category) {
+                              return Chip(
+                                label: Text(
+                                  category,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '맞춤 공지사항을 위해 선택해주세요',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: AppTheme.textSecondary,
-                                      ),
+                                backgroundColor: accentColor,
+                                side: BorderSide.none,
+                                deleteIcon: const Icon(
+                                  Icons.close,
+                                  size: 18,
+                                  color: Colors.white,
                                 ),
-                              ],
-                            ),
+                                onDeleted: () {
+                                  setState(() {
+                                    _selectedCategories.remove(category);
+                                  });
+                                },
+                              );
+                            }).toList(),
                           ),
                         ],
-                      ),
-
-                      const SizedBox(height: AppSpacing.lg),
-
-                      // 카테고리 선택 버튼
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _showCategoryDialog,
-                          icon: const Icon(Icons.category_outlined),
-                          label: Text(
-                            _selectedCategories.isEmpty
-                                ? '카테고리 선택하기'
-                                : '${_selectedCategories.length}개 카테고리 선택됨',
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.lg,
-                              vertical: AppSpacing.md,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // 선택된 카테고리 칩 표시
-                      if (_selectedCategories.isNotEmpty) ...[
-                        const SizedBox(height: AppSpacing.md),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _selectedCategories.map((category) {
-                            return Chip(
-                              label: Text(
-                                category,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              backgroundColor: AppTheme.primaryColor,
-                              deleteIcon: const Icon(
-                                Icons.close,
-                                size: 18,
-                                color: Colors.white,
-                              ),
-                              onDeleted: () {
-                                setState(() {
-                                  _selectedCategories.remove(category);
-                                });
-                              },
-                            );
-                          }).toList(),
-                        ),
                       ],
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                }),
 
                 const SizedBox(height: AppSpacing.xl),
 

@@ -76,8 +76,6 @@ def main():
                     notice_copy = notice.copy()
                     if 'published_at' in notice_copy:
                         notice_copy['published_at'] = str(notice_copy['published_at'])
-                    if 'crawled_at' in notice_copy:
-                        notice_copy['crawled_at'] = str(notice_copy['crawled_at'])
                     notices_json.append(notice_copy)
 
                 json.dump(notices_json, f, ensure_ascii=False, indent=2)

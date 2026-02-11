@@ -7,6 +7,10 @@
 backend/.env
 frontend/.env
 
+# Firebase 서비스 계정 키 (보안)
+**/firebase-service-account.json
+**/*-firebase-adminsdk-*.json
+
 # Python
 __pycache__/
 *.py[cod]
@@ -91,8 +95,9 @@ backend/crawler/cache/
 test-results/
 coverage/
 
-# 작업 인계 문서 (로컬 전용)
+# 인수인계 문서 (로컬 전용)
 handoff.md
+HANDOFF.md
 
 # Claude Code 임시 파일
 .claude/

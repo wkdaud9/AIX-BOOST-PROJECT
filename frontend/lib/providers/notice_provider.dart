@@ -10,15 +10,53 @@ class NoticeProvider with ChangeNotifier {
       : _apiService = apiService ?? ApiService();
 
   List<Notice> _notices = [];
+  List<Notice> _categoryNotices = [];
   List<Notice> _bookmarkedNotices = [];
+  List<Notice> _popularNotices = [];
+  List<Notice> _departmentPopularNotices = [];
+  List<Notice> _upcomingDeadlineNotices = [];
+  List<Notice> _weeklyDeadlineNotices = []; // 홈 카드4용 이번 주 마감
   bool _isLoading = false;
+  bool _isRecommendedLoading = false;
+  bool _isDepartmentPopularLoading = false;
+  bool _isUpcomingDeadlineLoading = false;
+
+  /// 추천 캐시 유효시간 (5분)
+  static const _cacheDuration = Duration(minutes: 5);
+  DateTime? _recommendedLastFetched;
+  DateTime? _departmentPopularLastFetched;
+
+  /// 추천 공지 풀 (무한 환형 스크롤용, 한번에 로드)
+  static const _fetchSize = 30;
+  List<Notice> _recommendedPool = [];
+
   String? _error;
+  String? _departmentPopularDept;
+  int? _departmentPopularGrade;
 
   // Getter
   List<Notice> get notices => _notices;
+  /// 카테고리별 공지사항 목록 (fetchNoticesByCategory 결과)
+  List<Notice> get categoryNotices => _categoryNotices;
   List<Notice> get bookmarkedNotices => _bookmarkedNotices;
+  /// AI 맞춤 추천 공지사항 목록 (전체 풀 반환, 무한 환형 스크롤용)
+  List<Notice> get recommendedNotices => _recommendedPool;
+  /// 학과/학년 인기 공지사항 목록 (백엔드 API 결과)
+  List<Notice> get departmentPopularNotices => _departmentPopularNotices;
+  /// 홈 카드4용 이번 주 마감 공지사항 (경량 API)
+  List<Notice> get weeklyDeadlineNotices => _weeklyDeadlineNotices;
+  /// 마감 임박 공지사항 풀 (오늘 이후 마감인 공지 전부, 마감일 가까운 순)
+  List<Notice> get upcomingDeadlineNotices => _upcomingDeadlineNotices;
+  /// 마감 임박 공지사항 (3일 이내, isDeadlineSoon 필터)
+  List<Notice> get deadlineSoonNotices =>
+      _upcomingDeadlineNotices.where((n) => n.isDeadlineSoon).toList();
   bool get isLoading => _isLoading;
+  bool get isRecommendedLoading => _isRecommendedLoading;
+  bool get isDepartmentPopularLoading => _isDepartmentPopularLoading;
+  bool get isUpcomingDeadlineLoading => _isUpcomingDeadlineLoading;
   String? get error => _error;
+  String? get departmentPopularDept => _departmentPopularDept;
+  int? get departmentPopularGrade => _departmentPopularGrade;
 
   /// 맞춤 공지사항 가져오기 (사용자 관심사 기반)
   List<Notice> get customizedNotices {
@@ -30,26 +68,342 @@ class NoticeProvider with ChangeNotifier {
     return newNotices;
   }
 
-  /// 인기 공지사항 가져오기 (조회수 기준)
-  List<Notice> get popularNotices {
-    final sorted = List<Notice>.from(_notices);
-    sorted.sort((a, b) => b.views.compareTo(a.views));
-    return sorted.take(5).toList();
+  /// 인기 공지사항 (DB 전체 조회수 기준, API로 가져옴)
+  List<Notice> get popularNotices => _popularNotices;
+
+  /// 학과/학년 관련 인기 공지 (조회수+북마크 기준 상위 5개)
+  /// 학과 카테고리에 매칭되는 공지에 부스트 점수 부여
+  List<Notice> getDepartmentPopularNotices(String? department, int? grade) {
+    if (_notices.isEmpty) return [];
+
+    final scored = _notices.map((notice) {
+      double score = notice.views + (notice.bookmarkCount * 3).toDouble();
+
+      // 학과 관련 공지 부스트 (카테고리, 태그, 제목에 학과명 포함 시)
+      if (department != null && department.isNotEmpty) {
+        final deptLower = department.toLowerCase();
+        if (notice.category.toLowerCase().contains(deptLower) ||
+            notice.title.toLowerCase().contains(deptLower) ||
+            notice.tags.any((tag) => tag.toLowerCase().contains(deptLower))) {
+          score += 50;
+        }
+      }
+
+      // 학년 관련 공지 부스트
+      if (grade != null) {
+        final gradeStr = '$grade학년';
+        if (notice.title.contains(gradeStr) || notice.content.contains(gradeStr)) {
+          score += 30;
+        }
+      }
+
+      return MapEntry(notice, score);
+    }).toList();
+
+    scored.sort((a, b) => b.value.compareTo(a.value));
+    return scored.take(30).map((e) => e.key).toList();
   }
 
-  /// 카테고리별 공지사항 가져오기
+  /// 오늘 꼭 봐야 할 공지 (priority + 마감임박 + 최신 + 조회수 종합 점수)
+  List<Notice> get todayMustSeeNotices {
+    if (_notices.isEmpty) return [];
+
+    // 조회수 상위 20% 기준값 계산
+    final sortedByViews = List<Notice>.from(_notices)
+      ..sort((a, b) => b.views.compareTo(a.views));
+    final top20Index = (_notices.length * 0.2).ceil().clamp(1, _notices.length);
+    final viewsThreshold = sortedByViews[top20Index - 1].views;
+
+    final scored = _notices.map((notice) {
+      double score = 0;
+
+      // 우선순위 점수
+      if (notice.priority == '긴급') {
+        score += 10;
+      } else if (notice.priority == '중요') {
+        score += 5;
+      }
+
+      // 마감 임박 점수
+      if (notice.isDeadlineSoon) score += 8;
+
+      // 최신 공지 점수 (3일 이내)
+      if (notice.isNew) score += 5;
+
+      // 조회수 상위 20% 점수
+      if (notice.views >= viewsThreshold) score += 3;
+
+      return MapEntry(notice, score);
+    }).toList();
+
+    // 점수 0인 공지 제외하고 정렬 (페이지네이션을 위해 충분히 반환)
+    scored.removeWhere((e) => e.value <= 0);
+    scored.sort((a, b) => b.value.compareTo(a.value));
+    return scored.take(30).map((e) => e.key).toList();
+  }
+
+  /// AI 맞춤 추천 공지사항 로드
+  /// [limit] 가져올 개수 (기본 30, 홈에서는 10으로 호출)
+  /// 캐시가 유효하면 재호출 스킵
+  Future<void> fetchRecommendedNotices({bool force = false, int? limit}) async {
+    final fetchLimit = limit ?? _fetchSize;
+
+    // 캐시 유효 시 스킵 (데이터가 있고, TTL 내)
+    if (!force &&
+        _recommendedPool.isNotEmpty &&
+        _recommendedLastFetched != null &&
+        DateTime.now().difference(_recommendedLastFetched!) < _cacheDuration) {
+      return;
+    }
+
+    _isRecommendedLoading = true;
+    _error = null;
+    notifyListeners();
+
+    // 최대 2회 시도 (첫 시도 + 재시도 1회)
+    for (int attempt = 1; attempt <= 2; attempt++) {
+      try {
+        final results = await _apiService.getRecommendedNotices(
+          limit: fetchLimit,
+          offset: 0,
+          minScore: 0.3,
+        );
+
+        _recommendedPool = results.map((json) => Notice.fromJson(_convertSearchResult(json))).toList();
+        _recommendedLastFetched = DateTime.now();
+        _isRecommendedLoading = false;
+        notifyListeners();
+        return;
+      } catch (e) {
+        if (kDebugMode) {
+          print('AI 추천 API 시도 $attempt 실패: $e');
+        }
+        if (attempt < 2) {
+          await Future.delayed(const Duration(seconds: 2));
+          continue;
+        }
+      }
+    }
+
+    // 2회 모두 실패 시 최신 공지로 폴백
+    _isRecommendedLoading = false;
+    if (_notices.isNotEmpty) {
+      final sorted = List<Notice>.from(_notices)
+        ..sort((a, b) => b.date.compareTo(a.date));
+      _recommendedPool = sorted.take(30).toList();
+      if (kDebugMode) {
+        print('AI 추천 API 실패, 최신순 폴백 사용 (${_recommendedPool.length}건)');
+      }
+    }
+    _error = null;
+    notifyListeners();
+  }
+
+  /// 학과/학년 인기 공지사항 가져오기 (백엔드 API 호출)
+  /// 캐시가 유효하면 재호출 스킵, force=true 시 강제 갱신
+  Future<void> fetchDepartmentPopularNotices({bool force = false}) async {
+    // 캐시 유효 시 스킵
+    if (!force &&
+        _departmentPopularNotices.isNotEmpty &&
+        _departmentPopularLastFetched != null &&
+        DateTime.now().difference(_departmentPopularLastFetched!) < _cacheDuration) {
+      return;
+    }
+
+    _isDepartmentPopularLoading = true;
+    notifyListeners();
+
+    try {
+      final result = await _apiService.getPopularInMyGroup(limit: 30);
+      final notices = (result['notices'] as List<dynamic>?) ?? [];
+      final group = result['group'] as Map<String, dynamic>?;
+
+      // RPC 응답 필드 매핑: notice_id→id, view_count_in_group→view_count
+      _departmentPopularNotices =
+          notices.map((json) {
+            final mapped = Map<String, dynamic>.from(json);
+            if (mapped.containsKey('notice_id') && !mapped.containsKey('id')) {
+              mapped['id'] = mapped['notice_id'];
+            }
+            if (mapped.containsKey('view_count_in_group') && !mapped.containsKey('view_count')) {
+              mapped['view_count'] = mapped['view_count_in_group'];
+            }
+            return Notice.fromJson(mapped);
+          }).toList();
+      _departmentPopularDept = group?['department']?.toString();
+      _departmentPopularGrade = group?['grade'] as int?;
+      _departmentPopularLastFetched = DateTime.now();
+      _isDepartmentPopularLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isDepartmentPopularLoading = false;
+      if (kDebugMode) {
+        print('학과 인기 공지 API 실패, 로컬 폴백: $e');
+      }
+      // 로컬 폴백: 기존 로직 사용
+      _departmentPopularNotices = [];
+      notifyListeners();
+    }
+  }
+
+  /// 마감 임박 공지사항 가져오기 (오늘 이후 마감인 공지 전부)
+  /// 백엔드 deadline_from 필터로 마감일 >= 오늘인 공지를 마감일순으로 조회
+  Future<void> fetchUpcomingDeadlineNotices() async {
+    _isUpcomingDeadlineLoading = true;
+    notifyListeners();
+
+    try {
+      final today = DateTime.now().toIso8601String().split('T').first;
+      final data = await _apiService.getNotices(
+        limit: 0,
+        deadlineFrom: today,
+      );
+      _upcomingDeadlineNotices = data.map((json) => Notice.fromJson(json)).toList();
+      _isUpcomingDeadlineLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isUpcomingDeadlineLoading = false;
+      if (kDebugMode) {
+        print('마감 임박 공지 조회 실패, 로컬 폴백: $e');
+      }
+      // 로컬 폴백: _notices에서 마감일 있는 공지 필터링
+      _upcomingDeadlineNotices = _notices
+          .where((n) => n.deadline != null && n.deadline!.isAfter(DateTime.now()))
+          .toList()
+        ..sort((a, b) => a.deadline!.compareTo(b.deadline!));
+      notifyListeners();
+    }
+  }
+
+  /// 카테고리별 공지사항 가져오기 (로컬 필터링)
   List<Notice> getNoticesByCategory(String category) {
     return _notices.where((notice) => notice.category == category).toList();
   }
 
-  /// 공지사항 검색
-  List<Notice> searchNotices(String query) {
+  /// 카테고리별 공지사항 가져오기 (백엔드 API 호출)
+  Future<void> fetchNoticesByCategory(String category) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // 백엔드 API 호출 (카테고리 필터 적용)
+      final noticesData = await _apiService.getNotices(
+        category: category,
+        limit: 100,
+      );
+
+      // 카테고리별 결과를 별도 상태에 저장 (_notices 전체 목록은 유지)
+      _categoryNotices = noticesData.map((json) => Notice.fromJson(json)).toList();
+
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _error = '공지사항을 불러오는데 실패했습니다: $e';
+      _isLoading = false;
+      notifyListeners();
+
+      // 에러 발생 시 로컬 필터링 사용 (개발용)
+      if (kDebugMode) {
+        print('API 에러 발생, 로컬 필터링 사용: $e');
+        _categoryNotices = _notices.where((n) => n.category == category).toList();
+        _error = null;
+        notifyListeners();
+      }
+    }
+  }
+
+  /// 공지사항 검색 (백엔드 API 호출 - 제목 + 벡터 하이브리드 검색)
+  ///
+  /// [query] 검색 키워드 (2자 이상)
+  /// 반환값: 검색 결과 리스트 (점수순 정렬)
+  Future<List<Notice>> searchNotices(String query) async {
+    // 2자 미만이면 로컬 필터링으로 폴백
+    if (query.length < 2) {
+      return _searchNoticesLocal(query);
+    }
+
+    try {
+      // 백엔드 API 호출
+      final results = await _apiService.searchNotices(
+        query: query,
+        limit: 50,
+        minScore: 0.2,
+      );
+
+      // Notice 객체로 변환
+      return results.map((json) => Notice.fromJson(_convertSearchResult(json))).toList();
+    } catch (e) {
+      // API 에러 시 로컬 필터링으로 폴백
+      if (kDebugMode) {
+        print('검색 API 에러, 로컬 검색 사용: $e');
+      }
+      return _searchNoticesLocal(query);
+    }
+  }
+
+  /// 검색 결과를 Notice.fromJson 형식으로 변환
+  /// 백엔드 응답 필드: total_score, title_score, vector_score (하위 호환: similarity)
+  /// null 값에 대한 안전한 처리를 포함합니다.
+  Map<String, dynamic> _convertSearchResult(Map<String, dynamic> searchResult) {
+    return {
+      'id': searchResult['id'] ?? searchResult['notice_id'] ?? '',
+      'title': searchResult['title'] ?? '',
+      'content': searchResult['content'] ?? '',
+      'category': searchResult['category'] ?? '공지사항',
+      'published_at': searchResult['published_at'],
+      'source_url': searchResult['source_url'],
+      'view_count': searchResult['view_count'] ?? 0,
+      'ai_summary': searchResult['ai_summary'],
+      'author': searchResult['author'],
+      'deadline': searchResult['deadline'],
+      // 검색 점수 정보 (total_score 우선, similarity 폴백)
+      'search_score': searchResult['total_score'] ?? searchResult['similarity'] ?? 0,
+      'title_match': searchResult['title_match'] ?? false,
+    };
+  }
+
+  /// 로컬 검색 (폴백용)
+  List<Notice> _searchNoticesLocal(String query) {
     final lowerQuery = query.toLowerCase();
     return _notices.where((notice) {
       return notice.title.toLowerCase().contains(lowerQuery) ||
           notice.content.toLowerCase().contains(lowerQuery) ||
           notice.tags.any((tag) => tag.toLowerCase().contains(lowerQuery));
     }).toList();
+  }
+
+  /// 이번 주 마감 공지사항 가져오기 (홈 카드4용 경량 API)
+  Future<void> fetchWeeklyDeadlineNotices({int limit = 10}) async {
+    try {
+      final data = await _apiService.getDeadlineNotices(limit: limit);
+      _weeklyDeadlineNotices = data.map((json) => Notice.fromJson(json)).toList();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('이번 주 마감 공지 조회 실패: $e');
+    }
+  }
+
+  /// 사용자 북마크 공지사항 가져오기 (홈 카드2용 경량 API)
+  Future<void> fetchBookmarkedNotices({int limit = 10}) async {
+    try {
+      final data = await _apiService.getBookmarkedNotices(limit: limit);
+      _bookmarkedNotices = data.map((json) => Notice.fromJson(json)).toList();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('북마크 공지 조회 실패: $e');
+    }
+  }
+
+  /// 조회수 기준 인기 공지사항 가져오기 (홈 카드 5개 + 전체보기 10개)
+  Future<void> fetchPopularNotices({int limit = 10}) async {
+    try {
+      final data = await _apiService.getPopularNotices(limit: limit);
+      _popularNotices = data.map((json) => Notice.fromJson(json)).toList();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('인기 공지 조회 실패: $e');
+    }
   }
 
   /// 백엔드에서 공지사항 목록 가져오기
@@ -59,13 +413,11 @@ class NoticeProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // 실제 백엔드 API 호출
+      // 백엔드 API 호출 (is_bookmarked, bookmark_count 포함)
       final noticesData = await _apiService.getNotices(limit: 100);
 
-      // Notice 객체로 변환
+      // Notice 객체로 변환 (API가 is_bookmarked, bookmark_count 직접 반환)
       _notices = noticesData.map((json) => Notice.fromJson(json)).toList();
-
-      // 북마크된 공지사항 필터링
       _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
 
       _isLoading = false;
@@ -80,31 +432,111 @@ class NoticeProvider with ChangeNotifier {
         print('API 에러 발생, 더미 데이터 사용: $e');
         _notices = _getDummyNotices();
         _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
-        _error = null; // 더미 데이터 사용 시 에러 초기화
+        _error = null;
         notifyListeners();
       }
     }
   }
 
-  /// 공지사항 북마크 토글
+  /// 공지사항 북마크 토글 (백엔드 API 연동)
   Future<void> toggleBookmark(String noticeId) async {
-    try {
-      // TODO: 백엔드 API 호출
-      // await http.post(Uri.parse('$baseUrl/api/notices/$noticeId/bookmark'));
+    // 낙관적 업데이트: _notices, _recommendedPool, _categoryNotices 모두 동기화
+    final index = _notices.indexWhere((n) => n.id == noticeId);
+    final recIndex = _recommendedPool.indexWhere((n) => n.id == noticeId);
+    final catIndex = _categoryNotices.indexWhere((n) => n.id == noticeId);
 
-      final index = _notices.indexWhere((n) => n.id == noticeId);
+    // 현재 북마크 상태를 어떤 리스트에서든 가져옴
+    final previousState = index != -1
+        ? _notices[index].isBookmarked
+        : catIndex != -1
+            ? _categoryNotices[catIndex].isBookmarked
+            : recIndex != -1
+                ? _recommendedPool[recIndex].isBookmarked
+                : false;
+    final newState = !previousState;
+    final countDelta = newState ? 1 : -1;
+
+    // _notices 업데이트
+    if (index != -1) {
+      _notices[index] = _notices[index].copyWith(
+        isBookmarked: newState,
+        bookmarkCount: _notices[index].bookmarkCount + countDelta,
+      );
+    }
+    // _recommendedPool 업데이트
+    if (recIndex != -1) {
+      _recommendedPool[recIndex] = _recommendedPool[recIndex].copyWith(
+        isBookmarked: newState,
+        bookmarkCount: _recommendedPool[recIndex].bookmarkCount + countDelta,
+      );
+    }
+    // _categoryNotices 업데이트
+    if (catIndex != -1) {
+      _categoryNotices[catIndex] = _categoryNotices[catIndex].copyWith(
+        isBookmarked: newState,
+        bookmarkCount: _categoryNotices[catIndex].bookmarkCount + countDelta,
+      );
+    }
+    _bookmarkedNotices = [
+      ..._notices.where((n) => n.isBookmarked),
+      ..._categoryNotices.where((n) => n.isBookmarked && _notices.every((m) => m.id != n.id)),
+    ];
+    notifyListeners();
+
+    try {
+      // 백엔드 API 호출
+      await _apiService.toggleBookmark(noticeId);
+    } catch (e) {
+      // API 실패 시 로컬 상태 롤백
       if (index != -1) {
         _notices[index] = _notices[index].copyWith(
-          isBookmarked: !_notices[index].isBookmarked,
+          isBookmarked: previousState,
+          bookmarkCount: _notices[index].bookmarkCount - countDelta,
         );
-
-        // 북마크 목록 업데이트
-        _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
-        notifyListeners();
       }
-    } catch (e) {
-      _error = '북마크 처리에 실패했습니다: $e';
+      if (recIndex != -1) {
+        _recommendedPool[recIndex] = _recommendedPool[recIndex].copyWith(
+          isBookmarked: previousState,
+          bookmarkCount: _recommendedPool[recIndex].bookmarkCount - countDelta,
+        );
+      }
+      if (catIndex != -1) {
+        _categoryNotices[catIndex] = _categoryNotices[catIndex].copyWith(
+          isBookmarked: previousState,
+          bookmarkCount: _categoryNotices[catIndex].bookmarkCount - countDelta,
+        );
+      }
+      _bookmarkedNotices = [
+        ..._notices.where((n) => n.isBookmarked),
+        ..._categoryNotices.where((n) => n.isBookmarked && _notices.every((m) => m.id != n.id)),
+      ];
       notifyListeners();
+
+      if (kDebugMode) {
+        print('북마크 API 에러 (로컬 유지): $e');
+      }
+    }
+  }
+
+  /// 백엔드에서 북마크 목록 가져오기
+  Future<void> fetchBookmarks() async {
+    try {
+      final bookmarks = await _apiService.getBookmarks();
+      final bookmarkIds = bookmarks.map((b) => b['id'] as String).toSet();
+
+      // 기존 공지사항의 북마크 상태 동기화
+      for (var i = 0; i < _notices.length; i++) {
+        final shouldBeBookmarked = bookmarkIds.contains(_notices[i].id);
+        if (_notices[i].isBookmarked != shouldBeBookmarked) {
+          _notices[i] = _notices[i].copyWith(isBookmarked: shouldBeBookmarked);
+        }
+      }
+      _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
+      notifyListeners();
+    } catch (e) {
+      if (kDebugMode) {
+        print('북마크 목록 조회 에러: $e');
+      }
     }
   }
 
@@ -115,10 +547,15 @@ class NoticeProvider with ChangeNotifier {
       final noticeData = await _apiService.getNoticeById(noticeId);
       final notice = Notice.fromJson(noticeData);
 
-      // 로컬 상태 업데이트
+      // 조회 기록 저장 (인기 공지 집계용, 실패해도 무시)
+      _apiService.recordNoticeView(noticeId);
+
+      // 로컬 상태 업데이트 (기존 북마크 상태 유지)
       final index = _notices.indexWhere((n) => n.id == noticeId);
       if (index != -1) {
-        _notices[index] = notice;
+        final existingBookmarkState = _notices[index].isBookmarked;
+        _notices[index] = notice.copyWith(isBookmarked: existingBookmarkState);
+        _bookmarkedNotices = _notices.where((n) => n.isBookmarked).toList();
         notifyListeners();
       }
 
@@ -165,12 +602,14 @@ class NoticeProvider with ChangeNotifier {
 
 자세한 사항은 학사공지를 참고하시기 바랍니다.
         ''',
-        category: '학사공지',
+        category: '학사',
         date: DateTime.now().subtract(const Duration(days: 1)),
         isNew: true,
         views: 234,
         tags: ['수강신청', '학사일정'],
         deadline: DateTime.now().add(const Duration(days: 2)),
+        aiSummary: '2월 5일부터 학년별 수강신청 시작. 4학년부터 순차적으로 진행.',
+        priority: '중요',
       ),
       Notice(
         id: '2',
@@ -195,6 +634,9 @@ class NoticeProvider with ChangeNotifier {
         tags: ['장학금', '국가장학금'],
         isBookmarked: true,
         deadline: DateTime.now().add(const Duration(days: 5)),
+        aiSummary: '1학기 국가장학금 2차 신청 마감 임박. 2월 1일까지 신청 가능.',
+        priority: '중요',
+        author: '학생지원팀',
       ),
       Notice(
         id: '3',

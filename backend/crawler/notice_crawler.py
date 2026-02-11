@@ -13,8 +13,40 @@
 from .base_crawler import BaseCrawler
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from markdownify import markdownify as md
+import re
 import sys
 import os
+
+
+def clean_markdown(text: str) -> str:
+    """
+    markdownify 출력의 파편화된 서식을 정리합니다.
+
+    학교 홈페이지 HTML에서 <b>2026</b><b>년</b> 같이 태그가 파편화되어 있으면
+    markdownify가 **2026****년** 으로 변환하므로 이를 **2026년** 으로 병합합니다.
+    """
+    # 1. 연속된 bold 마커 병합: **text****text** → **texttext**
+    text = text.replace('****', '')
+    # 2. 인접한 bold 구간 병합: **text** **text** → **text text**
+    text = re.sub(r'\*\*(\s+)\*\*', r'\1', text)
+    # 3. 빈 bold 제거: **  ** → (빈 문자열)
+    text = re.sub(r'\*\*\s*\*\*', '', text)
+    # 4. 특수문자 주위 파편화된 bold 제거: **※** → ※, **‧** → ‧
+    text = re.sub(r'\*\*([^\w\s])\*\*', r'\1', text)
+    # 5. 짝이 맞지 않는 bold 마커 제거 (줄 단위로 ** 개수가 홀수면 제거)
+    lines = text.split('\n')
+    fixed_lines = []
+    for line in lines:
+        if line.count('**') % 2 != 0:
+            line = line.replace('**', '')
+        fixed_lines.append(line)
+    text = '\n'.join(fixed_lines)
+    # 6. 이스케이프된 asterisk 복원: \* → * (markdownify가 * 를 \* 로 이스케이프)
+    text = text.replace('\\*', '*')
+    # 7. 연속 빈 줄 정리 (3줄 이상 → 2줄)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
 
 # NoticeService import를 위해 경로 추가
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -29,8 +61,8 @@ class NoticeCrawler(BaseCrawler):
 
     🏗️ 작동 방식:
     1. 공지사항 목록 페이지 접속
-    2. 각 공지사항의 제목, 작성일, 링크 추출
-    3. 상세 페이지 접속해서 본문 내용 가져오기
+    2. 각 공지사항의 제목, 작성일, 링크, 순번 추출
+    3. DB의 마지막 순번보다 큰 공지만 상세 크롤링
     4. 데이터 정리해서 반환
     """
 
@@ -42,9 +74,12 @@ class NoticeCrawler(BaseCrawler):
     BOARD_PARAMS = {
         "boardId": "BBS_0000008",
         "menuCd": "DOM_000000105001001000",
-        "contentsSid": "211",
-        "cpath": ""
+        "orderBy": "REGISTER_DATE DESC",
+        "paging": "ok"
     }
+
+    # 원본 게시판 이름 (source_board 저장용)
+    SOURCE_BOARD = "공지사항"
 
     def __init__(self):
         """
@@ -83,7 +118,7 @@ class NoticeCrawler(BaseCrawler):
 
         # 1페이지 목록만 가져오기
         params = self.BOARD_PARAMS.copy()
-        params['pagerOffset'] = '0'
+        params['startPage'] = '1'
 
         soup = self.fetch_page(self.LIST_URL, params=params)
 
@@ -123,47 +158,58 @@ class NoticeCrawler(BaseCrawler):
 
     def crawl_optimized(
         self,
-        last_known_id: Optional[str] = None,
-        max_pages: int = 1
+        last_board_seq: Optional[int] = None,
+        max_pages: int = 1,
+        max_notices: int = 10,
+        **kwargs  # 하위 호환성을 위해 existing_urls 등 무시
     ) -> List[Dict[str, Any]]:
         """
-        최적화된 크롤링을 수행합니다.
+        최적화된 크롤링을 수행합니다. (순번 기반 중복 체크)
 
         🎯 목적:
-        1. 목록 페이지만 먼저 확인
-        2. 새 공지가 있을 때만 상세 페이지 크롤링
-        3. 학교 서버 부담 최소화
+        1. DB에서 해당 게시판의 마지막 순번 조회
+        2. 목록 페이지에서 마지막 순번보다 큰 공지만 크롤링
+        3. 게시판당 최대 max_notices개까지만 크롤링
+        4. 학교 서버 부담 최소화 + DB 조회 비용 감소
 
         🔧 매개변수:
-        - last_known_id: DB에 저장된 마지막 공지 ID
+        - last_board_seq: DB에 저장된 마지막 순번 (없으면 내부에서 조회)
         - max_pages: 최대 페이지 수 (기본값: 1)
+        - max_notices: 게시판당 최대 크롤링 개수 (기본값: 10)
 
         📊 반환값:
         - 크롤링한 공지사항 리스트 (상세 정보 포함)
 
         💡 예시:
-        from services.notice_service import NoticeService
-
-        service = NoticeService()
-        last_id = service.get_latest_original_id(category="공지사항")
-
         crawler = NoticeCrawler()
-        notices = crawler.crawl_optimized(last_known_id=last_id)
+        notices = crawler.crawl_optimized(max_pages=1, max_notices=10)
         print(f"새로운 공지: {len(notices)}개")
         """
         print(f"\n{'='*50}")
-        print(f"[최적화 크롤링] 시작")
+        print(f"[최적화 크롤링] 순번 기반 중복 체크 ({self.SOURCE_BOARD})")
         print(f"{'='*50}\n")
+
+        # 마지막 순번이 없으면 DB에서 조회
+        if last_board_seq is None:
+            last_board_seq = self._get_last_board_seq()
+
+        print(f"[정보] DB 마지막 순번: {last_board_seq if last_board_seq else '없음 (첫 크롤링)'}")
+        print(f"[정보] 최대 크롤링 개수: {max_notices}개")
 
         all_notices = []
 
         # 페이지별로 확인
         for page in range(1, max_pages + 1):
+            # 이미 최대 개수에 도달했으면 중단
+            if len(all_notices) >= max_notices:
+                print(f"[정보] 최대 크롤링 개수({max_notices}개) 도달 - 중단")
+                break
+
             print(f"\n[페이지 {page}/{max_pages}] 목록 확인 중...")
 
             # 목록 페이지 가져오기
             params = self.BOARD_PARAMS.copy()
-            params['pagerOffset'] = str((page - 1) * 10)
+            params['startPage'] = str(page)
 
             soup = self.fetch_page(self.LIST_URL, params=params)
 
@@ -178,26 +224,33 @@ class NoticeCrawler(BaseCrawler):
                 print(f"[INFO] 페이지 {page}에서 공지사항을 찾지 못했습니다")
                 break
 
-            # 새로운 공지만 필터링
+            # 순번 기반으로 새로운 공지만 필터링
             new_notices = []
-            found_last_id = False
+            found_old = False
 
             for notice in notices_list:
-                notice_id = notice.get("notice_id")
+                board_seq = notice.get("board_seq")
 
-                # 마지막 알려진 ID를 만나면 중단
-                if last_known_id and notice_id == last_known_id:
-                    print(f"[OK] 마지막 저장 공지 발견 - 크롤링 중단")
-                    found_last_id = True
+                # 순번이 없는 경우 (공지 등) 또는 마지막 순번보다 큰 경우만 처리
+                if board_seq is None:
+                    # 순번 없는 공지(상단 고정 등)는 URL 기반으로 중복 체크
+                    continue
+
+                if last_board_seq and board_seq <= last_board_seq:
+                    found_old = True
+                    print(f"[정보] 기존 공지 발견 (순번 {board_seq}) - 이후 스킵")
                     break
 
                 new_notices.append(notice)
 
             if not new_notices:
                 print(f"[INFO] 페이지 {page}에 새 공지 없음")
-                if found_last_id:
-                    break
-                continue
+                break
+
+            # 남은 수용 가능 개수만큼만 자르기
+            remaining = max_notices - len(all_notices)
+            if len(new_notices) > remaining:
+                new_notices = new_notices[:remaining]
 
             print(f"[OK] 새 공지 {len(new_notices)}개 발견 - 상세 크롤링 시작")
 
@@ -208,12 +261,14 @@ class NoticeCrawler(BaseCrawler):
                 detail = self._crawl_notice_detail(notice_preview)
 
                 if detail:
-                    # original_id 추가
+                    # original_id, source_board, board_seq 추가
                     detail["original_id"] = notice_preview.get("notice_id")
+                    detail["source_board"] = self.SOURCE_BOARD
+                    detail["board_seq"] = notice_preview.get("board_seq")
                     all_notices.append(detail)
 
-            # 마지막 ID를 찾았으면 더 이상 페이지를 돌지 않음
-            if found_last_id:
+            # 기존 공지가 발견되면 더 이상 페이지를 돌지 않음
+            if found_old:
                 break
 
         print(f"\n{'='*50}")
@@ -222,40 +277,87 @@ class NoticeCrawler(BaseCrawler):
 
         return all_notices
 
-    def crawl(self, max_pages: int = 1) -> List[Dict[str, Any]]:
+    def _get_last_board_seq(self) -> Optional[int]:
+        """
+        DB에서 해당 게시판의 마지막 순번을 조회합니다.
+
+        🎯 목적:
+        순번 기반 중복 체크를 위해 DB에 저장된 최신 순번을 가져옵니다.
+
+        📊 반환값:
+        - 마지막 순번 (없으면 None)
+        """
+        try:
+            from supabase import create_client
+            import os
+
+            url = os.getenv("SUPABASE_URL")
+            key = os.getenv("SUPABASE_KEY")
+
+            if not url or not key:
+                print("[WARNING] Supabase 환경변수 없음 - None 반환")
+                return None
+
+            client = create_client(url, key)
+
+            # 해당 게시판의 최대 순번 조회
+            result = client.table("notices")\
+                .select("board_seq")\
+                .eq("source_board", self.SOURCE_BOARD)\
+                .not_.is_("board_seq", "null")\
+                .order("board_seq", desc=True)\
+                .limit(1)\
+                .execute()
+
+            if result.data and result.data[0].get("board_seq"):
+                return result.data[0]["board_seq"]
+
+            return None
+
+        except Exception as e:
+            print(f"[WARNING] 마지막 순번 조회 실패: {str(e)}")
+            return None
+
+    def crawl(self, max_pages: int = 1, max_notices: int = 10) -> List[Dict[str, Any]]:
         """
         공지사항을 크롤링합니다.
 
         🔧 매개변수:
         - max_pages: 크롤링할 최대 페이지 수 (기본값: 1)
+        - max_notices: 게시판당 최대 크롤링 개수 (기본값: 10)
 
         🎯 하는 일:
         1. 목록 페이지에서 공지사항 목록 가져오기
         2. 각 공지사항의 상세 페이지 접속
         3. 제목, 내용, 작성일 등 추출
-        4. 리스트로 정리해서 반환
+        4. 최대 max_notices개까지만 수집하여 반환
 
         💡 예시:
         crawler = NoticeCrawler()
-        notices = crawler.crawl(max_pages=2)
+        notices = crawler.crawl(max_pages=2, max_notices=10)
 
         for notice in notices:
             print(f"제목: {notice['title']}")
             print(f"작성일: {notice['published_at']}")
         """
         print(f"\n{'='*50}")
-        print(f"[크롤링] 공지사항 크롤링 시작 (최대 {max_pages}페이지)")
+        print(f"[크롤링] 공지사항 크롤링 시작 (최대 {max_pages}페이지, 최대 {max_notices}개)")
         print(f"{'='*50}\n")
 
         all_notices = []
 
         # 페이지별로 크롤링
         for page in range(1, max_pages + 1):
+            # 이미 최대 개수에 도달했으면 중단
+            if len(all_notices) >= max_notices:
+                print(f"[정보] 최대 크롤링 개수({max_notices}개) 도달 - 중단")
+                break
+
             print(f"\n[페이지 {page}/{max_pages}] 크롤링 중...")
 
             # 페이지 파라미터 추가
             params = self.BOARD_PARAMS.copy()
-            params['pagerOffset'] = str((page - 1) * 10)  # 페이지네이션
+            params['startPage'] = str(page)  # 페이지네이션
 
             # 목록 페이지 가져오기
             soup = self.fetch_page(self.LIST_URL, params=params)
@@ -271,11 +373,15 @@ class NoticeCrawler(BaseCrawler):
                 print(f"[INFO] 페이지 {page}에서 공지사항을 찾지 못했습니다")
                 break
 
-            print(f"[OK] {len(notices)}개 공지사항 발견")
+            # 남은 수용 가능 개수만큼만 처리
+            remaining = max_notices - len(all_notices)
+            notices_to_crawl = notices[:remaining]
+
+            print(f"[OK] {len(notices)}개 발견, {len(notices_to_crawl)}개 상세 크롤링")
 
             # 각 공지사항의 상세 정보 가져오기
-            for i, notice_preview in enumerate(notices, 1):
-                print(f"  [{i}/{len(notices)}] {notice_preview['title'][:30]}...")
+            for i, notice_preview in enumerate(notices_to_crawl, 1):
+                print(f"  [{i}/{len(notices_to_crawl)}] {notice_preview['title'][:30]}...")
 
                 # 상세 페이지 크롤링
                 detail = self._crawl_notice_detail(notice_preview)
@@ -283,7 +389,7 @@ class NoticeCrawler(BaseCrawler):
                 if detail:
                     all_notices.append(detail)
 
-            print(f"[OK] 페이지 {page} 크롤링 완료: {len(notices)}개")
+            print(f"[OK] 페이지 {page} 크롤링 완료: {len(notices_to_crawl)}개")
 
         print(f"\n{'='*50}")
         print(f"[완료] 전체 크롤링 완료: 총 {len(all_notices)}개 공지사항")
@@ -299,7 +405,7 @@ class NoticeCrawler(BaseCrawler):
         - soup: BeautifulSoup 객체
 
         🎯 하는 일:
-        게시판 목록에서 각 공지사항의 기본 정보(제목, 링크, 날짜)를 추출합니다.
+        게시판 목록에서 각 공지사항의 기본 정보(제목, 링크, 날짜, 순번)를 추출합니다.
 
         💡 반환값:
         [
@@ -307,7 +413,8 @@ class NoticeCrawler(BaseCrawler):
                 "title": "제목",
                 "url": "상세페이지 링크",
                 "date": "작성일",
-                "notice_id": "게시물 ID"
+                "notice_id": "게시물 ID",
+                "board_seq": 5125  # 게시판 내 순번
             },
             ...
         ]
@@ -348,11 +455,22 @@ class NoticeCrawler(BaseCrawler):
                 elif 'id=' in link:
                     notice_id = link.split('id=')[1].split('&')[0]
 
+                # 순번 추출 (td.pcv_moh_768에서)
+                # 군산대 게시판 HTML: <td class="pcv_moh_768">5125</td>
+                board_seq = None
+                seq_elem = row.select_one('td.pcv_moh_768')
+                if seq_elem:
+                    seq_text = self.clean_text(seq_elem.get_text())
+                    # 숫자만 추출 (공지 등 특수 표시 제외)
+                    if seq_text.isdigit():
+                        board_seq = int(seq_text)
+
                 notices.append({
                     "title": title,
                     "url": link,
                     "date": date_str,
-                    "notice_id": notice_id
+                    "notice_id": notice_id,
+                    "board_seq": board_seq
                 })
 
             except Exception as e:
@@ -396,8 +514,20 @@ class NoticeCrawler(BaseCrawler):
             return None
 
         try:
-            # 제목 추출
-            title = notice_preview.get('title', '')
+            # 제목 추출 - 상세 페이지에서 완전한 제목 가져오기
+            title_elem = (
+                soup.select_one('div.bv_title') or
+                soup.select_one('.board-view-title') or
+                soup.select_one('.view-title') or
+                soup.select_one('h3.title') or
+                soup.select_one('h2.title')
+            )
+
+            if title_elem:
+                title = self.clean_text(title_elem.get_text())
+            else:
+                # 상세 페이지에서 제목을 찾지 못하면 목록 제목 사용
+                title = notice_preview.get('title', '')
 
             # 본문 내용 추출 (div.bv_content_text에서만 추출)
             content_elem = (
@@ -407,11 +537,37 @@ class NoticeCrawler(BaseCrawler):
                 soup.select_one('.cont_box')
             )
 
-            content = self.clean_text(content_elem.get_text()) if content_elem else ""
+            # 본문을 Markdown으로 변환 (표/구조 보존)
+            if content_elem:
+                # 이미지 src 상대경로를 절대경로로 변환 (Markdown 변환 전)
+                for img in content_elem.select('img'):
+                    src = img.get('src', '')
+                    if src and not src.startswith('http'):
+                        img['src'] = self.BASE_URL + src
 
-            # 본문이 너무 짧으면 경고만 출력 (전체 텍스트 사용 안 함)
-            if len(content) < 50:
-                print(f"    [WARNING] 본문이 너무 짧음: {title[:30]}... (길이: {len(content)})")
+                content = clean_markdown(md(
+                    str(content_elem),
+                    heading_style="ATX",
+                    strip=['script', 'style'],
+                ))
+            else:
+                content = ""
+
+            # 본문 내 이미지 URL 추출 (이미지 공지 처리용)
+            content_images = []
+            if content_elem:
+                for img in content_elem.select('img'):
+                    src = img.get('src', '')
+                    if src:
+                        content_images.append(src)
+
+            # 본문이 너무 짧고 이미지가 있으면 이미지 공지로 표시
+            plain_text_len = len(content_elem.get_text().strip()) if content_elem else 0
+            if plain_text_len < 50:
+                if content_images:
+                    print(f"    [INFO] 이미지 공지 감지: {len(content_images)}개 이미지 발견")
+                else:
+                    print(f"    [WARNING] 본문이 너무 짧음: {title[:30]}... (길이: {len(content)})")
 
             # 작성일 추출 (상세 페이지의 div.bv_txt01에서)
             date_str = None
@@ -480,14 +636,22 @@ class NoticeCrawler(BaseCrawler):
                 author=author,
                 views=views,
                 attachments=attachments,
-                notice_id=notice_preview.get('notice_id')
+                original_id=notice_preview.get('notice_id')
             )
+
+            # 이미지 공지인 경우 이미지 URL 추가
+            if content_images:
+                notice_data["content_images"] = content_images
 
             return notice_data
 
         except Exception as e:
             print(f"    [ERROR] 상세 페이지 파싱 실패: {str(e)}")
             return None
+
+        finally:
+            # BeautifulSoup 객체 명시적 해제 (메모리 절약)
+            del soup
 
 
 # 🧪 테스트 코드

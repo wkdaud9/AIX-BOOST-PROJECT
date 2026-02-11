@@ -23,7 +23,6 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from ai.analyzer import NoticeAnalyzer
 from ai.gemini_client import GeminiClient
 from services.notice_service import NoticeService
-from services.calendar_service import CalendarService
 
 
 def test_gemini_client():
@@ -88,7 +87,6 @@ def test_analyzer():
         print("\n✅ 분석 결과:")
         print(f"  📝 요약: {result.get('summary', '')[:100]}...")
         print(f"  🏷️ 카테고리: {result.get('category', '')}")
-        print(f"  ⚡ 중요도: {result.get('priority', '')}")
         print(f"  📅 날짜 정보:")
 
         dates = result.get('dates', {})
@@ -126,29 +124,6 @@ def test_notice_service():
         return False
 
 
-def test_calendar_service():
-    """
-    캘린더 서비스 테스트 (실제 이벤트 생성은 하지 않음)
-    """
-    print("\n" + "="*60)
-    print("🧪 테스트 4: 캘린더 서비스")
-    print("="*60)
-
-    try:
-        service = CalendarService()
-        print("✅ CalendarService 초기화 성공")
-
-        # 다가오는 이벤트 조회 테스트
-        print("\n다가오는 이벤트 조회 중...")
-        upcoming = service.get_upcoming_events(days_ahead=7)
-        print(f"✅ 다가오는 이벤트: {len(upcoming)}개")
-
-        return True
-    except Exception as e:
-        print(f"❌ 테스트 실패: {str(e)}")
-        return False
-
-
 def test_full_pipeline():
     """
     전체 파이프라인 테스트 (크롤링 제외)
@@ -179,7 +154,6 @@ def test_full_pipeline():
         analysis = analyzer.analyze_notice_comprehensive(test_notice)
         print(f"✅ AI 분석 완료")
         print(f"  - 카테고리: {analysis.get('category')}")
-        print(f"  - 중요도: {analysis.get('priority')}")
 
         # 2. DB 저장
         print("\n[2단계] DB 저장 중...")
@@ -189,16 +163,6 @@ def test_full_pipeline():
 
         if notice_id:
             print(f"✅ DB 저장 완료: {notice_id}")
-
-            # 3. 캘린더 이벤트 생성 (날짜가 있으면)
-            dates = analysis.get('dates', {})
-            if dates and any(dates.values()):
-                print("\n[3단계] 캘린더 이벤트 생성 중...")
-                calendar_service = CalendarService()
-
-                # 실제 사용자 ID 대신 테스트 스킵
-                print("  ℹ️ 실제 사용자 ID가 필요하여 캘린더 생성은 스킵합니다.")
-
             return True
         else:
             print("❌ DB 저장 실패")
@@ -237,7 +201,6 @@ def main():
         ("Gemini 클라이언트", test_gemini_client),
         ("공지사항 AI 분석", test_analyzer),
         ("공지사항 서비스", test_notice_service),
-        ("캘린더 서비스", test_calendar_service),
         ("전체 파이프라인", test_full_pipeline),
     ]
 

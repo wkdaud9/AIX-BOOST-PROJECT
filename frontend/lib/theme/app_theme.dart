@@ -1,40 +1,86 @@
 import 'package:flutter/material.dart';
 
-/// 앱 전체 테마 정의
+/// 앱 전체 테마 정의 - 트렌디하고 세련된 모바일 UI
 class AppTheme {
-  // 프라이머리 컬러 (군산대 블루 계열)
-  static const Color primaryColor = Color(0xFF1976D2);
-  static const Color primaryLight = Color(0xFF63A4FF);
-  static const Color primaryDark = Color(0xFF004BA0);
+  // 프라이머리 컬러 (딥 네이비 블루)
+  static const Color primaryColor = Color(0xFF0F2854);
+  static const Color primaryLight = Color(0xFF4988C4);
+  static const Color primaryDark = Color(0xFF0A1D40);
 
-  // 세컨더리 컬러
-  static const Color secondaryColor = Color(0xFF00BCD4);
-  static const Color secondaryLight = Color(0xFF62EFFF);
-  static const Color secondaryDark = Color(0xFF008BA3);
+  // 세컨더리 컬러 (미드 네이비)
+  static const Color secondaryColor = Color(0xFF1C4D8D);
+  static const Color secondaryLight = Color(0xFF4988C4);
+  static const Color secondaryDark = Color(0xFF143A6B);
 
-  // 배경 컬러
-  static const Color backgroundColor = Color(0xFFF5F5F5);
+  // 배경 컬러 (밝고 시원한 블루그레이)
+  static const Color backgroundColor = Color(0xFFF0F4F8);
   static const Color surfaceColor = Colors.white;
+  static const Color surfaceLight = Color(0xFFF5F9FC);
 
-  // 텍스트 컬러
-  static const Color textPrimary = Color(0xFF212121);
-  static const Color textSecondary = Color(0xFF757575);
-  static const Color textHint = Color(0xFFBDBDBD);
+  // 텍스트 컬러 (네이비 기반 가독성)
+  static const Color textPrimary = Color(0xFF0F2854);
+  static const Color textSecondary = Color(0xFF5A7BA6);
+  static const Color textHint = Color(0xFFA8C4D9);
 
-  // 상태 컬러
-  static const Color successColor = Color(0xFF4CAF50);
-  static const Color warningColor = Color(0xFFFF9800);
-  static const Color errorColor = Color(0xFFF44336);
-  static const Color infoColor = Color(0xFF2196F3);
+  // 상태 컬러 (세련된 톤)
+  static const Color successColor = Color(0xFF2A9D8F);
+  static const Color warningColor = Color(0xFFE9A040);
+  static const Color errorColor = Color(0xFFE05263);
+  static const Color infoColor = Color(0xFF4988C4);
 
-  // 공지사항 카테고리 컬러
+  // 라이트 틴트 (섹션 배경, 하이라이트)
+  static const Color lightTint = Color(0xFFBDE8F5);
+
+  // 공지사항 카테고리 컬러 - 라이트 모드 (Muted & Dusty 톤)
   static const Map<String, Color> categoryColors = {
-    '학사공지': Color(0xFF1976D2),
-    '장학': Color(0xFF388E3C),
-    '취업': Color(0xFFF57C00),
-    '학생활동': Color(0xFF7B1FA2),
-    '시설': Color(0xFF0097A7),
-    '기타': Color(0xFF616161),
+    '학사': Color(0xFF5B85C2),       // 더스티 블루
+    '학사공지': Color(0xFF5B85C2),   // 더스티 블루
+    '장학': Color(0xFFC2849B),       // 더스티 로즈
+    '취업': Color(0xFFD18056),       // 웜 테라코타
+    '행사': Color(0xFF9678C4),       // 더스티 플럼
+    '학생활동': Color(0xFF9678C4),   // 더스티 플럼
+    '시설': Color(0xFF52A6A0),       // 뮤티드 틸
+    '교육': Color(0xFF4A96B0),       // 오션 틸
+    '공모전': Color(0xFFB89B5E),     // 더스티 골드
+    '기타': Color(0xFF8B95A5),       // 쿨 슬레이트
+  };
+
+  // MyBro 탭 색상 - 라이트 모드 (Muted & Dusty 톤)
+  static const Map<String, Color> myBroColors = {
+    'AI 맞춤 추천': Color(0xFF6E7FC4),   // 소프트 퍼리윙클
+    '오늘 필수': Color(0xFFC87068),      // 더스티 코랄
+    '학과 인기': Color(0xFF6BA68A),      // 세이지 그린
+    '마감 임박': Color(0xFFCB8B5A),      // 더스티 앰버
+  };
+
+  // MyBro 탭 색상 - 다크 모드 (고채도 비비드 톤)
+  static const Map<String, Color> myBroColorsDark = {
+    'AI 맞춤 추천': Color(0xFF7E96EC),   // 비비드 퍼리윙클
+    '오늘 필수': Color(0xFFEF7B74),      // 비비드 코랄 레드
+    '학과 인기': Color(0xFF58C8A2),      // 비비드 에메랄드
+    '마감 임박': Color(0xFFECA45C),      // 비비드 앰버
+  };
+
+  /// MyBro 탭 색상 조회 (다크모드 자동 분기)
+  static Color getMyBroColor(String tabName, {bool isDark = false}) {
+    if (isDark) {
+      return myBroColorsDark[tabName] ?? myBroColorsDark['AI 맞춤 추천']!;
+    }
+    return myBroColors[tabName] ?? myBroColors['AI 맞춤 추천']!;
+  }
+
+  // 공지사항 카테고리 컬러 - 다크 모드 (고채도 비비드 톤)
+  static const Map<String, Color> categoryColorsDark = {
+    '학사': Color(0xFF6AAEEF),       // 비비드 스카이 블루
+    '학사공지': Color(0xFF6AAEEF),   // 비비드 스카이 블루
+    '장학': Color(0xFFF08DA6),       // 비비드 로즈 핑크
+    '취업': Color(0xFFF09A68),       // 비비드 코랄 오렌지
+    '행사': Color(0xFFBB90EA),       // 비비드 라벤더
+    '학생활동': Color(0xFFBB90EA),   // 비비드 라벤더
+    '시설': Color(0xFF4DCABE),       // 비비드 민트 틸
+    '교육': Color(0xFF4CBCE0),       // 비비드 오션 시안
+    '공모전': Color(0xFFE4C254),     // 비비드 앰버 골드
+    '기타': Color(0xFF9AB0CA),       // 쿨 블루 슬레이트
   };
 
   /// 라이트 테마
@@ -60,6 +106,8 @@ class AppTheme {
     // AppBar 테마
     appBarTheme: const AppBarTheme(
       elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
       centerTitle: false,
       backgroundColor: surfaceColor,
       foregroundColor: textPrimary,
@@ -70,12 +118,15 @@ class AppTheme {
       ),
     ),
 
-    // Card 테마
+    // Card 테마 (세련된 그림자와 둥근 모서리)
     cardTheme: CardThemeData(
-      elevation: 2.0,
+      elevation: 0,
+      color: surfaceColor,
+      shadowColor: Colors.black.withOpacity(0.08),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
       ),
+      margin: const EdgeInsets.symmetric(vertical: 6),
     ),
 
     // 텍스트 테마
@@ -127,40 +178,42 @@ class AppTheme {
       ),
     ),
 
-    // 입력 필드 테마
+    // 입력 필드 테마 (부드러운 디자인)
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: surfaceColor,
+      fillColor: surfaceLight,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: textHint.withOpacity(0.3)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: textHint.withOpacity(0.3)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: primaryColor, width: 2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: errorColor),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
     ),
 
-    // 버튼 테마
+    // 버튼 테마 (부드러운 그림자와 둥근 모서리)
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        shadowColor: Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
         ),
         textStyle: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
         ),
       ),
     ),
@@ -172,8 +225,169 @@ class AppTheme {
     ),
   );
 
-  /// 카테고리별 색상 가져오기
-  static Color getCategoryColor(String category) {
+  /// 다크 테마
+  static ThemeData get darkTheme => ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    primaryColor: primaryColor,
+    scaffoldBackgroundColor: const Color(0xFF060E1F),
+    splashColor: Colors.transparent,
+    highlightColor: Colors.transparent,
+
+    colorScheme: const ColorScheme.dark(
+      primary: primaryColor,
+      secondary: secondaryColor,
+      surface: Color(0xFF0F2854),
+      error: errorColor,
+      onPrimary: Colors.white,
+      onSecondary: Colors.white,
+      onSurface: Colors.white,
+      onError: Colors.white,
+    ),
+
+    // AppBar 테마 (다크)
+    appBarTheme: const AppBarTheme(
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      centerTitle: false,
+      backgroundColor: Color(0xFF060E1F),
+      foregroundColor: Colors.white,
+      titleTextStyle: TextStyle(
+        color: Colors.white,
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+
+    // Card 테마 (다크)
+    cardTheme: CardThemeData(
+      elevation: 0,
+      color: const Color(0xFF0F2854),
+      shadowColor: Colors.black.withOpacity(0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      margin: const EdgeInsets.symmetric(vertical: 6),
+    ),
+
+    // 텍스트 테마 (다크)
+    textTheme: TextTheme(
+      headlineLarge: const TextStyle(
+        fontSize: 32,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+      headlineMedium: const TextStyle(
+        fontSize: 28,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+      headlineSmall: const TextStyle(
+        fontSize: 24,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+      titleLarge: const TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      ),
+      titleMedium: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      ),
+      titleSmall: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      ),
+      bodyLarge: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.normal,
+        color: Colors.white,
+      ),
+      bodyMedium: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.normal,
+        color: Colors.white,
+      ),
+      bodySmall: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.normal,
+        color: Colors.white.withOpacity(0.7),
+      ),
+    ),
+
+    // 입력 필드 테마 (다크)
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: const Color(0xFF1C4D8D),
+      labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+      floatingLabelStyle: const TextStyle(color: Colors.white),
+      hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+      prefixIconColor: Colors.white.withOpacity(0.7),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: primaryLight, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: errorColor),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    ),
+
+    // 버튼 테마 (다크)
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        textStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
+      ),
+    ),
+
+    // 아이콘 테마 (다크)
+    iconTheme: const IconThemeData(
+      color: Colors.white,
+      size: 24,
+    ),
+
+    // BottomNavigationBar 테마 (다크)
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: Color(0xFF060E1F),
+      selectedItemColor: primaryLight,
+      unselectedItemColor: Colors.white54,
+    ),
+
+    // Divider 테마 (다크)
+    dividerTheme: DividerThemeData(
+      color: Colors.white.withOpacity(0.1),
+    ),
+  );
+
+  /// 카테고리별 색상 가져오기 (다크 모드 시 밝은 톤 자동 반환)
+  static Color getCategoryColor(String category, {bool isDark = false}) {
+    if (isDark) {
+      return categoryColorsDark[category] ?? categoryColorsDark['기타']!;
+    }
     return categoryColors[category] ?? categoryColors['기타']!;
   }
 }
@@ -188,13 +402,78 @@ class AppSpacing {
   static const double xxl = 48.0;
 }
 
-/// 보더 라디우스 상수
+/// 보더 라디우스 상수 (더 둥글고 부드러운 디자인)
 class AppRadius {
-  static const double sm = 4.0;
-  static const double md = 8.0;
-  static const double lg = 12.0;
-  static const double xl = 16.0;
+  static const double xs = 6.0;
+  static const double sm = 8.0;
+  static const double md = 12.0;
+  static const double lg = 16.0;
+  static const double xl = 20.0;
+  static const double xxl = 24.0;
   static const double round = 999.0;
+}
+
+/// 그림자 스타일 (트렌디한 부드러운 그림자)
+class AppShadow {
+  // 부드러운 그림자 (기본 카드, 버튼 등)
+  static List<BoxShadow> get soft => [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.04),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+        BoxShadow(
+          color: Colors.black.withOpacity(0.02),
+          blurRadius: 4,
+          offset: const Offset(0, 1),
+        ),
+      ];
+
+  // 중간 그림자 (강조 카드, 슬라이드 카드 등)
+  static List<BoxShadow> get medium => [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.08),
+          blurRadius: 16,
+          offset: const Offset(0, 4),
+        ),
+        BoxShadow(
+          color: Colors.black.withOpacity(0.04),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ];
+
+  // 강한 그림자 (배너, 부동 버튼 등)
+  static List<BoxShadow> get strong => [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.12),
+          blurRadius: 24,
+          offset: const Offset(0, 8),
+        ),
+        BoxShadow(
+          color: Colors.black.withOpacity(0.06),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ];
+
+  // 컬러 그림자 (Primary 강조)
+  static List<BoxShadow> coloredPrimary(double opacity) => [
+        BoxShadow(
+          color: AppTheme.primaryColor.withOpacity(opacity * 0.3),
+          blurRadius: 20,
+          offset: const Offset(0, 8),
+        ),
+      ];
+
+  // 컬러 그림자 (Secondary 강조)
+  static List<BoxShadow> coloredSecondary(double opacity) => [
+        BoxShadow(
+          color: AppTheme.secondaryColor.withOpacity(opacity * 0.3),
+          blurRadius: 20,
+          offset: const Offset(0, 8),
+        ),
+      ];
 }
 
 /// 애니메이션 지속 시간

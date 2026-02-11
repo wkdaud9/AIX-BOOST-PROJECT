@@ -77,12 +77,12 @@ class SupabaseService:
                     "category": notice.get("category", "공지사항"),
                     "source_url": notice.get("source_url"),
                     "published_at": published_at,
-                    "crawled_at": datetime.now().isoformat(),
                     "is_processed": False,
                     "author": notice.get("author"),
-                    "view_count": notice.get("views"),
+                    "view_count": notice.get("view_count") or notice.get("views"),
                     "original_id": original_id,
-                    "attachments": notice.get("attachments", [])
+                    "attachments": notice.get("attachments", []),
+                    "ai_summary": notice.get("ai_summary") or notice.get("summary", ""),
                 }
 
                 # 중복 체크 (original_id 우선, 없으면 source_url 사용)
@@ -129,34 +129,63 @@ class SupabaseService:
         self,
         category: Optional[str] = None,
         limit: int = 20,
-        offset: int = 0
+        offset: int = 0,
+        user_id: Optional[str] = None,
+        deadline_from: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         공지사항 목록을 조회합니다
 
         매개변수:
         - category: 카테고리 필터 (선택)
-        - limit: 가져올 개수 (기본 20)
+        - limit: 가져올 개수 (기본 20, 0이면 무제한)
         - offset: 건너뛸 개수 (페이지네이션)
+        - user_id: 사용자 ID (있으면 is_bookmarked 포함)
+        - deadline_from: 마감일 필터 (이 날짜 이후 마감인 공지만, ISO 형식)
 
         반환값:
-        - 공지사항 리스트
-
-        예시:
-        service = SupabaseService()
-        notices = service.get_notices(category="공지사항", limit=10)
+        - 공지사항 리스트 (bookmark_count, is_bookmarked 포함)
         """
         try:
+            # content_embedding 제외 (프론트엔드에서 불필요, 건당 ~12KB 절약)
             query = self.client.table("notices")\
-                .select("*")\
-                .order("published_at", desc=True)\
-                .range(offset, offset + limit - 1)
+                .select(
+                    "id, title, content, category, published_at, source_url, "
+                    "view_count, ai_summary, author, deadline, deadlines, "
+                    "bookmark_count, source_board, board_seq, attachments, "
+                    "content_images, display_mode, has_important_image"
+                )
 
             if category:
                 query = query.eq("category", category)
 
+            # 마감일 필터: deadline_from 이후 마감인 공지만
+            if deadline_from:
+                query = query.gte("deadline", deadline_from)
+                query = query.order("deadline", desc=False)
+            else:
+                query = query.order("published_at", desc=True)
+
+            # limit=0이면 무제한, 아니면 페이지네이션 적용
+            if limit > 0:
+                query = query.range(offset, offset + limit - 1)
+
             result = query.execute()
-            return result.data if result.data else []
+            notices = result.data if result.data else []
+
+            # 로그인한 사용자면 is_bookmarked 표시
+            if notices and user_id:
+                notice_ids = [n["id"] for n in notices]
+                bookmark_result = self.client.table("user_bookmarks")\
+                    .select("notice_id")\
+                    .eq("user_id", user_id)\
+                    .in_("notice_id", notice_ids)\
+                    .execute()
+                bookmarked_ids = {b["notice_id"] for b in (bookmark_result.data or [])}
+                for notice in notices:
+                    notice["is_bookmarked"] = notice["id"] in bookmarked_ids
+
+            return notices
 
         except Exception as e:
             print(f"[ERROR] 조회 에러: {str(e)}")
@@ -214,6 +243,111 @@ class SupabaseService:
         except Exception as e:
             print(f"[ERROR] 삭제 에러: {str(e)}")
             return False
+
+    def get_deadline_notices(self, week_start: str, week_end: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        이번 주 마감 공지사항만 조회합니다 (홈 화면 카드4용 경량 API)
+
+        매개변수:
+        - week_start: 주 시작일 (ISO 형식, 예: 2026-02-09)
+        - week_end: 주 종료일 (ISO 형식, 예: 2026-02-15)
+        - limit: 가져올 개수 (기본 10)
+
+        반환값:
+        - 마감일 기준 정렬된 공지사항 리스트
+        """
+        try:
+            result = self.client.table("notices")\
+                .select(
+                    "id, title, category, published_at, source_url, "
+                    "view_count, ai_summary, deadline, deadlines, "
+                    "bookmark_count, display_mode"
+                )\
+                .not_.is_("deadline", "null")\
+                .gte("deadline", week_start)\
+                .lte("deadline", week_end + "T23:59:59")\
+                .order("deadline", desc=False)\
+                .limit(limit)\
+                .execute()
+
+            return result.data if result.data else []
+
+        except Exception as e:
+            print(f"[ERROR] 이번 주 마감 공지 조회 에러: {str(e)}")
+            return []
+
+    def get_bookmarked_notices(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        사용자가 북마크한 공지사항만 조회합니다 (홈 화면 카드2용 경량 API)
+
+        매개변수:
+        - user_id: 사용자 UUID
+        - limit: 가져올 개수 (기본 10)
+
+        반환값:
+        - 북마크된 공지사항 리스트 (마감일 임박 순)
+        """
+        try:
+            # 1. 사용자의 북마크 notice_id 목록 조회
+            bookmark_result = self.client.table("user_bookmarks")\
+                .select("notice_id")\
+                .eq("user_id", user_id)\
+                .order("created_at", desc=True)\
+                .limit(limit)\
+                .execute()
+
+            bookmarked_ids = [b["notice_id"] for b in (bookmark_result.data or [])]
+            if not bookmarked_ids:
+                return []
+
+            # 2. 해당 공지사항 상세 조회
+            result = self.client.table("notices")\
+                .select(
+                    "id, title, category, published_at, source_url, "
+                    "view_count, ai_summary, deadline, deadlines, "
+                    "bookmark_count, display_mode"
+                )\
+                .in_("id", bookmarked_ids)\
+                .execute()
+
+            notices = result.data if result.data else []
+            # is_bookmarked 필드 추가 (전부 true)
+            for notice in notices:
+                notice["is_bookmarked"] = True
+
+            return notices
+
+        except Exception as e:
+            print(f"[ERROR] 북마크 공지 조회 에러: {str(e)}")
+            return []
+
+    def get_popular_notices(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        조회수 기준 인기 공지사항을 조회합니다 (DB 전체 대상)
+
+        매개변수:
+        - limit: 가져올 개수 (기본 5)
+
+        반환값:
+        - 조회수 기준 상위 공지사항 리스트
+        """
+        try:
+            result = self.client.table("notices")\
+                .select(
+                    "id, title, content, category, published_at, source_url, "
+                    "view_count, ai_summary, author, deadline, deadlines, "
+                    "bookmark_count, source_board, board_seq, attachments, "
+                    "content_images, display_mode, has_important_image"
+                )\
+                .order("view_count", desc=True)\
+                .limit(limit)\
+                .execute()
+
+            return result.data if result.data else []
+
+        except Exception as e:
+            print(f"[ERROR] 인기 공지 조회 에러: {str(e)}")
+            return []
 
     def get_statistics(self) -> Dict[str, Any]:
         """
