@@ -53,12 +53,12 @@ class AppTheme {
     '마감 임박': Color(0xFFCB8B5A),      // 더스티 앰버
   };
 
-  // MyBro 탭 색상 - 다크 모드 (채도·밝기 보정)
+  // MyBro 탭 색상 - 다크 모드 (고채도 비비드 톤)
   static const Map<String, Color> myBroColorsDark = {
-    'AI 맞춤 추천': Color(0xFF8E9FDB),   // 브라이트 퍼리윙클
-    '오늘 필수': Color(0xFFDE8D86),      // 브라이트 코랄
-    '학과 인기': Color(0xFF88C4A6),      // 브라이트 세이지
-    '마감 임박': Color(0xFFDEA87A),      // 브라이트 앰버
+    'AI 맞춤 추천': Color(0xFF7E96EC),   // 비비드 퍼리윙클
+    '오늘 필수': Color(0xFFEF7B74),      // 비비드 코랄 레드
+    '학과 인기': Color(0xFF58C8A2),      // 비비드 에메랄드
+    '마감 임박': Color(0xFFECA45C),      // 비비드 앰버
   };
 
   /// MyBro 탭 색상 조회 (다크모드 자동 분기)
@@ -69,18 +69,18 @@ class AppTheme {
     return myBroColors[tabName] ?? myBroColors['AI 맞춤 추천']!;
   }
 
-  // 공지사항 카테고리 컬러 - 다크 모드 (채도·밝기 보정)
+  // 공지사항 카테고리 컬러 - 다크 모드 (고채도 비비드 톤)
   static const Map<String, Color> categoryColorsDark = {
-    '학사': Color(0xFF7BA0D6),       // 브라이트 블루
-    '학사공지': Color(0xFF7BA0D6),   // 브라이트 블루
-    '장학': Color(0xFFD69DB4),       // 브라이트 로즈
-    '취업': Color(0xFFE09A74),       // 브라이트 테라코타
-    '행사': Color(0xFFB094D8),       // 브라이트 플럼
-    '학생활동': Color(0xFFB094D8),   // 브라이트 플럼
-    '시설': Color(0xFF6BBEB6),       // 브라이트 틸
-    '교육': Color(0xFF64B2C8),       // 브라이트 오션
-    '공모전': Color(0xFFD0B878),     // 브라이트 골드
-    '기타': Color(0xFFA3ADB8),       // 브라이트 슬레이트
+    '학사': Color(0xFF6AAEEF),       // 비비드 스카이 블루
+    '학사공지': Color(0xFF6AAEEF),   // 비비드 스카이 블루
+    '장학': Color(0xFFF08DA6),       // 비비드 로즈 핑크
+    '취업': Color(0xFFF09A68),       // 비비드 코랄 오렌지
+    '행사': Color(0xFFBB90EA),       // 비비드 라벤더
+    '학생활동': Color(0xFFBB90EA),   // 비비드 라벤더
+    '시설': Color(0xFF4DCABE),       // 비비드 민트 틸
+    '교육': Color(0xFF4CBCE0),       // 비비드 오션 시안
+    '공모전': Color(0xFFE4C254),     // 비비드 앰버 골드
+    '기타': Color(0xFF9AB0CA),       // 쿨 블루 슬레이트
   };
 
   /// 라이트 테마

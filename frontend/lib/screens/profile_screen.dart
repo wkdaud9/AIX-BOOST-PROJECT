@@ -364,7 +364,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // 섹션 콘텐츠 카드
         Container(
           decoration: BoxDecoration(
-            color: isDark ? AppTheme.secondaryColor : Colors.white,
+            color: isDark ? Theme.of(context).cardTheme.color : Colors.white,
             borderRadius: BorderRadius.circular(AppRadius.lg),
             boxShadow: isDark ? null : AppShadow.soft,
           ),
@@ -449,7 +449,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         label: const Text('로그아웃'),
         style: OutlinedButton.styleFrom(
           foregroundColor: isDark ? Colors.white70 : AppTheme.textSecondary,
-          backgroundColor: isDark ? AppTheme.secondaryColor : Colors.white,
+          backgroundColor: isDark ? Theme.of(context).cardTheme.color : Colors.white,
           side: BorderSide(
             color: isDark ? Colors.white12 : Colors.grey.shade200,
           ),

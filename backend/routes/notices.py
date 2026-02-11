@@ -111,6 +111,89 @@ def crawl_and_save():
         }), 500
 
 
+@notices_bp.route('/deadlines', methods=['GET'])
+def get_deadline_notices():
+    """
+    이번 주 마감 공지사항을 조회합니다 (홈 화면 경량 API)
+
+    GET /api/notices/deadlines?limit=10
+
+    쿼리 파라미터:
+    - limit: 가져올 개수 (기본 10, 최대 20)
+
+    응답:
+    {
+        "status": "success",
+        "data": [...]
+    }
+    """
+    try:
+        limit = min(20, max(1, int(request.args.get('limit', 10))))
+
+        # 이번 주 월~일 범위 계산
+        now = datetime.now()
+        week_start = now - __import__('datetime').timedelta(days=now.weekday())
+        week_end = week_start + __import__('datetime').timedelta(days=6)
+
+        supabase = SupabaseService()
+        notices = supabase.get_deadline_notices(
+            week_start=week_start.strftime('%Y-%m-%d'),
+            week_end=week_end.strftime('%Y-%m-%d'),
+            limit=limit
+        )
+
+        return jsonify({
+            "status": "success",
+            "data": notices
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] 이번 주 마감 공지 조회 실패: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
+@notices_bp.route('/bookmarked', methods=['GET'])
+@login_required
+def get_bookmarked_notices():
+    """
+    사용자의 북마크 공지사항을 조회합니다 (홈 화면 경량 API)
+
+    GET /api/notices/bookmarked?limit=10
+
+    인증 필수 (Authorization: Bearer <token>)
+
+    쿼리 파라미터:
+    - limit: 가져올 개수 (기본 10, 최대 20)
+
+    응답:
+    {
+        "status": "success",
+        "data": [...]
+    }
+    """
+    try:
+        user_id = g.user_id
+        limit = min(20, max(1, int(request.args.get('limit', 10))))
+
+        supabase = SupabaseService()
+        notices = supabase.get_bookmarked_notices(user_id=user_id, limit=limit)
+
+        return jsonify({
+            "status": "success",
+            "data": notices
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] 북마크 공지 조회 실패: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
 @notices_bp.route('/popular', methods=['GET'])
 def get_popular_notices():
     """

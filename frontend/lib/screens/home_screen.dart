@@ -44,12 +44,13 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _cardPageController = PageController(viewportFraction: 1.0);
-    // 공지사항 데이터 로드
+    // 홈 화면용 경량 API 병렬 호출 (fetchNotices(100) 제거)
     final provider = context.read<NoticeProvider>();
     Future.microtask(() {
-      provider.fetchNotices();
-      provider.fetchPopularNotices(); // 조회수 기준 인기 공지 (DB 전체)
-      provider.fetchRecommendedNotices(); // AI 추천 데이터 로드
+      provider.fetchPopularNotices();        // 카드1: HOT 게시물 (10개)
+      provider.fetchBookmarkedNotices();     // 카드2: 저장한 일정
+      provider.fetchRecommendedNotices(limit: 10); // 카드3: AI 추천 (10개)
+      provider.fetchWeeklyDeadlineNotices(); // 카드4: 이번 주 마감
     });
   }
 
@@ -66,9 +67,12 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedIndex = index;
     });
 
-    // mybro 탭 선택 시 추천 목록 갱신 (카테고리 변경 반영)
+    // MyBro 탭 선택 시 3개 API 호출 (캐시 유효하면 스킵)
     if (index == 2) {
-      context.read<NoticeProvider>().fetchRecommendedNotices();
+      final provider = context.read<NoticeProvider>();
+      provider.fetchRecommendedNotices();      // 캐시 있으면 스킵
+      provider.fetchDepartmentPopularNotices(); // 캐시 있으면 스킵
+      provider.fetchUpcomingDeadlineNotices();
     }
   }
 
@@ -251,8 +255,10 @@ class _HomeScreenState extends State<HomeScreen> {
       onRefresh: () async {
         final provider = context.read<NoticeProvider>();
         await Future.wait([
-          provider.fetchNotices(),
-          provider.fetchRecommendedNotices(),
+          provider.fetchPopularNotices(),
+          provider.fetchBookmarkedNotices(),
+          provider.fetchRecommendedNotices(limit: 10),
+          provider.fetchWeeklyDeadlineNotices(),
         ]);
       },
       child: SingleChildScrollView(
@@ -1017,7 +1023,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     // 전체보기 버튼
                     GestureDetector(
-                      onTap: () => FullListModal.showAIRecommend(context),
+                      onTap: () => FullListModal.showAIRecommend(
+                        context,
+                        onMoreTap: () => _onItemTapped(2),
+                      ),
                       child: Text(
                         '전체보기',
                         style: TextStyle(
@@ -1115,19 +1124,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        final now = DateTime.now();
-        final weekStart = now.subtract(Duration(days: now.weekday - 1));
-        final weekEnd = weekStart.add(const Duration(days: 6));
-
-        // 이번 주에 마감되는 공지사항
-        final weeklyNotices = provider.notices
-            .where((n) =>
-              n.deadline != null &&
-              n.deadline!.isAfter(weekStart) &&
-              n.deadline!.isBefore(weekEnd)
-            )
-            .take(5)
-            .toList();
+        // 이번 주 마감 공지 (경량 API로 서버에서 필터링 완료)
+        final weeklyNotices = provider.weeklyDeadlineNotices.take(5).toList();
 
         return Column(
             crossAxisAlignment: CrossAxisAlignment.start,

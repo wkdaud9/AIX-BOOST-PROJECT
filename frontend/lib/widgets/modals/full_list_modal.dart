@@ -15,6 +15,7 @@ class FullListModal extends StatelessWidget {
   final Color themeColor;
   final IconData icon;
   final FullListType listType;
+  final VoidCallback? onMoreTap;
 
   const FullListModal({
     super.key,
@@ -24,13 +25,12 @@ class FullListModal extends StatelessWidget {
     required this.themeColor,
     required this.icon,
     required this.listType,
+    this.onMoreTap,
   });
 
-  /// HOT 게시물 전체보기 모달
+  /// HOT 게시물 전체보기 모달 (인기 공지 최대 10개)
   static void showPopular(BuildContext context) {
     final provider = context.read<NoticeProvider>();
-    final sorted = List<Notice>.from(provider.notices);
-    sorted.sort((a, b) => b.views.compareTo(a.views));
 
     showModalBottomSheet(
       context: context,
@@ -39,7 +39,7 @@ class FullListModal extends StatelessWidget {
       builder: (context) => FullListModal(
         title: 'HOT 게시물',
         subtitle: '조회수 TOP',
-        notices: sorted,
+        notices: provider.popularNotices,
         themeColor: const Color(0xFFFF6B6B),
         icon: Icons.local_fire_department_rounded,
         listType: FullListType.popular,
@@ -82,7 +82,8 @@ class FullListModal extends StatelessWidget {
   }
 
   /// AI 추천 전체보기 모달
-  static void showAIRecommend(BuildContext context) {
+  /// [onMoreTap] 더 보기 버튼 클릭 시 실행할 콜백 (MyBro 탭 이동 등)
+  static void showAIRecommend(BuildContext context, {VoidCallback? onMoreTap}) {
     final provider = context.read<NoticeProvider>();
 
     showModalBottomSheet(
@@ -96,6 +97,7 @@ class FullListModal extends StatelessWidget {
         themeColor: const Color(0xFFA855F7),
         icon: Icons.auto_awesome,
         listType: FullListType.aiRecommend,
+        onMoreTap: onMoreTap,
       ),
     );
   }
@@ -318,10 +320,15 @@ class FullListModal extends StatelessWidget {
                           : ListView.separated(
                               controller: scrollController,
                               padding: const EdgeInsets.all(AppSpacing.md),
-                              itemCount: notices.length,
+                              // onMoreTap이 있으면 마지막에 "더 보기" 버튼 추가
+                              itemCount: notices.length + (onMoreTap != null ? 1 : 0),
                               separatorBuilder: (context, index) =>
                                   const SizedBox(height: AppSpacing.sm),
                               itemBuilder: (context, index) {
+                                // 마지막 아이템: "더 보기" 버튼
+                                if (onMoreTap != null && index == notices.length) {
+                                  return _buildMoreButton(context, isDark);
+                                }
                                 final notice = notices[index];
                                 return _buildNoticeItem(context, notice, index, isDark);
                               },
@@ -332,6 +339,45 @@ class FullListModal extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  /// "더 보기" 버튼 (MyBro 탭 이동)
+  Widget _buildMoreButton(BuildContext context, bool isDark) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(context);
+        onMoreTap?.call();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.auto_awesome,
+              size: 16,
+              color: themeColor,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'MyBro에서 더 보기',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: themeColor,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 12,
+              color: themeColor,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

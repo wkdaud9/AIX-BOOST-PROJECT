@@ -15,6 +15,7 @@ class NoticeProvider with ChangeNotifier {
   List<Notice> _popularNotices = [];
   List<Notice> _departmentPopularNotices = [];
   List<Notice> _upcomingDeadlineNotices = [];
+  List<Notice> _weeklyDeadlineNotices = []; // 홈 카드4용 이번 주 마감
   bool _isLoading = false;
   bool _isRecommendedLoading = false;
   bool _isDepartmentPopularLoading = false;
@@ -42,6 +43,8 @@ class NoticeProvider with ChangeNotifier {
   List<Notice> get recommendedNotices => _recommendedPool;
   /// 학과/학년 인기 공지사항 목록 (백엔드 API 결과)
   List<Notice> get departmentPopularNotices => _departmentPopularNotices;
+  /// 홈 카드4용 이번 주 마감 공지사항 (경량 API)
+  List<Notice> get weeklyDeadlineNotices => _weeklyDeadlineNotices;
   /// 마감 임박 공지사항 풀 (오늘 이후 마감인 공지 전부, 마감일 가까운 순)
   List<Notice> get upcomingDeadlineNotices => _upcomingDeadlineNotices;
   /// 마감 임박 공지사항 (3일 이내, isDeadlineSoon 필터)
@@ -139,9 +142,12 @@ class NoticeProvider with ChangeNotifier {
     return scored.take(30).map((e) => e.key).toList();
   }
 
-  /// AI 맞춤 추천 공지사항 로드 (30개 한번에)
+  /// AI 맞춤 추천 공지사항 로드
+  /// [limit] 가져올 개수 (기본 30, 홈에서는 10으로 호출)
   /// 캐시가 유효하면 재호출 스킵
-  Future<void> fetchRecommendedNotices({bool force = false}) async {
+  Future<void> fetchRecommendedNotices({bool force = false, int? limit}) async {
+    final fetchLimit = limit ?? _fetchSize;
+
     // 캐시 유효 시 스킵 (데이터가 있고, TTL 내)
     if (!force &&
         _recommendedPool.isNotEmpty &&
@@ -158,7 +164,7 @@ class NoticeProvider with ChangeNotifier {
     for (int attempt = 1; attempt <= 2; attempt++) {
       try {
         final results = await _apiService.getRecommendedNotices(
-          limit: _fetchSize,
+          limit: fetchLimit,
           offset: 0,
           minScore: 0.3,
         );
@@ -367,8 +373,30 @@ class NoticeProvider with ChangeNotifier {
     }).toList();
   }
 
-  /// 조회수 기준 인기 공지사항 가져오기 (DB 전체 대상)
-  Future<void> fetchPopularNotices({int limit = 5}) async {
+  /// 이번 주 마감 공지사항 가져오기 (홈 카드4용 경량 API)
+  Future<void> fetchWeeklyDeadlineNotices({int limit = 10}) async {
+    try {
+      final data = await _apiService.getDeadlineNotices(limit: limit);
+      _weeklyDeadlineNotices = data.map((json) => Notice.fromJson(json)).toList();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('이번 주 마감 공지 조회 실패: $e');
+    }
+  }
+
+  /// 사용자 북마크 공지사항 가져오기 (홈 카드2용 경량 API)
+  Future<void> fetchBookmarkedNotices({int limit = 10}) async {
+    try {
+      final data = await _apiService.getBookmarkedNotices(limit: limit);
+      _bookmarkedNotices = data.map((json) => Notice.fromJson(json)).toList();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('북마크 공지 조회 실패: $e');
+    }
+  }
+
+  /// 조회수 기준 인기 공지사항 가져오기 (홈 카드 5개 + 전체보기 10개)
+  Future<void> fetchPopularNotices({int limit = 10}) async {
     try {
       final data = await _apiService.getPopularNotices(limit: limit);
       _popularNotices = data.map((json) => Notice.fromJson(json)).toList();

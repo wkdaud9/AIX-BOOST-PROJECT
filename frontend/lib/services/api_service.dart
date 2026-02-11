@@ -91,6 +91,26 @@ class ApiService {
     }
   }
 
+  /// 이번 주 마감 공지사항 조회 (홈 화면 경량 API)
+  Future<List<Map<String, dynamic>>> getDeadlineNotices({int limit = 10}) async {
+    try {
+      final response = await _dio.get('/api/notices/deadlines', queryParameters: {'limit': limit});
+      return _handleListResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 사용자 북마크 공지사항 조회 (홈 화면 경량 API)
+  Future<List<Map<String, dynamic>>> getBookmarkedNotices({int limit = 10}) async {
+    try {
+      final response = await _dio.get('/api/notices/bookmarked', queryParameters: {'limit': limit});
+      return _handleListResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// 특정 공지사항 상세 조회
   Future<Map<String, dynamic>> getNoticeById(String noticeId) async {
     try {

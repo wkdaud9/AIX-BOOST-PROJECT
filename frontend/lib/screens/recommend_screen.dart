@@ -34,23 +34,14 @@ class _RecommendScreenState extends State<RecommendScreen> {
   void initState() {
     super.initState();
     _categoryPageController = PageController();
-    _loadData();
+    // MyBro 데이터는 탭 클릭 시 HomeScreen._onItemTapped(2)에서 로드
+    // IndexedStack으로 인한 불필요한 초기 API 호출 방지
   }
 
   @override
   void dispose() {
     _categoryPageController.dispose();
     super.dispose();
-  }
-
-  /// 데이터 로드
-  void _loadData() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<NoticeProvider>();
-      provider.fetchRecommendedNotices();
-      provider.fetchDepartmentPopularNotices();
-      provider.fetchUpcomingDeadlineNotices();
-    });
   }
 
   @override
