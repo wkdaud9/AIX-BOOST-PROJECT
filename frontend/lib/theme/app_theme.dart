@@ -31,18 +31,32 @@ class AppTheme {
   // 라이트 틴트 (섹션 배경, 하이라이트)
   static const Color lightTint = Color(0xFFBDE8F5);
 
-  // 공지사항 카테고리 컬러 (트렌디한 파스텔 톤)
+  // 공지사항 카테고리 컬러 - 라이트 모드 (Muted & Dusty 톤)
   static const Map<String, Color> categoryColors = {
-    '학사': Color(0xFF4988C4),       // 액센트 블루
-    '학사공지': Color(0xFF4988C4),   // 액센트 블루
-    '장학': Color(0xFF56C596),       // 부드러운 그린
-    '취업': Color(0xFFFFB84D),       // 부드러운 오렌지
-    '행사': Color(0xFFAD7FFF),       // 부드러운 퍼플
-    '학생활동': Color(0xFFAD7FFF),   // 부드러운 퍼플
-    '시설': Color(0xFF5DDAB4),       // 부드러운 민트
-    '교육': Color(0xFF3A78B5),       // 네이비 블루
-    '공모전': Color(0xFFFFD66B),     // 부드러운 골드
-    '기타': Color(0xFF9AA5B8),       // 부드러운 그레이
+    '학사': Color(0xFF5B85C2),       // 더스티 블루
+    '학사공지': Color(0xFF5B85C2),   // 더스티 블루
+    '장학': Color(0xFFC2849B),       // 더스티 로즈
+    '취업': Color(0xFFD18056),       // 웜 테라코타
+    '행사': Color(0xFF9678C4),       // 더스티 플럼
+    '학생활동': Color(0xFF9678C4),   // 더스티 플럼
+    '시설': Color(0xFF52A6A0),       // 뮤티드 틸
+    '교육': Color(0xFF4A96B0),       // 오션 틸
+    '공모전': Color(0xFFAD8070),     // 더스티 시에나
+    '기타': Color(0xFF8B95A5),       // 쿨 슬레이트
+  };
+
+  // 공지사항 카테고리 컬러 - 다크 모드 (채도·밝기 보정)
+  static const Map<String, Color> categoryColorsDark = {
+    '학사': Color(0xFF7BA0D6),       // 브라이트 블루
+    '학사공지': Color(0xFF7BA0D6),   // 브라이트 블루
+    '장학': Color(0xFFD69DB4),       // 브라이트 로즈
+    '취업': Color(0xFFE09A74),       // 브라이트 테라코타
+    '행사': Color(0xFFB094D8),       // 브라이트 플럼
+    '학생활동': Color(0xFFB094D8),   // 브라이트 플럼
+    '시설': Color(0xFF6BBEB6),       // 브라이트 틸
+    '교육': Color(0xFF64B2C8),       // 브라이트 오션
+    '공모전': Color(0xFFC49A8A),     // 브라이트 시에나
+    '기타': Color(0xFFA3ADB8),       // 브라이트 슬레이트
   };
 
   /// 라이트 테마
@@ -345,8 +359,11 @@ class AppTheme {
     ),
   );
 
-  /// 카테고리별 색상 가져오기
-  static Color getCategoryColor(String category) {
+  /// 카테고리별 색상 가져오기 (다크 모드 시 밝은 톤 자동 반환)
+  static Color getCategoryColor(String category, {bool isDark = false}) {
+    if (isDark) {
+      return categoryColorsDark[category] ?? categoryColorsDark['기타']!;
+    }
     return categoryColors[category] ?? categoryColors['기타']!;
   }
 }

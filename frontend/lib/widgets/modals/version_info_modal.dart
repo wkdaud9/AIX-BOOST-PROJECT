@@ -141,7 +141,7 @@ class VersionInfoModal extends StatelessWidget {
                       _buildInfoRow(context, '개발팀', 'HeyBro Team'),
                       _buildInfoRow(context, '기술 스택', 'Flutter, Flask, Supabase'),
                       _buildInfoRow(context, 'AI 엔진', 'Google Gemini 2.0'),
-                      _buildInfoRow(context, '문의', 'mullabprofject2026@gmail.com'),
+                      _buildInfoRow(context, '문의', 'mullabproject2026@gmail.com'),
 
                       const SizedBox(height: AppSpacing.xl),
 

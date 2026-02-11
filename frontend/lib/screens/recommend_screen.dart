@@ -22,6 +22,14 @@ class _RecommendScreenState extends State<RecommendScreen> {
   late PageController _categoryPageController;
   int _currentCategoryIndex = 0;
 
+  /// 로컬 카테고리 페이지네이션 (카테고리 1~3: 오늘필수, 학과인기, 마감임박)
+  /// 새로고침 시 다음 5개 배치를 표시
+  static const _localPageSize = 5;
+  final List<int> _localOffsets = [0, 0, 0];
+
+  /// 리롤 카운터 (FlipCardSection Key 갱신 → 카드 위치 초기화)
+  int _refreshCount = 0;
+
   /// 카테고리 정보 (제목, 아이콘, 악센트 색상)
   static const List<_CategoryInfo> _categories = [
     _CategoryInfo('AI 맞춤 추천', Icons.auto_awesome_rounded, AppTheme.primaryColor),
@@ -52,14 +60,37 @@ class _RecommendScreenState extends State<RecommendScreen> {
     });
   }
 
-  /// 새로고침
+  /// 리롤 (즉시 다음 5개 배치 표시, API 대기 없음)
+  /// Pull-to-refresh 콜백으로 사용 (Future<void> 반환)
   Future<void> _onRefresh() async {
     final provider = context.read<NoticeProvider>();
-    await Future.wait([
-      provider.fetchNotices(),
-      provider.fetchRecommendedNotices(),
-      provider.fetchDepartmentPopularNotices(),
-    ]);
+
+    // AI 추천: 버퍼에서 즉시 다음 배치 (프리페치 완료된 데이터)
+    provider.nextRecommendedBatch();
+
+    // 로컬 카테고리: 즉시 다음 5개 슬라이싱 + 리프레시 카운터 증가
+    setState(() {
+      for (int i = 0; i < _localOffsets.length; i++) {
+        _localOffsets[i] += _localPageSize;
+      }
+      _refreshCount++;
+    });
+  }
+
+  /// 리스트를 offset 기준으로 5개씩 잘라서 반환 (초과 시 처음으로 순환)
+  List<Notice> _paginateList(List<Notice> fullList, int offsetIndex) {
+    if (fullList.isEmpty) return fullList;
+    // offset이 리스트 길이를 초과하면 처음으로 순환
+    final effectiveOffset = _localOffsets[offsetIndex] % fullList.length;
+    final end = effectiveOffset + _localPageSize;
+    if (end <= fullList.length) {
+      return fullList.sublist(effectiveOffset, end);
+    }
+    // 끝을 넘으면 나머지 + 앞부분으로 순환
+    return [
+      ...fullList.sublist(effectiveOffset),
+      ...fullList.sublist(0, end - fullList.length),
+    ];
   }
 
   @override
@@ -83,12 +114,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
                 authService.department, authService.grade);
           }
 
-          // 카테고리별 데이터 매핑
+          // 카테고리별 데이터 매핑 (각 카테고리 5개씩 리롤)
           final categoryData = <int, _CategoryData>{
             0: _CategoryData(provider.recommendedNotices, provider.isRecommendedLoading, '추천 공지가 없습니다'),
-            1: _CategoryData(provider.todayMustSeeNotices, false, '오늘 필수 공지가 없습니다'),
-            2: _CategoryData(deptPopular, provider.isDepartmentPopularLoading, '학과 인기 공지가 없습니다'),
-            3: _CategoryData(deadlineSoon, false, '마감 임박 공지가 없습니다'),
+            1: _CategoryData(_paginateList(provider.todayMustSeeNotices, 0), false, '오늘 필수 공지가 없습니다'),
+            2: _CategoryData(_paginateList(deptPopular, 1), provider.isDepartmentPopularLoading, '학과 인기 공지가 없습니다'),
+            3: _CategoryData(_paginateList(deadlineSoon, 2), false, '마감 임박 공지가 없습니다'),
           };
 
           return Column(
@@ -111,6 +142,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
                     final cat = _categories[index];
                     final data = categoryData[index]!;
                     return FlipCardSection(
+                      key: ValueKey('cat_${index}_$_refreshCount'),
                       title: cat.title,
                       icon: cat.icon,
                       accentColor: cat.color,
@@ -118,6 +150,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
                       isLoading: data.isLoading,
                       emptyMessage: data.emptyMessage,
                       showHeader: false,
+                      onRefresh: _onRefresh,
                     );
                   },
                 ),
@@ -249,23 +282,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
-          // 새로고침 버튼
-          GestureDetector(
-            onTap: _onRefresh,
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Icon(
-                Icons.refresh_rounded,
-                color: accentColor,
-                size: 22,
-              ),
             ),
           ),
         ],

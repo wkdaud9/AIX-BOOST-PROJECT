@@ -7,7 +7,7 @@ import '../../screens/notice_detail_screen.dart';
 
 /// 모던 공지 카드 위젯
 ///
-/// 깔끔한 디지털 카드 스타일. 탭하면 상세 페이지로 이동.
+/// 미니멀 디지털 카드 스타일. 탭하면 상세 페이지로 이동.
 /// Theme.of(context).colorScheme 기반으로 라이트/다크 모드 자동 대응.
 class ModernFlipCard extends StatelessWidget {
   final Notice notice;
@@ -23,7 +23,7 @@ class ModernFlipCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final categoryColor = AppTheme.getCategoryColor(notice.category);
+    final categoryColor = AppTheme.getCategoryColor(notice.category, isDark: isDark);
     final showDDay = notice.deadline != null &&
         notice.daysUntilDeadline != null &&
         notice.daysUntilDeadline! >= 0;
@@ -38,82 +38,189 @@ class ModernFlipCard extends StatelessWidget {
       },
       child: Container(
         height: height,
-        decoration: _cardDecoration(colorScheme),
-        child: Stack(
-          children: [
-            // 좌측 카테고리 악센트 바
-            Positioned(
-              left: 0,
-              top: 16,
-              bottom: 16,
-              child: Container(
-                width: 3.5,
-                decoration: BoxDecoration(
-                  color: categoryColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0D1F3C) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withOpacity(0.06)
+                : Colors.black.withOpacity(0.04),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.3 : 0.06),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
-            // 콘텐츠
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 20, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 상단: 카테고리 칩 + 우선순위 + 북마크
-                  _buildTopRow(colorScheme, categoryColor),
-                  const SizedBox(height: 16),
-                  // 제목
-                  Text(
-                    notice.title,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: colorScheme.onSurface,
-                      height: 1.4,
-                    ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-                  // AI 요약 (아이콘 + 배경 강조, 다크모드 대비 보장)
-                  if (notice.aiSummary != null &&
-                      notice.aiSummary!.isNotEmpty)
-                    Expanded(
-                      child: _buildAiSummary(colorScheme, isDark),
-                    ),
-                  if (notice.aiSummary == null || notice.aiSummary!.isEmpty)
-                    const Spacer(),
-                  const SizedBox(height: 12),
-                  // 하단: D-day + 메타 정보
-                  Row(
-                    children: [
-                      if (showDDay) _buildDDayBadge(colorScheme, isDark),
-                      if (showDDay) const SizedBox(width: 8),
-                      const Spacer(),
-                      _buildMeta(colorScheme),
-                    ],
-                  ),
-                ],
-              ),
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.15 : 0.02),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 상단: 카테고리 + 뱃지 + 북마크
+              _buildTopRow(colorScheme, categoryColor, isDark),
+              const SizedBox(height: 20),
+              // 제목
+              Text(
+                notice.title,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : AppTheme.textPrimary,
+                  height: 1.35,
+                  letterSpacing: -0.3,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 16),
+              // AI 요약
+              if (notice.aiSummary != null && notice.aiSummary!.isNotEmpty)
+                Expanded(child: _buildAiSummary(isDark)),
+              if (notice.aiSummary == null || notice.aiSummary!.isEmpty)
+                const Spacer(),
+              const SizedBox(height: 16),
+              // 구분선
+              Container(
+                height: 1,
+                color: isDark
+                    ? Colors.white.withOpacity(0.06)
+                    : Colors.black.withOpacity(0.04),
+              ),
+              const SizedBox(height: 14),
+              // 하단: D-day + 메타 정보
+              Row(
+                children: [
+                  if (showDDay) ...[
+                    _buildDDayBadge(isDark),
+                    const SizedBox(width: 10),
+                  ],
+                  const Spacer(),
+                  _buildMeta(isDark),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  /// AI 요약 영역
-  Widget _buildAiSummary(ColorScheme colorScheme, bool isDark) {
-    final aiAccent = isDark ? AppTheme.primaryLight : colorScheme.primary;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: aiAccent.withOpacity(isDark ? 0.12 : 0.04),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: aiAccent.withOpacity(isDark ? 0.25 : 0.08),
+  /// 상단 행: 카테고리 칩 + 뱃지 + 북마크
+  Widget _buildTopRow(
+      ColorScheme colorScheme, Color categoryColor, bool isDark) {
+    return Row(
+      children: [
+        // 카테고리 칩
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: categoryColor.withOpacity(isDark ? 0.15 : 0.08),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            notice.category,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: categoryColor,
+            ),
+          ),
         ),
+        // 우선순위 뱃지
+        if (notice.priority != null && notice.priority != '일반') ...[
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: notice.priority == '긴급'
+                  ? AppTheme.errorColor
+                  : AppTheme.warningColor,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              notice.priority!,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+        // NEW 뱃지
+        if (notice.isNew) ...[
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppTheme.errorColor,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text(
+              'NEW',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+        ],
+        const Spacer(),
+        // 북마크 버튼
+        Consumer<NoticeProvider>(
+          builder: (context, provider, child) {
+            final isBookmarked = notice.isBookmarked;
+            return GestureDetector(
+              onTap: () => provider.toggleBookmark(notice.id),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isBookmarked
+                      ? categoryColor.withOpacity(isDark ? 0.15 : 0.08)
+                      : (isDark
+                          ? Colors.white.withOpacity(0.05)
+                          : Colors.grey.withOpacity(0.06)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  isBookmarked
+                      ? Icons.bookmark_rounded
+                      : Icons.bookmark_border_rounded,
+                  size: 20,
+                  color: isBookmarked
+                      ? categoryColor
+                      : (isDark ? Colors.white30 : AppTheme.textHint),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  /// AI 요약 영역
+  Widget _buildAiSummary(bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withOpacity(0.04)
+            : const Color(0xFFF6F8FB),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -121,17 +228,18 @@ class ModernFlipCard extends StatelessWidget {
           Row(
             children: [
               Icon(
-                Icons.auto_awesome,
-                size: 15,
-                color: aiAccent,
+                Icons.auto_awesome_rounded,
+                size: 14,
+                color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
               ),
               const SizedBox(width: 5),
               Text(
                 'AI 요약',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: aiAccent,
+                  color:
+                      isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                 ),
               ),
             ],
@@ -142,9 +250,8 @@ class ModernFlipCard extends StatelessWidget {
               notice.aiSummary!,
               style: TextStyle(
                 fontSize: 14,
-                color: colorScheme.onSurface
-                    .withOpacity(isDark ? 0.9 : 0.75),
-                height: 1.55,
+                color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                height: 1.6,
               ),
               overflow: TextOverflow.fade,
             ),
@@ -154,133 +261,29 @@ class ModernFlipCard extends StatelessWidget {
     );
   }
 
-  /// 카드 데코레이션 (colorScheme 기반)
-  BoxDecoration _cardDecoration(ColorScheme colorScheme) {
-    return BoxDecoration(
-      color: colorScheme.surface,
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      border: Border.all(
-        color: colorScheme.onSurface.withOpacity(0.06),
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: colorScheme.shadow.withOpacity(0.08),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
-        BoxShadow(
-          color: colorScheme.shadow.withOpacity(0.03),
-          blurRadius: 4,
-          offset: const Offset(0, 1),
-        ),
-      ],
-    );
-  }
-
-  /// 상단 행: 카테고리 칩 + 우선순위 + 북마크
-  Widget _buildTopRow(ColorScheme colorScheme, Color categoryColor) {
-    return Row(
-      children: [
-        // 카테고리 칩
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: categoryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            notice.category,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: categoryColor,
-            ),
-          ),
-        ),
-        // 우선순위 뱃지
-        if (notice.priority != null && notice.priority != '일반') ...[
-          const SizedBox(width: 5),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: notice.priority == '긴급'
-                  ? colorScheme.error
-                  : AppTheme.warningColor,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              notice.priority!,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-        // NEW 뱃지
-        if (notice.isNew) ...[
-          const SizedBox(width: 5),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: colorScheme.error,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Text(
-              'NEW',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-        const Spacer(),
-        // 북마크 아이콘
-        Consumer<NoticeProvider>(
-          builder: (context, provider, child) {
-            return GestureDetector(
-              onTap: () => provider.toggleBookmark(notice.id),
-              child: Icon(
-                notice.isBookmarked
-                    ? Icons.bookmark_rounded
-                    : Icons.bookmark_border_rounded,
-                size: 20,
-                color: notice.isBookmarked
-                    ? categoryColor
-                    : colorScheme.onSurface.withOpacity(0.25),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
   /// D-day 뱃지
-  Widget _buildDDayBadge(ColorScheme colorScheme, bool isDark) {
+  Widget _buildDDayBadge(bool isDark) {
     final days = notice.daysUntilDeadline!;
     final isUrgent = days <= 3;
-    final color = isUrgent ? colorScheme.error : (isDark ? AppTheme.primaryLight : colorScheme.primary);
+    final color = isUrgent ? AppTheme.errorColor : AppTheme.infoColor;
     final text = days == 0 ? 'D-Day' : 'D-$days';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.2)),
+        color: color.withOpacity(isDark ? 0.12 : 0.07),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.alarm_rounded, size: 12, color: color),
-          const SizedBox(width: 3),
+          const SizedBox(width: 4),
           Text(
             text,
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
               color: color,
             ),
           ),
@@ -290,18 +293,32 @@ class ModernFlipCard extends StatelessWidget {
   }
 
   /// 메타 정보 (조회수 + 날짜)
-  Widget _buildMeta(ColorScheme colorScheme) {
-    final metaColor = colorScheme.onSurface.withOpacity(0.35);
+  Widget _buildMeta(bool isDark) {
+    final metaColor = isDark ? Colors.white30 : AppTheme.textHint;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.visibility_outlined, size: 12, color: metaColor),
-        const SizedBox(width: 3),
-        Text('${notice.views}',
-            style: TextStyle(fontSize: 11, color: metaColor)),
-        const SizedBox(width: 8),
-        Text(notice.formattedDate,
-            style: TextStyle(fontSize: 11, color: metaColor)),
+        Icon(Icons.visibility_outlined, size: 13, color: metaColor),
+        const SizedBox(width: 4),
+        Text(
+          '${notice.views}',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: metaColor,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Icon(Icons.schedule_rounded, size: 13, color: metaColor),
+        const SizedBox(width: 4),
+        Text(
+          notice.formattedDate,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: metaColor,
+          ),
+        ),
       ],
     );
   }

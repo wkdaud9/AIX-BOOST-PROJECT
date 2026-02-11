@@ -143,18 +143,18 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.getCategoryColor(_notice!.category)
+                  color: AppTheme.getCategoryColor(_notice!.category, isDark: isDark)
                       .withOpacity(0.1),
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                   border: Border.all(
-                    color: AppTheme.getCategoryColor(_notice!.category),
+                    color: AppTheme.getCategoryColor(_notice!.category, isDark: isDark),
                     width: 1,
                   ),
                 ),
                 child: Text(
                   _notice!.category,
                   style: TextStyle(
-                    color: AppTheme.getCategoryColor(_notice!.category),
+                    color: AppTheme.getCategoryColor(_notice!.category, isDark: isDark),
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),

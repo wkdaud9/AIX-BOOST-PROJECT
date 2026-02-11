@@ -13,11 +13,23 @@ class NoticeProvider with ChangeNotifier {
   List<Notice> _categoryNotices = [];
   List<Notice> _bookmarkedNotices = [];
   List<Notice> _popularNotices = [];
-  List<Notice> _recommendedNotices = [];
   List<Notice> _departmentPopularNotices = [];
   bool _isLoading = false;
   bool _isRecommendedLoading = false;
   bool _isDepartmentPopularLoading = false;
+
+  /// 추천 캐시 유효시간 (5분)
+  static const _cacheDuration = Duration(minutes: 5);
+  DateTime? _recommendedLastFetched;
+  DateTime? _departmentPopularLastFetched;
+
+  /// 추천 공지 프리페치 버퍼 (10개 가져와서 5개씩 표시)
+  static const _displaySize = 5;
+  static const _fetchSize = 10;
+  List<Notice> _recommendedPool = [];  // 전체 풀 (10개씩 누적)
+  int _recommendedDisplayStart = 0;    // 현재 표시 시작 인덱스
+  int _backendOffset = 0;              // 백엔드 요청 오프셋
+
   String? _error;
   String? _departmentPopularDept;
   int? _departmentPopularGrade;
@@ -27,8 +39,12 @@ class NoticeProvider with ChangeNotifier {
   /// 카테고리별 공지사항 목록 (fetchNoticesByCategory 결과)
   List<Notice> get categoryNotices => _categoryNotices;
   List<Notice> get bookmarkedNotices => _bookmarkedNotices;
-  /// AI 맞춤 추천 공지사항 목록 (백엔드 하이브리드 검색 결과)
-  List<Notice> get recommendedNotices => _recommendedNotices;
+  /// AI 맞춤 추천 공지사항 목록 (풀에서 현재 표시 윈도우 반환)
+  List<Notice> get recommendedNotices {
+    if (_recommendedPool.isEmpty) return [];
+    final end = (_recommendedDisplayStart + _displaySize).clamp(0, _recommendedPool.length);
+    return _recommendedPool.sublist(_recommendedDisplayStart, end);
+  }
   /// 학과/학년 인기 공지사항 목록 (백엔드 API 결과)
   List<Notice> get departmentPopularNotices => _departmentPopularNotices;
   bool get isLoading => _isLoading;
@@ -116,15 +132,23 @@ class NoticeProvider with ChangeNotifier {
       return MapEntry(notice, score);
     }).toList();
 
-    // 점수 0인 공지 제외하고 정렬
+    // 점수 0인 공지 제외하고 정렬 (페이지네이션을 위해 충분히 반환)
     scored.removeWhere((e) => e.value <= 0);
     scored.sort((a, b) => b.value.compareTo(a.value));
-    return scored.take(5).map((e) => e.key).toList();
+    return scored.take(30).map((e) => e.key).toList();
   }
 
-  /// AI 맞춤 추천 공지사항 가져오기 (백엔드 하이브리드 검색 API 호출)
-  /// 첫 시도 실패 시 1회 자동 재시도, 그래도 실패하면 최신순 폴백
-  Future<void> fetchRecommendedNotices() async {
+  /// AI 맞춤 추천 공지사항 초기 로드 (10개 프리페치)
+  /// 캐시가 유효하면 재호출 스킵
+  Future<void> fetchRecommendedNotices({bool force = false}) async {
+    // 캐시 유효 시 스킵 (데이터가 있고, TTL 내)
+    if (!force &&
+        _recommendedPool.isNotEmpty &&
+        _recommendedLastFetched != null &&
+        DateTime.now().difference(_recommendedLastFetched!) < _cacheDuration) {
+      return;
+    }
+
     _isRecommendedLoading = true;
     _error = null;
     notifyListeners();
@@ -133,20 +157,26 @@ class NoticeProvider with ChangeNotifier {
     for (int attempt = 1; attempt <= 2; attempt++) {
       try {
         final results = await _apiService.getRecommendedNotices(
-          limit: 20,
+          limit: _fetchSize,
+          offset: 0,
           minScore: 0.3,
         );
 
-        _recommendedNotices = results.map((json) => Notice.fromJson(_convertSearchResult(json))).toList();
+        _recommendedPool = results.map((json) => Notice.fromJson(_convertSearchResult(json))).toList();
+        _recommendedDisplayStart = 0;
+        _backendOffset = _fetchSize;
+        _recommendedLastFetched = DateTime.now();
         _isRecommendedLoading = false;
         notifyListeners();
-        return; // 성공 시 즉시 종료
+
+        // 다음 배치 백그라운드 프리페치
+        _prefetchNextRecommendedBatch();
+        return;
       } catch (e) {
         if (kDebugMode) {
           print('AI 추천 API 시도 $attempt 실패: $e');
         }
         if (attempt < 2) {
-          // 재시도 전 잠시 대기 (서비스 초기화 시간 확보)
           await Future.delayed(const Duration(seconds: 2));
           continue;
         }
@@ -155,26 +185,87 @@ class NoticeProvider with ChangeNotifier {
 
     // 2회 모두 실패 시 최신 공지로 폴백
     _isRecommendedLoading = false;
+    _backendOffset = 0;
     if (_notices.isNotEmpty) {
       final sorted = List<Notice>.from(_notices)
         ..sort((a, b) => b.date.compareTo(a.date));
-      _recommendedNotices = sorted.take(10).toList();
+      _recommendedPool = sorted.take(10).toList();
+      _recommendedDisplayStart = 0;
       if (kDebugMode) {
-        print('AI 추천 API 실패, 최신순 폴백 사용 (${_recommendedNotices.length}건)');
+        print('AI 추천 API 실패, 최신순 폴백 사용 (${_recommendedPool.length}건)');
       }
     }
     _error = null;
     notifyListeners();
   }
 
+  /// 다음 5개 배치로 즉시 전환 (리롤 버튼용)
+  /// 버퍼에 다음 배치가 있으면 즉시 표시, 부족하면 처음으로 순환
+  void nextRecommendedBatch() {
+    if (_recommendedPool.isEmpty) return;
+
+    final nextStart = _recommendedDisplayStart + _displaySize;
+    if (nextStart < _recommendedPool.length) {
+      // 버퍼에 다음 배치가 있음 → 즉시 전환
+      _recommendedDisplayStart = nextStart;
+    } else {
+      // 버퍼 소진 → 처음으로 순환
+      _recommendedDisplayStart = 0;
+    }
+    notifyListeners();
+
+    // 버퍼 잔여량이 적으면 백그라운드 프리페치
+    final remaining = _recommendedPool.length - _recommendedDisplayStart - _displaySize;
+    if (remaining <= _displaySize) {
+      _prefetchNextRecommendedBatch();
+    }
+  }
+
+  /// 백그라운드에서 다음 10개 프리페치 (풀에 추가)
+  Future<void> _prefetchNextRecommendedBatch() async {
+    try {
+      final results = await _apiService.getRecommendedNotices(
+        limit: _fetchSize,
+        offset: _backendOffset,
+        minScore: 0.3,
+      );
+
+      if (results.isEmpty) {
+        // 더 이상 결과 없음 → offset 리셋 (다음 순환 대비)
+        _backendOffset = 0;
+        return;
+      }
+
+      final newNotices = results.map((json) => Notice.fromJson(_convertSearchResult(json))).toList();
+      _recommendedPool.addAll(newNotices);
+      _backendOffset += _fetchSize;
+
+      if (kDebugMode) {
+        print('추천 프리페치 완료: +${newNotices.length}개 (풀 총 ${_recommendedPool.length}개)');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('추천 프리페치 실패 (무시): $e');
+      }
+    }
+  }
+
   /// 학과/학년 인기 공지사항 가져오기 (백엔드 API 호출)
-  /// API 실패 시 로컬 getDepartmentPopularNotices로 폴백
-  Future<void> fetchDepartmentPopularNotices() async {
+  /// 캐시가 유효하면 재호출 스킵, force=true 시 강제 갱신
+  Future<void> fetchDepartmentPopularNotices({bool force = false}) async {
+    // 캐시 유효 시 스킵
+    if (!force &&
+        _departmentPopularNotices.isNotEmpty &&
+        _departmentPopularLastFetched != null &&
+        DateTime.now().difference(_departmentPopularLastFetched!) < _cacheDuration) {
+      return;
+    }
+
     _isDepartmentPopularLoading = true;
     notifyListeners();
 
     try {
-      final result = await _apiService.getPopularInMyGroup(limit: 10);
+      final result = await _apiService.getPopularInMyGroup(limit: 30);
       final notices = (result['notices'] as List<dynamic>?) ?? [];
       final group = result['group'] as Map<String, dynamic>?;
 
@@ -192,6 +283,7 @@ class NoticeProvider with ChangeNotifier {
           }).toList();
       _departmentPopularDept = group?['department']?.toString();
       _departmentPopularGrade = group?['grade'] as int?;
+      _departmentPopularLastFetched = DateTime.now();
       _isDepartmentPopularLoading = false;
       notifyListeners();
     } catch (e) {
@@ -348,9 +440,9 @@ class NoticeProvider with ChangeNotifier {
 
   /// 공지사항 북마크 토글 (백엔드 API 연동)
   Future<void> toggleBookmark(String noticeId) async {
-    // 낙관적 업데이트: _notices, _recommendedNotices, _categoryNotices 모두 동기화
+    // 낙관적 업데이트: _notices, _recommendedPool, _categoryNotices 모두 동기화
     final index = _notices.indexWhere((n) => n.id == noticeId);
-    final recIndex = _recommendedNotices.indexWhere((n) => n.id == noticeId);
+    final recIndex = _recommendedPool.indexWhere((n) => n.id == noticeId);
     final catIndex = _categoryNotices.indexWhere((n) => n.id == noticeId);
 
     // 현재 북마크 상태를 어떤 리스트에서든 가져옴
@@ -359,7 +451,7 @@ class NoticeProvider with ChangeNotifier {
         : catIndex != -1
             ? _categoryNotices[catIndex].isBookmarked
             : recIndex != -1
-                ? _recommendedNotices[recIndex].isBookmarked
+                ? _recommendedPool[recIndex].isBookmarked
                 : false;
     final newState = !previousState;
     final countDelta = newState ? 1 : -1;
@@ -371,11 +463,11 @@ class NoticeProvider with ChangeNotifier {
         bookmarkCount: _notices[index].bookmarkCount + countDelta,
       );
     }
-    // _recommendedNotices 업데이트
+    // _recommendedPool 업데이트
     if (recIndex != -1) {
-      _recommendedNotices[recIndex] = _recommendedNotices[recIndex].copyWith(
+      _recommendedPool[recIndex] = _recommendedPool[recIndex].copyWith(
         isBookmarked: newState,
-        bookmarkCount: _recommendedNotices[recIndex].bookmarkCount + countDelta,
+        bookmarkCount: _recommendedPool[recIndex].bookmarkCount + countDelta,
       );
     }
     // _categoryNotices 업데이트
@@ -403,9 +495,9 @@ class NoticeProvider with ChangeNotifier {
         );
       }
       if (recIndex != -1) {
-        _recommendedNotices[recIndex] = _recommendedNotices[recIndex].copyWith(
+        _recommendedPool[recIndex] = _recommendedPool[recIndex].copyWith(
           isBookmarked: previousState,
-          bookmarkCount: _recommendedNotices[recIndex].bookmarkCount - countDelta,
+          bookmarkCount: _recommendedPool[recIndex].bookmarkCount - countDelta,
         );
       }
       if (catIndex != -1) {

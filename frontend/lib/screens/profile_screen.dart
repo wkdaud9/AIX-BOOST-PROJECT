@@ -168,7 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon: Icons.headset_mic_rounded,
                 iconColor: AppTheme.infoColor,
                 title: '고객센터',
-                subtitle: 'mullabprofject2026@gmail.com',
+                subtitle: 'mullabproject2026@gmail.com',
                 trailing: Icon(
                   Icons.chevron_right_rounded,
                   color: isDark ? Colors.white30 : Colors.grey.shade400,
@@ -523,7 +523,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Icon(Icons.email_outlined, size: 20, color: dialogAccent),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
-                      'mullabprofject2026@gmail.com',
+                      'mullabproject2026@gmail.com',
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         color: dialogAccent,

@@ -45,7 +45,7 @@ class RerankingService:
     # 리랭킹 설정
     RERANK_THRESHOLD = 10   # 결과가 이 수 초과 시 리랭킹 고려
     RERANK_TOP_N = 3        # 상위 N개만 리랭킹 (5→3: Gemini 호출 비용/시간 절감)
-    SCORE_VARIANCE_THRESHOLD = 0.05  # 점수 편차가 이보다 작으면 리랭킹 (0.1→0.05: 정말 변별력 없을 때만)
+    SCORE_VARIANCE_THRESHOLD = 0.02  # 점수 편차가 이보다 작으면 리랭킹 (0.05→0.02: 극히 변별력 없을 때만)
 
     def __init__(self):
         """리랭킹 서비스 초기화"""

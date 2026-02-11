@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/fcm_service.dart';
+import '../providers/notice_provider.dart';
 import '../providers/notification_provider.dart';
 import '../theme/app_theme.dart';
 import 'home_screen.dart';
@@ -89,6 +90,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
       // 백엔드에서 알림 내역 조회
       notificationProvider.fetchFromBackend();
+
+      // AI 추천 사전 로드 (MyBro 탭 진입 시 즉시 표시를 위해)
+      final noticeProvider = context.read<NoticeProvider>();
+      noticeProvider.fetchRecommendedNotices();
+      noticeProvider.fetchDepartmentPopularNotices();
 
       // 최소 로딩 시간 보장 (빈 화면 방지)
       await Future.delayed(const Duration(milliseconds: 1200));

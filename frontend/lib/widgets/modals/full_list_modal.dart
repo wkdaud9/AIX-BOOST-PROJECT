@@ -433,7 +433,7 @@ class FullListModal extends StatelessWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.getCategoryColor(notice.category)
+                          color: AppTheme.getCategoryColor(notice.category, isDark: isDark)
                               .withOpacity(0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
@@ -442,7 +442,7 @@ class FullListModal extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
-                            color: AppTheme.getCategoryColor(notice.category),
+                            color: AppTheme.getCategoryColor(notice.category, isDark: isDark),
                           ),
                         ),
                       ),

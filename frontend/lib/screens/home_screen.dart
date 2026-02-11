@@ -31,12 +31,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 카테고리 목록 (이모지 포함)
   final List<Map<String, dynamic>> _categories = [
-    {'name': '학사', 'emoji': '🎓', 'color': AppTheme.getCategoryColor('학사')},
-    {'name': '장학', 'emoji': '💰', 'color': AppTheme.getCategoryColor('장학')},
-    {'name': '취업', 'emoji': '💼', 'color': AppTheme.getCategoryColor('취업')},
-    {'name': '행사', 'emoji': '🎉', 'color': AppTheme.getCategoryColor('행사')},
-    {'name': '교육', 'emoji': '📚', 'color': AppTheme.getCategoryColor('교육')},
-    {'name': '공모전', 'emoji': '🏆', 'color': AppTheme.getCategoryColor('공모전')},
+    {'name': '학사', 'emoji': '🎓'},
+    {'name': '장학', 'emoji': '💰'},
+    {'name': '취업', 'emoji': '💼'},
+    {'name': '행사', 'emoji': '🎉'},
+    {'name': '교육', 'emoji': '📚'},
+    {'name': '공모전', 'emoji': '🏆'},
   ];
 
   @override
@@ -573,7 +573,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: _categories.map((category) {
           final categoryName = category['name'] as String;
           final isSelected = _selectedCategory == categoryName;
-          final categoryColor = category['color'] as Color;
+          final categoryColor = AppTheme.getCategoryColor(categoryName, isDark: isDark);
 
           return Expanded(
             child: GestureDetector(
@@ -1134,7 +1134,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             vertical: 2,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: AppTheme.getCategoryColor(notice.category).withOpacity(isDark ? 0.2 : 0.12),
+                                            color: AppTheme.getCategoryColor(notice.category, isDark: isDark).withOpacity(isDark ? 0.2 : 0.12),
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: Text(
@@ -1142,7 +1142,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             style: TextStyle(
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
-                                              color: AppTheme.getCategoryColor(notice.category),
+                                              color: AppTheme.getCategoryColor(notice.category, isDark: isDark),
                                             ),
                                           ),
                                         ),

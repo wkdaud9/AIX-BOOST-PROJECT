@@ -307,7 +307,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   /// 공지사항 카드 (CategoryNoticeScreen 패턴 재사용)
   Widget _buildNoticeCard(Notice notice, bool isDark) {
-    final categoryColor = AppTheme.getCategoryColor(notice.category);
+    final categoryColor = AppTheme.getCategoryColor(notice.category, isDark: isDark);
     final showDDay = notice.deadline != null &&
         notice.daysUntilDeadline != null &&
         notice.daysUntilDeadline! >= 0;

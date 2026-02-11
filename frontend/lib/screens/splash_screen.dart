@@ -403,61 +403,36 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  /// Phase 3: HeyBro 로고 등장
+  /// Phase 3: HeyBro 로고 등장 (로고에 글자 포함되어 있으므로 로고만 크게 표시)
   Widget _buildHighFivePhase() {
     return AnimatedBuilder(
       animation: _highFiveController,
       builder: (context, child) {
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // HeyBro 로고 이미지
-            Opacity(
-              opacity: _logoFade.value,
-              child: Transform.scale(
-                scale: _logoScale.value,
-                child: SizedBox(
-                  width: 120,
-                  height: 120,
-                  child: Image.asset(
-                    'assets/images/icon_transparency.png',
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
-                    isAntiAlias: true,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Text(
-                        'HeyBro',
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      );
-                    },
-                  ),
-                ),
+        return Opacity(
+          opacity: _logoFade.value,
+          child: Transform.scale(
+            scale: _logoScale.value,
+            child: SizedBox(
+              width: 260,
+              height: 260,
+              child: Image.asset(
+                'assets/images/icon_transparency.png',
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+                isAntiAlias: true,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Text(
+                    'HeyBro',
+                    style: TextStyle(
+                      fontSize: 42,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  );
+                },
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // "HeyBro" 텍스트
-            Opacity(
-              opacity: _logoFade.value,
-              child: Transform.scale(
-                scale: _logoScale.value,
-                child: const Text(
-                  'HeyBro',
-                  style: TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: -1.0,
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         );
       },
     );

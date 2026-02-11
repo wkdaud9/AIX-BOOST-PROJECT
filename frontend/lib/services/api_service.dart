@@ -228,9 +228,11 @@ class ApiService {
   /// AI 맞춤 추천 공지사항 조회 (사용자 관심사 기반 하이브리드 검색)
   ///
   /// [limit] 최대 결과 수 (기본 20)
+  /// [offset] 건너뛸 결과 수 (기본 0, 새로고침 시 다음 배치용)
   /// [minScore] 최소 관련도 점수 (기본 0.3)
   Future<List<Map<String, dynamic>>> getRecommendedNotices({
     int limit = 20,
+    int offset = 0,
     double minScore = 0.3,
   }) async {
     try {
@@ -238,6 +240,7 @@ class ApiService {
         '/api/search/notices',
         queryParameters: {
           'limit': limit,
+          'offset': offset,
           'min_score': minScore,
           'rerank': 'true',
         },

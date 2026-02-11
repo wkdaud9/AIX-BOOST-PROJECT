@@ -52,10 +52,11 @@ def search_personalized_notices():
     """
     사용자 맞춤 공지사항을 검색합니다.
 
-    GET /api/search/notices?limit=20&min_score=0.3&rerank=true
+    GET /api/search/notices?limit=20&offset=0&min_score=0.3&rerank=true
 
     쿼리 파라미터:
     - limit: 최대 결과 수 (기본값: 20)
+    - offset: 건너뛸 결과 수 (기본값: 0, 새로고침 시 다음 배치용)
     - min_score: 최소 관련도 점수 (기본값: 0.3)
     - rerank: AI 리랭킹 적용 여부 (기본값: false)
 
@@ -87,18 +88,20 @@ def search_personalized_notices():
 
         # 쿼리 파라미터
         limit = int(request.args.get('limit', 20))
+        offset = int(request.args.get('offset', 0))
         min_score = float(request.args.get('min_score', 0.3))
         rerank = request.args.get('rerank', 'false').lower() == 'true'
 
         print(f"\n[검색] 사용자 맞춤 공지 검색")
         print(f"   - 사용자: {user_id[:8]}...")
-        print(f"   - 제한: {limit}개, 최소점수: {min_score}")
+        print(f"   - 제한: {limit}개, 오프셋: {offset}, 최소점수: {min_score}")
         print(f"   - 리랭킹: {rerank}")
 
-        # 하이브리드 검색
+        # 하이브리드 검색 (offset으로 다음 배치 제공)
         results = _get_search_service().find_relevant_notices_for_user(
             user_id=user_id,
             limit=limit,
+            offset=offset,
             min_score=min_score
         )
 

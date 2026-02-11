@@ -557,7 +557,7 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
       runSpacing: AppSpacing.sm,
       children: AppData.categories.map((category) {
         final isSelected = _selectedCategories.contains(category);
-        final categoryColor = AppTheme.getCategoryColor(category);
+        final categoryColor = AppTheme.getCategoryColor(category, isDark: isDark);
 
         return GestureDetector(
           onTap: () {

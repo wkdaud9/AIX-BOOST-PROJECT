@@ -244,6 +244,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   /// 리스트 보기용 이벤트 카드
   Widget _buildListEventCard(Notice notice) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: InkWell(
@@ -271,18 +272,18 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.getCategoryColor(notice.category)
+                      color: AppTheme.getCategoryColor(notice.category, isDark: isDark)
                           .withOpacity(0.1),
                       borderRadius: BorderRadius.circular(AppRadius.sm),
                       border: Border.all(
-                        color: AppTheme.getCategoryColor(notice.category),
+                        color: AppTheme.getCategoryColor(notice.category, isDark: isDark),
                         width: 1,
                       ),
                     ),
                     child: Text(
                       notice.category,
                       style: TextStyle(
-                        color: AppTheme.getCategoryColor(notice.category),
+                        color: AppTheme.getCategoryColor(notice.category, isDark: isDark),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -558,6 +559,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   /// 이벤트 카드 (deadlineLabel: 복수 마감일의 라벨 표시)
   Widget _buildEventCard(Notice notice, {String? deadlineLabel}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: InkWell(
@@ -585,18 +587,18 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.getCategoryColor(notice.category)
+                      color: AppTheme.getCategoryColor(notice.category, isDark: isDark)
                           .withOpacity(0.1),
                       borderRadius: BorderRadius.circular(AppRadius.sm),
                       border: Border.all(
-                        color: AppTheme.getCategoryColor(notice.category),
+                        color: AppTheme.getCategoryColor(notice.category, isDark: isDark),
                         width: 1,
                       ),
                     ),
                     child: Text(
                       notice.category,
                       style: TextStyle(
-                        color: AppTheme.getCategoryColor(notice.category),
+                        color: AppTheme.getCategoryColor(notice.category, isDark: isDark),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
