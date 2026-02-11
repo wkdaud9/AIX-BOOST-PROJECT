@@ -126,8 +126,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final logoColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -143,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Icon(
                   Icons.school,
                   size: 80,
-                  color: AppTheme.primaryColor,
+                  color: logoColor,
                 ),
                 const SizedBox(height: AppSpacing.lg),
 
@@ -152,7 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
+                    color: logoColor,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -161,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   '군산대학교 맞춤형 공지 큐레이션',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.textSecondary,
+                    color: colorScheme.onSurface.withOpacity(0.6),
                   ),
                 ),
 
@@ -212,6 +215,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           );
                         },
+                  style: TextButton.styleFrom(
+                    foregroundColor: isDark ? Colors.white70 : null,
+                  ),
                   child: const Text('계정이 없으신가요? 회원가입'),
                 ),
               ],

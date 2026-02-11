@@ -20,9 +20,10 @@ python backend/scripts/crawl_and_notify.py
 """
 
 import os
+import re
 import sys
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 
 # 프로젝트 루트를 Python 경로에 추가
@@ -106,6 +107,9 @@ class CrawlAndNotifyPipeline:
         start_time = datetime.now()
 
         try:
+            # 0단계: 최근 공지 조회수 업데이트 (7일 이내)
+            self._step0_update_view_counts()
+
             # 1단계: 크롤링
             new_notices = self._step1_crawl()
 
@@ -142,6 +146,84 @@ class CrawlAndNotifyPipeline:
 
         finally:
             _pipeline_lock.release()
+
+    def _step0_update_view_counts(self):
+        """
+        0단계: 최근 7일 공지의 조회수를 원본 사이트에서 갱신합니다.
+
+        크롤링 시점의 조회수 스냅샷만 저장되므로,
+        최근 공지는 원본 사이트 조회수가 계속 올라갑니다.
+        이 단계에서 최근 공지의 source_url을 방문하여 최신 조회수를 업데이트합니다.
+        """
+        print("\n" + "-"*60)
+        print("[0단계] 최근 공지 조회수 업데이트")
+        print("-"*60)
+
+        try:
+            # 7일 이내 공지 조회 (최대 30개)
+            since = (datetime.now() - timedelta(days=7)).isoformat()
+            result = self.supabase.table("notices")\
+                .select("id, source_url, view_count")\
+                .gte("published_at", since)\
+                .not_.is_("source_url", "null")\
+                .order("published_at", desc=True)\
+                .limit(30)\
+                .execute()
+
+            notices = result.data or []
+            if not notices:
+                print("  [정보] 업데이트할 최근 공지 없음")
+                return
+
+            print(f"  [정보] {len(notices)}개 공지 조회수 확인 중...")
+
+            # 아무 크롤러나 하나 사용 (fetch_page용)
+            crawler = list(self.crawlers.values())[0]
+            updated = 0
+
+            for notice in notices:
+                source_url = notice.get("source_url")
+                if not source_url:
+                    continue
+
+                try:
+                    # 상세 페이지에서 조회수 추출
+                    soup = crawler.fetch_page(source_url, delay_range=(0.5, 1.0))
+                    if not soup:
+                        continue
+
+                    bv_txt01 = soup.select_one('div.bv_txt01')
+                    if not bv_txt01:
+                        continue
+
+                    new_views = None
+                    for span in bv_txt01.find_all('span'):
+                        if '조회수' in span.get_text():
+                            match = re.search(r'(\d+)', span.get_text())
+                            if match:
+                                new_views = int(match.group(1))
+                                break
+
+                    if new_views is None:
+                        continue
+
+                    old_views = notice.get("view_count") or 0
+                    if new_views > old_views:
+                        self.supabase.table("notices")\
+                            .update({"view_count": new_views})\
+                            .eq("id", notice["id"])\
+                            .execute()
+                        updated += 1
+
+                except Exception as e:
+                    # 개별 공지 실패는 무시하고 계속 진행
+                    continue
+
+            print(f"  [완료] {updated}건 조회수 업데이트 완료")
+
+        except Exception as e:
+            # 조회수 업데이트 실패해도 크롤링은 계속 진행
+            print(f"  [경고] 조회수 업데이트 중 오류 (무시하고 진행): {str(e)}")
 
     def _step1_crawl(self) -> List[Dict[str, Any]]:
         """

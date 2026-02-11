@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 
 /// 재사용 가능한 입력 필드 위젯
 /// 이메일, 비밀번호 등 다양한 입력 타입을 지원합니다.
@@ -63,7 +62,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
             ? IconButton(
                 icon: Icon(
                   _obscureText ? Icons.visibility : Icons.visibility_off,
-                  color: AppTheme.textSecondary,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
                 ),
                 onPressed: () {
                   setState(() {

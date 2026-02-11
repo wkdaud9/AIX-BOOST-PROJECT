@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 /// 로딩 상태를 표시하는 버튼 위젯
 /// 로딩 중에는 CircularProgressIndicator를 표시하고 버튼을 비활성화합니다.
@@ -24,15 +25,20 @@ class LoadingButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final effectiveBg = backgroundColor ??
+        (isDark ? AppTheme.primaryLight : AppTheme.primaryColor);
+    final effectiveFg = textColor ?? Colors.white;
+
     return SizedBox(
       width: width,
       height: height ?? 48,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor,
-          foregroundColor: textColor,
-          disabledBackgroundColor: backgroundColor?.withValues(alpha: 0.6),
+          backgroundColor: effectiveBg,
+          foregroundColor: effectiveFg,
+          disabledBackgroundColor: effectiveBg.withOpacity(0.6),
         ),
         child: isLoading
             ? const SizedBox(

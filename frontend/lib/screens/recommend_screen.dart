@@ -129,8 +129,19 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
+  /// 다크모드에서 보이는 카테고리 색상 반환
+  Color _categoryDisplayColor(_CategoryInfo cat, bool isDark) {
+    // primaryColor(0xFF0F2854)는 다크모드 배경과 동일하므로 primaryLight 사용
+    if (isDark && cat.color == AppTheme.primaryColor) {
+      return AppTheme.primaryLight;
+    }
+    return cat.color;
+  }
+
   /// 카테고리 탭 인디케이터
   Widget _buildCategoryTabs(ColorScheme colorScheme) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       color: colorScheme.surface,
@@ -138,6 +149,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
         children: List.generate(_categories.length, (index) {
           final cat = _categories[index];
           final isSelected = _currentCategoryIndex == index;
+          final displayColor = _categoryDisplayColor(cat, isDark);
 
           return Expanded(
             child: GestureDetector(
@@ -157,13 +169,13 @@ class _RecommendScreenState extends State<RecommendScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? cat.color.withOpacity(0.1)
+                      ? displayColor.withOpacity(isDark ? 0.15 : 0.1)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                   border: Border.all(
                     color: isSelected
-                        ? cat.color.withOpacity(0.3)
-                        : colorScheme.onSurface.withOpacity(0.06),
+                        ? displayColor.withOpacity(0.3)
+                        : colorScheme.onSurface.withOpacity(isDark ? 0.12 : 0.06),
                   ),
                 ),
                 child: Column(
@@ -173,8 +185,8 @@ class _RecommendScreenState extends State<RecommendScreen> {
                       cat.icon,
                       size: 16,
                       color: isSelected
-                          ? cat.color
-                          : colorScheme.onSurface.withOpacity(0.3),
+                          ? displayColor
+                          : colorScheme.onSurface.withOpacity(isDark ? 0.5 : 0.3),
                     ),
                     const SizedBox(height: 3),
                     Text(
@@ -184,8 +196,8 @@ class _RecommendScreenState extends State<RecommendScreen> {
                         fontWeight:
                             isSelected ? FontWeight.w700 : FontWeight.w500,
                         color: isSelected
-                            ? cat.color
-                            : colorScheme.onSurface.withOpacity(0.4),
+                            ? displayColor
+                            : colorScheme.onSurface.withOpacity(isDark ? 0.6 : 0.4),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

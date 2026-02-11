@@ -178,8 +178,18 @@ class NoticeProvider with ChangeNotifier {
       final notices = (result['notices'] as List<dynamic>?) ?? [];
       final group = result['group'] as Map<String, dynamic>?;
 
+      // RPC 응답 필드 매핑: notice_id→id, view_count_in_group→view_count
       _departmentPopularNotices =
-          notices.map((json) => Notice.fromJson(Map<String, dynamic>.from(json))).toList();
+          notices.map((json) {
+            final mapped = Map<String, dynamic>.from(json);
+            if (mapped.containsKey('notice_id') && !mapped.containsKey('id')) {
+              mapped['id'] = mapped['notice_id'];
+            }
+            if (mapped.containsKey('view_count_in_group') && !mapped.containsKey('view_count')) {
+              mapped['view_count'] = mapped['view_count_in_group'];
+            }
+            return Notice.fromJson(mapped);
+          }).toList();
       _departmentPopularDept = group?['department']?.toString();
       _departmentPopularGrade = group?['grade'] as int?;
       _isDepartmentPopularLoading = false;

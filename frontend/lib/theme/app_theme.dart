@@ -286,6 +286,10 @@ class AppTheme {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: const Color(0xFF1C4D8D),
+      labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+      floatingLabelStyle: const TextStyle(color: Colors.white),
+      hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+      prefixIconColor: Colors.white.withOpacity(0.7),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
@@ -296,7 +300,7 @@ class AppTheme {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: primaryColor, width: 2),
+        borderSide: const BorderSide(color: primaryLight, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
