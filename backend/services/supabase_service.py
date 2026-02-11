@@ -145,8 +145,14 @@ class SupabaseService:
         - 공지사항 리스트 (bookmark_count, is_bookmarked 포함)
         """
         try:
+            # content_embedding 제외 (프론트엔드에서 불필요, 건당 ~12KB 절약)
             query = self.client.table("notices")\
-                .select("*")\
+                .select(
+                    "id, title, content, category, published_at, source_url, "
+                    "view_count, ai_summary, author, deadline, deadlines, "
+                    "bookmark_count, source_board, board_seq, attachments, "
+                    "content_images, display_mode, has_important_image"
+                )\
                 .order("published_at", desc=True)\
                 .range(offset, offset + limit - 1)
 
@@ -226,6 +232,34 @@ class SupabaseService:
         except Exception as e:
             print(f"[ERROR] 삭제 에러: {str(e)}")
             return False
+
+    def get_popular_notices(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        조회수 기준 인기 공지사항을 조회합니다 (DB 전체 대상)
+
+        매개변수:
+        - limit: 가져올 개수 (기본 5)
+
+        반환값:
+        - 조회수 기준 상위 공지사항 리스트
+        """
+        try:
+            result = self.client.table("notices")\
+                .select(
+                    "id, title, content, category, published_at, source_url, "
+                    "view_count, ai_summary, author, deadline, deadlines, "
+                    "bookmark_count, source_board, board_seq, attachments, "
+                    "content_images, display_mode, has_important_image"
+                )\
+                .order("view_count", desc=True)\
+                .limit(limit)\
+                .execute()
+
+            return result.data if result.data else []
+
+        except Exception as e:
+            print(f"[ERROR] 인기 공지 조회 에러: {str(e)}")
+            return []
 
     def get_statistics(self) -> Dict[str, Any]:
         """

@@ -47,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final provider = context.read<NoticeProvider>();
     Future.microtask(() {
       provider.fetchNotices();
+      provider.fetchPopularNotices(); // 조회수 기준 인기 공지 (DB 전체)
       provider.fetchRecommendedNotices(); // AI 추천 데이터 로드
     });
   }
@@ -1321,6 +1322,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final categoryData = _categories.firstWhere((c) => c['name'] == categoryName);
     final categoryIcon = categoryData['icon'] as IconData;
 
+    // 카테고리별 공지사항을 백엔드 API로 조회
+    context.read<NoticeProvider>().fetchNoticesByCategory(categoryName);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1399,9 +1403,11 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: Consumer<NoticeProvider>(
                   builder: (context, provider, child) {
-                    final categoryNotices = provider.notices
-                        .where((n) => n.category == categoryName)
-                        .toList();
+                    final categoryNotices = provider.categoryNotices;
+
+                    if (provider.isLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
                     if (categoryNotices.isEmpty) {
                       return Center(

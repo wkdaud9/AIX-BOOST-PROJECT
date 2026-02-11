@@ -77,6 +77,16 @@ class ApiService {
     }
   }
 
+  /// 조회수 기준 인기 공지사항 조회 (DB 전체 대상)
+  Future<List<Map<String, dynamic>>> getPopularNotices({int limit = 5}) async {
+    try {
+      final response = await _dio.get('/api/notices/popular', queryParameters: {'limit': limit});
+      return _handleListResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// 특정 공지사항 상세 조회
   Future<Map<String, dynamic>> getNoticeById(String noticeId) async {
     try {

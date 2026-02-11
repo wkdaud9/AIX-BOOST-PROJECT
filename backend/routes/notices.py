@@ -111,6 +111,41 @@ def crawl_and_save():
         }), 500
 
 
+@notices_bp.route('/popular', methods=['GET'])
+def get_popular_notices():
+    """
+    조회수 기준 인기 공지사항을 조회합니다 (DB 전체 대상)
+
+    GET /api/notices/popular?limit=5
+
+    쿼리 파라미터:
+    - limit: 가져올 개수 (기본 5, 최대 20)
+
+    응답:
+    {
+        "status": "success",
+        "data": [...]
+    }
+    """
+    try:
+        limit = min(20, max(1, int(request.args.get('limit', 5))))
+
+        supabase = SupabaseService()
+        notices = supabase.get_popular_notices(limit=limit)
+
+        return jsonify({
+            "status": "success",
+            "data": notices
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] 인기 공지 조회 실패: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+
 @notices_bp.route('/', methods=['GET'])
 @optional_login
 def get_notices():

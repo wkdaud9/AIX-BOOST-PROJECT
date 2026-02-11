@@ -21,6 +21,7 @@ python backend/scripts/crawl_and_notify.py
 
 import os
 import sys
+import threading
 from datetime import datetime
 from typing import List, Dict, Any
 
@@ -40,6 +41,9 @@ from services.hybrid_search_service import HybridSearchService
 from services.reranking_service import RerankingService
 from services.fcm_service import FCMService
 from supabase import create_client
+
+# 파이프라인 동시 실행 방지용 락 (스케줄러 + API 동시 호출 방지)
+_pipeline_lock = threading.Lock()
 
 
 class CrawlAndNotifyPipeline:
@@ -94,6 +98,11 @@ class CrawlAndNotifyPipeline:
 
     def run(self):
         """전체 파이프라인을 실행합니다."""
+        # 동시 실행 방지: 이미 실행 중이면 스킵
+        if not _pipeline_lock.acquire(blocking=False):
+            print("\n[스킵] 다른 파이프라인이 이미 실행 중입니다. 건너뜁니다.")
+            return
+
         start_time = datetime.now()
 
         try:
@@ -130,6 +139,9 @@ class CrawlAndNotifyPipeline:
             print(f"\n[오류] 파이프라인 실행 실패: {str(e)}")
             import traceback
             traceback.print_exc()
+
+        finally:
+            _pipeline_lock.release()
 
     def _step1_crawl(self) -> List[Dict[str, Any]]:
         """

@@ -32,26 +32,36 @@ class _CategoryNoticeScreenState extends State<CategoryNoticeScreen> {
   SortType _sortType = SortType.latest;
 
   @override
+  void initState() {
+    super.initState();
+    // 카테고리별 공지사항을 백엔드 API로 조회
+    final provider = context.read<NoticeProvider>();
+    Future.microtask(() {
+      provider.fetchNoticesByCategory(widget.categoryName);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
-        // 카테고리 필터링
-        var categoryNotices = provider.notices
-            .where((n) => n.category == widget.categoryName)
-            .toList();
+        // API에서 가져온 카테고리별 공지사항 사용
+        var categoryNotices = List<Notice>.from(provider.categoryNotices);
 
         // 정렬 적용
         _sortNotices(categoryNotices);
 
         return Scaffold(
           appBar: _buildAppBar(categoryNotices.length, isDark),
-          body: categoryNotices.isEmpty
+          body: provider.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : categoryNotices.isEmpty
               ? _buildEmptyView(isDark)
               : RefreshIndicator(
                   onRefresh: () async {
-                    await provider.fetchNotices();
+                    await provider.fetchNoticesByCategory(widget.categoryName);
                   },
                   child: ListView.builder(
                     padding: const EdgeInsets.all(AppSpacing.md),

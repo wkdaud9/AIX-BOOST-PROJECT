@@ -12,6 +12,7 @@ class NoticeProvider with ChangeNotifier {
   List<Notice> _notices = [];
   List<Notice> _categoryNotices = [];
   List<Notice> _bookmarkedNotices = [];
+  List<Notice> _popularNotices = [];
   List<Notice> _recommendedNotices = [];
   List<Notice> _departmentPopularNotices = [];
   bool _isLoading = false;
@@ -47,12 +48,8 @@ class NoticeProvider with ChangeNotifier {
     return newNotices;
   }
 
-  /// 인기 공지사항 가져오기 (조회수 기준)
-  List<Notice> get popularNotices {
-    final sorted = List<Notice>.from(_notices);
-    sorted.sort((a, b) => b.views.compareTo(a.views));
-    return sorted.take(5).toList();
-  }
+  /// 인기 공지사항 (DB 전체 조회수 기준, API로 가져옴)
+  List<Notice> get popularNotices => _popularNotices;
 
   /// 학과/학년 관련 인기 공지 (조회수+북마크 기준 상위 5개)
   /// 학과 카테고리에 매칭되는 공지에 부스트 점수 부여
@@ -296,6 +293,17 @@ class NoticeProvider with ChangeNotifier {
     }).toList();
   }
 
+  /// 조회수 기준 인기 공지사항 가져오기 (DB 전체 대상)
+  Future<void> fetchPopularNotices({int limit = 5}) async {
+    try {
+      final data = await _apiService.getPopularNotices(limit: limit);
+      _popularNotices = data.map((json) => Notice.fromJson(json)).toList();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('인기 공지 조회 실패: $e');
+    }
+  }
+
   /// 백엔드에서 공지사항 목록 가져오기
   Future<void> fetchNotices() async {
     _isLoading = true;
@@ -304,7 +312,7 @@ class NoticeProvider with ChangeNotifier {
 
     try {
       // 백엔드 API 호출 (is_bookmarked, bookmark_count 포함)
-      final noticesData = await _apiService.getNotices(limit: 100);
+      final noticesData = await _apiService.getNotices(limit: 20);
 
       // Notice 객체로 변환 (API가 is_bookmarked, bookmark_count 직접 반환)
       _notices = noticesData.map((json) => Notice.fromJson(json)).toList();

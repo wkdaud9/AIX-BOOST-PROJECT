@@ -73,6 +73,14 @@ def register_token():
 
         supabase = _get_supabase()
 
+        # 같은 사용자+디바이스 타입의 이전 토큰 삭제 (FCM 토큰 갱신 시 누적 방지)
+        supabase.table("device_tokens")\
+            .delete()\
+            .eq("user_id", user_id)\
+            .eq("device_type", device_type)\
+            .neq("token", token)\
+            .execute()
+
         # upsert: 토큰이 이미 존재하면 user_id와 device_type 업데이트
         # (사용자가 로그아웃 후 다른 계정으로 로그인한 경우 대응)
         supabase.table("device_tokens").upsert(
