@@ -465,7 +465,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _buildFeatureItem(
                         isDark,
                         icon: Icons.auto_awesome_rounded,
-                        color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                        color: const Color(0xFFA855F7),
                         title: 'AI 맞춤 추천',
                         description: '관심 카테고리와 열람 패턴을 분석하여\n나에게 딱 맞는 공지사항을 추천합니다.',
                       ),
@@ -473,7 +473,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _buildFeatureItem(
                         isDark,
                         icon: Icons.push_pin_rounded,
-                        color: AppTheme.errorColor,
+                        color: const Color(0xFFFF6B6B),
                         title: '오늘 꼭 봐야 할 공지',
                         description: '긴급, 마감 임박, 인기 공지를\n종합 분석하여 오늘의 필수 공지를 알려줍니다.',
                       ),
@@ -481,7 +481,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _buildFeatureItem(
                         isDark,
                         icon: Icons.star_rounded,
-                        color: AppTheme.infoColor,
+                        color: const Color(0xFF7C8CF8),
                         title: '학과/학년 인기 공지',
                         description: '같은 학과, 같은 학년 학생들이\n가장 많이 본 공지를 보여줍니다.',
                       ),
@@ -489,7 +489,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _buildFeatureItem(
                         isDark,
                         icon: Icons.alarm_rounded,
-                        color: AppTheme.warningColor,
+                        color: const Color(0xFFFB923C),
                         title: '마감 임박 알림',
                         description: '신청 마감이 다가오는 공지를\n마감일 기준으로 정렬하여 보여줍니다.',
                       ),
@@ -504,7 +504,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// 모달 기능 항목 위젯
+  /// 모달 기능 항목 위젯 (토스 스타일 - 배경 없이 깔끔하게)
   Widget _buildFeatureItem(
     bool isDark, {
     required IconData icon,
@@ -512,27 +512,12 @@ class _HomeScreenState extends State<HomeScreen> {
     required String title,
     required String description,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F2854) : color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(
-          color: isDark ? Colors.white10 : color.withOpacity(0.12),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withOpacity(isDark ? 0.2 : 0.1),
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
+          Icon(icon, color: color, size: 24),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -550,7 +535,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   description,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     color: isDark ? Colors.white54 : AppTheme.textSecondary,
                     height: 1.5,
                   ),
@@ -726,22 +711,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.all(20.0),
                 child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppTheme.warningColor.withOpacity(0.2),
-                            AppTheme.warningColor.withOpacity(0.1),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
-                      child: Icon(
-                        Icons.trending_up,
-                        color: AppTheme.warningColor,
-                        size: 24,
-                      ),
+                    const Icon(
+                      Icons.local_fire_department_rounded,
+                      color: Color(0xFFFF6B6B),
+                      size: 28,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -749,7 +722,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '인기 게시물',
+                            'HOT 게시물',
                             style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.bold,
@@ -758,7 +731,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           Text(
-                            '조회수 기준 상위 5개',
+                            '조회수 TOP 5',
                             style: TextStyle(
                               fontSize: 12,
                               color: isDark ? Colors.white54 : AppTheme.textSecondary,
@@ -810,7 +783,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: index < 3 ? AppTheme.warningColor : (isDark ? Colors.white54 : AppTheme.textSecondary),
+                                  color: index < 3 ? const Color(0xFFFF6B6B) : (isDark ? Colors.white54 : AppTheme.textSecondary),
                                 ),
                               ),
                             ),
@@ -881,19 +854,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.all(20.0),
                 child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppTheme.infoColor.withOpacity(0.2),
-                            AppTheme.infoColor.withOpacity(0.1),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
-                      child: Icon(Icons.event, color: AppTheme.infoColor, size: 24),
-                    ),
+                    const Icon(Icons.bookmark_rounded, color: Color(0xFF7C8CF8), size: 28),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -1028,19 +989,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.all(20.0),
                 child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppTheme.primaryColor.withOpacity(0.2),
-                            AppTheme.primaryColor.withOpacity(0.1),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
-                      child: Icon(Icons.auto_awesome, color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor, size: 24),
-                    ),
+                    const Icon(Icons.auto_awesome, color: Color(0xFFA855F7), size: 28),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -1186,19 +1135,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.all(20.0),
                 child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppTheme.successColor.withOpacity(0.2),
-                            AppTheme.successColor.withOpacity(0.1),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
-                      child: const Icon(Icons.calendar_today, color: AppTheme.successColor, size: 24),
-                    ),
+                    const Icon(Icons.date_range_rounded, color: Color(0xFF38BDF8), size: 28),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -1289,7 +1226,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       decoration: BoxDecoration(
                                         color: dDay <= 3
                                             ? AppTheme.errorColor.withOpacity(isDark ? 0.2 : 0.12)
-                                            : AppTheme.successColor.withOpacity(isDark ? 0.2 : 0.12),
+                                            : const Color(0xFF38BDF8).withOpacity(isDark ? 0.2 : 0.12),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
@@ -1299,7 +1236,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           fontWeight: FontWeight.bold,
                                           color: dDay <= 3
                                               ? AppTheme.errorColor
-                                              : AppTheme.successColor,
+                                              : const Color(0xFF38BDF8),
                                         ),
                                       ),
                                     ),

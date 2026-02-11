@@ -68,33 +68,42 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         ),
         elevation: 0,
         actions: [
-          // 보기 모드 전환 버튼 (세련된 디자인)
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isDark
-                    ? [AppTheme.primaryLight.withOpacity(0.2), AppTheme.primaryLight.withOpacity(0.1)]
-                    : [AppTheme.primaryColor.withOpacity(0.15), AppTheme.primaryColor.withOpacity(0.08)],
-              ),
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            child: IconButton(
+          // month/2weeks/week 전환 버튼
+          if (_viewMode == ViewMode.calendar)
+            IconButton(
               icon: Icon(
-                _viewMode == ViewMode.calendar ? Icons.view_list_rounded : Icons.calendar_month_rounded,
+                _calendarFormat == CalendarFormat.month
+                    ? Icons.calendar_month_rounded
+                    : Icons.view_week_rounded,
                 color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                 size: 22,
               ),
               onPressed: () {
                 setState(() {
-                  _viewMode = _viewMode == ViewMode.calendar
-                      ? ViewMode.list
-                      : ViewMode.calendar;
+                  _calendarFormat = _calendarFormat == CalendarFormat.month
+                      ? CalendarFormat.week
+                      : CalendarFormat.month;
                 });
               },
-              tooltip: _viewMode == ViewMode.calendar ? '리스트 보기' : '캘린더 보기',
+              tooltip: _calendarFormat == CalendarFormat.month ? '1주 보기' : '월 보기',
             ),
+          // 보기 모드 전환 버튼 (캘린더/리스트)
+          IconButton(
+            icon: Icon(
+              _viewMode == ViewMode.calendar ? Icons.view_list_rounded : Icons.calendar_month_rounded,
+              color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+              size: 22,
+            ),
+            onPressed: () {
+              setState(() {
+                _viewMode = _viewMode == ViewMode.calendar
+                    ? ViewMode.list
+                    : ViewMode.calendar;
+              });
+            },
+            tooltip: _viewMode == ViewMode.calendar ? '리스트 보기' : '캘린더 보기',
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: _viewMode == ViewMode.calendar
@@ -485,18 +494,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 ),
                 outsideDaysVisible: false,
               ),
-              headerStyle: HeaderStyle(
-                formatButtonVisible: true,
+              headerStyle: const HeaderStyle(
+                formatButtonVisible: false,
                 titleCentered: true,
-                formatButtonShowsNext: false,
-                formatButtonDecoration: BoxDecoration(
-                  color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
-                formatButtonTextStyle: TextStyle(
-                  color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
-                  fontWeight: FontWeight.w600,
-                ),
               ),
               daysOfWeekStyle: const DaysOfWeekStyle(
                 weekendStyle: TextStyle(

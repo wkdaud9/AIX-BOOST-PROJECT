@@ -106,7 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           const SizedBox(height: AppSpacing.md),
 
-          // 프로필 편집 (독립 Card 섹션)
+          // 내 정보 섹션 (사용자 정보 + 편집)
           _buildModernSection(
             context,
             isDark: isDark,
@@ -117,7 +117,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 context,
                 isDark: isDark,
                 icon: Icons.edit_rounded,
-                iconColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                iconColor: const Color(0xFFA855F7),
                 title: '프로필 편집',
                 subtitle: '이름, 학과, 관심 카테고리 변경',
                 trailing: Icon(
@@ -147,8 +147,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildModernTile(
                 context,
                 isDark: isDark,
-                icon: Icons.new_releases_outlined,
-                iconColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                icon: Icons.rocket_launch_rounded,
+                iconColor: const Color(0xFF38BDF8),
                 title: '버전 정보',
                 subtitle: 'v1.0.0',
                 trailing: Icon(
@@ -166,9 +166,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 context,
                 isDark: isDark,
                 icon: Icons.headset_mic_rounded,
-                iconColor: AppTheme.infoColor,
+                iconColor: const Color(0xFFFF6B6B),
                 title: '고객센터',
-                subtitle: 'mullabproject2026@gmail.com',
                 trailing: Icon(
                   Icons.chevron_right_rounded,
                   color: isDark ? Colors.white30 : Colors.grey.shade400,
@@ -183,8 +182,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildModernTile(
                 context,
                 isDark: isDark,
-                icon: Icons.shield_outlined,
-                iconColor: isDark ? AppTheme.primaryLight : AppTheme.secondaryColor,
+                icon: Icons.shield_rounded,
+                iconColor: const Color(0xFF7C8CF8),
                 title: '개인정보 처리방침',
                 trailing: Icon(
                   Icons.chevron_right_rounded,
@@ -200,8 +199,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildModernTile(
                 context,
                 isDark: isDark,
-                icon: Icons.article_outlined,
-                iconColor: AppTheme.warningColor,
+                icon: Icons.description_rounded,
+                iconColor: const Color(0xFFFB923C),
                 title: '이용약관',
                 trailing: Icon(
                   Icons.chevron_right_rounded,
@@ -230,9 +229,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final department = user?['department'] ?? '학과 정보 없음';
     final email = user?['email'] ?? '';
 
-    // 이름에서 이니셜 추출
-    final initials = name.isNotEmpty ? name[0] : '?';
-
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.xl),
@@ -258,9 +254,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
             ),
           ),
-          child: Row(
+          child: Column(
             children: [
-              // 아바타 (강조 - 시각적 존재감)
+              // 아바타 (사람 상반신 아이콘)
               Container(
                 width: 64,
                 height: 64,
@@ -272,70 +268,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: 2.5,
                   ),
                 ),
-                child: Center(
-                  child: Text(
-                    initials,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                child: const Center(
+                  child: Icon(
+                    Icons.person_rounded,
+                    size: 36,
+                    color: Colors.white,
                   ),
                 ),
               ),
 
-              const SizedBox(width: 16),
+              const SizedBox(height: 14),
 
-              // 정보 영역
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$name님',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(AppRadius.round),
-                          ),
-                          child: Text(
-                            department,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white.withOpacity(0.9),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (email.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        email,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.white.withOpacity(0.55),
-                        ),
-                      ),
-                    ],
-                  ],
+              // 이름
+              Text(
+                '$name님',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
                 ),
               ),
+              const SizedBox(height: 8),
+
+              // 학과 + 이메일
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(AppRadius.round),
+                ),
+                child: Text(
+                  department,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.9),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              if (email.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  email,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.6),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -415,16 +399,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           child: Row(
             children: [
-              // 아이콘 배경
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-                child: Icon(icon, size: 20, color: iconColor),
-              ),
+              // 아이콘
+              Icon(icon, size: 24, color: iconColor),
               const SizedBox(width: AppSpacing.md),
               // 텍스트
               Expanded(
@@ -472,7 +448,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         icon: const Icon(Icons.logout_rounded, size: 18),
         label: const Text('로그아웃'),
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppTheme.textSecondary,
+          foregroundColor: isDark ? Colors.white70 : AppTheme.textSecondary,
+          backgroundColor: isDark ? AppTheme.secondaryColor : Colors.white,
           side: BorderSide(
             color: isDark ? Colors.white12 : Colors.grey.shade200,
           ),
