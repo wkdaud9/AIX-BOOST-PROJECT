@@ -182,12 +182,14 @@ class FullListModal extends StatelessWidget {
     // 홈에서 별도 API로 가져온 이번 주 마감 공지 사용
     final weeklyNotices = List<Notice>.from(provider.weeklyDeadlineNotices);
 
-    // 마감일 순 정렬
+    // 마감 안 된 건 먼저 (임박순), 마감된 건 맨 뒤로
     weeklyNotices.sort((a, b) {
-      if (a.deadline == null && b.deadline == null) return 0;
-      if (a.deadline == null) return 1;
-      if (b.deadline == null) return -1;
-      return a.deadline!.compareTo(b.deadline!);
+      final aDays = a.daysUntilDeadline ?? 0;
+      final bDays = b.daysUntilDeadline ?? 0;
+      final aExpired = aDays < 0 ? 1 : 0;
+      final bExpired = bDays < 0 ? 1 : 0;
+      if (aExpired != bExpired) return aExpired - bExpired;
+      return aDays - bDays;
     });
 
     showModalBottomSheet(
@@ -560,7 +562,7 @@ class FullListModal extends StatelessWidget {
           final daysLeft = notice.daysUntilDeadline!;
           final isExpired = daysLeft < 0;
           return Text(
-            isExpired ? '마감됨' : (daysLeft == 0 ? 'D-Day' : 'D-$daysLeft'),
+            isExpired ? '마감됨' : (notice.deadlineDDayText ?? 'D-$daysLeft'),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -650,7 +652,7 @@ class FullListModal extends StatelessWidget {
             ],
             if (notice.isDeadlineSoon) ...[
               Text(
-                'D-${notice.daysUntilDeadline}',
+                notice.deadlineDDayText ?? '',
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -665,7 +667,7 @@ class FullListModal extends StatelessWidget {
         if (notice.daysUntilDeadline != null) {
           final daysLeft = notice.daysUntilDeadline!;
           return Text(
-            daysLeft == 0 ? 'D-Day' : 'D-$daysLeft',
+            notice.deadlineDDayText ?? 'D-$daysLeft',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,

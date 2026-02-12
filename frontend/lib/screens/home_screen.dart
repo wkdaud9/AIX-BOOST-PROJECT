@@ -998,7 +998,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
-                                        'D-${notice.daysUntilDeadline}',
+                                        notice.deadlineDDayText ?? '',
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
@@ -1283,7 +1283,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
-                                        'D-$dDay',
+                                        notice.deadlineDDayText ?? 'D-$dDay',
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
@@ -1545,7 +1545,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             child: Text(
-                              'D-${notice.daysUntilDeadline}',
+                              notice.deadlineDDayText ?? '',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,

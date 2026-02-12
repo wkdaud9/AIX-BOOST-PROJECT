@@ -631,7 +631,7 @@ def get_statistics():
 
 
 @notices_bp.route('/image-proxy', methods=['GET'])
-@login_required
+@optional_login
 def proxy_image():
     """
     학교 서버 이미지 프록시 (CORS/핫링크 차단 우회)

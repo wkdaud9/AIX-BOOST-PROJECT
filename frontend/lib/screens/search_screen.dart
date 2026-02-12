@@ -481,9 +481,7 @@ class _SearchScreenState extends State<SearchScreen> {
               border: Border.all(color: dDayColor.withOpacity(0.4)),
             ),
             child: Text(
-              notice.daysUntilDeadline == 0
-                  ? 'D-Day'
-                  : 'D-${notice.daysUntilDeadline}',
+              notice.deadlineDDayText ?? '',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,

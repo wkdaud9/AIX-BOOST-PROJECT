@@ -386,7 +386,17 @@ class NoticeProvider with ChangeNotifier {
     notifyListeners();
     try {
       final data = await _apiService.getDeadlineNotices(limit: limit);
-      _weeklyDeadlineNotices = data.map((json) => Notice.fromJson(json)).toList();
+      final notices = data.map((json) => Notice.fromJson(json)).toList();
+      // 마감 안 된 건(D-day >= 0)을 먼저, 마감된 건(D-day < 0)을 뒤로 정렬
+      notices.sort((a, b) {
+        final aDays = a.daysUntilDeadline ?? 0;
+        final bDays = b.daysUntilDeadline ?? 0;
+        final aExpired = aDays < 0 ? 1 : 0;
+        final bExpired = bDays < 0 ? 1 : 0;
+        if (aExpired != bExpired) return aExpired - bExpired;
+        return aDays - bDays; // 임박한 순서
+      });
+      _weeklyDeadlineNotices = notices;
     } catch (e) {
       debugPrint('이번 주 마감 공지 조회 실패: $e');
     }

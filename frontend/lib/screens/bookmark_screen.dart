@@ -305,9 +305,7 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                           borderRadius: BorderRadius.circular(AppRadius.sm),
                         ),
                         child: Text(
-                          notice.daysUntilDeadline != null
-                              ? 'D-${notice.daysUntilDeadline}'
-                              : '마감',
+                          notice.deadlineDDayText ?? '마감',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,

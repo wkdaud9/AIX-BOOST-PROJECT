@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/splash_screen.dart';
@@ -25,6 +26,16 @@ Future<void> main() async {
   );
 
   runApp(const AIXBoostApp());
+}
+
+/// 웹에서 마우스 드래그로도 스크롤 가능하도록 하는 커스텀 ScrollBehavior
+class AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+      };
 }
 
 class AIXBoostApp extends StatelessWidget {
@@ -82,6 +93,7 @@ class AIXBoostApp extends StatelessWidget {
             title: 'Hey bro',
             navigatorKey: navigatorKey,
             debugShowCheckedModeBanner: false,
+            scrollBehavior: AppScrollBehavior(),
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: settings.themeMode,
