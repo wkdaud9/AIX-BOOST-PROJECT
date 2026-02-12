@@ -6,8 +6,22 @@ import '../theme/app_theme.dart';
 import 'notice_detail_screen.dart';
 
 /// 알림함 화면 (토스 스타일)
-class NotificationScreen extends StatelessWidget {
+class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
+
+  @override
+  State<NotificationScreen> createState() => _NotificationScreenState();
+}
+
+class _NotificationScreenState extends State<NotificationScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // 화면 진입 시 백엔드에서 최신 알림 자동 조회
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationProvider>().fetchFromBackend();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,24 +58,9 @@ class NotificationScreen extends StatelessWidget {
             onSelected: (value) {
               if (value == 'clear') {
                 _showClearAllDialog(context);
-              } else if (value == 'test') {
-                context.read<NotificationProvider>().createSampleNotifications();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('테스트 알림이 생성되었습니다')),
-                );
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'test',
-                child: Row(
-                  children: [
-                    Icon(Icons.science_outlined, size: 20),
-                    SizedBox(width: 8),
-                    Text('테스트 알림 생성'),
-                  ],
-                ),
-              ),
               const PopupMenuItem(
                 value: 'clear',
                 child: Row(
@@ -136,14 +135,6 @@ class NotificationScreen extends StatelessWidget {
               color: isDark ? Colors.white54 : AppTheme.textSecondary,
             ),
           ),
-          const SizedBox(height: AppSpacing.xl),
-          OutlinedButton.icon(
-            onPressed: () {
-              context.read<NotificationProvider>().createSampleNotifications();
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('테스트 알림 생성'),
-          ),
         ],
       ),
     );
@@ -202,7 +193,7 @@ class NotificationScreen extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
             color: notification.isRead
-                ? (isDark ? const Color(0xFF0F2854) : Colors.white)
+                ? (isDark ? Theme.of(context).colorScheme.surface : Colors.white)
                 : (isDark
                     ? AppTheme.primaryLight.withOpacity(0.1)
                     : AppTheme.primaryColor.withOpacity(0.05)),

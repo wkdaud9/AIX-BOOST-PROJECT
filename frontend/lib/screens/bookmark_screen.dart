@@ -106,7 +106,8 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () async {
-                  await provider.fetchNotices();
+                  // DB에서 북마크 목록을 직접 가져옴 (fetchNotices 사용 시 상위 100개에 없는 북마크 누락됨)
+                  await provider.fetchBookmarkedNotices(limit: 50);
                 },
                 child: ListView.builder(
                   padding: const EdgeInsets.all(AppSpacing.md),
@@ -130,6 +131,7 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
     Notice notice,
     NoticeProvider provider,
   ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Dismissible(
       key: Key(notice.id),
       direction: DismissDirection.endToStart,
@@ -201,18 +203,18 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: AppTheme.getCategoryColor(notice.category)
+                        color: AppTheme.getCategoryColor(notice.category, isDark: isDark)
                             .withOpacity(0.1),
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                         border: Border.all(
-                          color: AppTheme.getCategoryColor(notice.category),
+                          color: AppTheme.getCategoryColor(notice.category, isDark: isDark),
                           width: 1,
                         ),
                       ),
                       child: Text(
                         notice.category,
                         style: TextStyle(
-                          color: AppTheme.getCategoryColor(notice.category),
+                          color: AppTheme.getCategoryColor(notice.category, isDark: isDark),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../env_config.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/notice.dart';
 import '../providers/notice_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/animated_bookmark_button.dart';
 
 /// 공지사항 상세 화면
 class NoticeDetailScreen extends StatefulWidget {
@@ -66,15 +67,16 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                 // Provider의 북마크 상태를 기준으로 표시 (캘린더/목록과 동기화)
                 final isBookmarked = provider.bookmarkedNotices
                     .any((n) => n.id == _notice!.id);
-                return IconButton(
-                  icon: Icon(
-                    isBookmarked
-                        ? Icons.bookmark
-                        : Icons.bookmark_outline,
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: AnimatedBookmarkButton(
+                    isBookmarked: isBookmarked,
+                    onTap: () => provider.toggleBookmark(_notice!.id),
+                    activeColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                    inactiveColor: AppTheme.textSecondary,
+                    size: 26,
                   ),
-                  onPressed: () {
-                    provider.toggleBookmark(_notice!.id);
-                  },
                 );
               },
             ),
@@ -101,22 +103,22 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
           // 헤더 영역
           _buildHeader(),
 
-          const Divider(height: 1),
+          const SizedBox(height: AppSpacing.sm),
 
           // 본문 영역
           _buildBody(),
 
-          // 태그 영역
-          if (_notice!.tags.isNotEmpty) ...[
-            const Divider(height: 1),
-            _buildTags(),
-          ],
+          const SizedBox(height: AppSpacing.sm),
 
-          // 관련 링크
-          if (_notice!.url != null) ...[
-            const Divider(height: 1),
+          // 태그 영역 (카드형 섹션)
+          if (_notice!.tags.isNotEmpty)
+            _buildTags(),
+
+          // 관련 링크 (카드형 섹션)
+          if (_notice!.url != null)
             _buildUrlSection(),
-          ],
+
+          const SizedBox(height: AppSpacing.lg),
         ],
       ),
     );
@@ -143,18 +145,18 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.getCategoryColor(_notice!.category)
+                  color: AppTheme.getCategoryColor(_notice!.category, isDark: isDark)
                       .withOpacity(0.1),
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                   border: Border.all(
-                    color: AppTheme.getCategoryColor(_notice!.category),
+                    color: AppTheme.getCategoryColor(_notice!.category, isDark: isDark),
                     width: 1,
                   ),
                 ),
                 child: Text(
                   _notice!.category,
                   style: TextStyle(
-                    color: AppTheme.getCategoryColor(_notice!.category),
+                    color: AppTheme.getCategoryColor(_notice!.category, isDark: isDark),
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -457,7 +459,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
 
   /// 학교 서버 이미지를 백엔드 프록시를 통해 로드하기 위한 URL 변환
   String _getProxyImageUrl(String originalUrl) {
-    final backendUrl = dotenv.env['BACKEND_URL'] ?? 'http://localhost:5000';
+    final backendUrl = EnvConfig.backendUrl;
     return '$backendUrl/api/notices/image-proxy?url=${Uri.encodeComponent(originalUrl)}';
   }
 
@@ -477,10 +479,21 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     }
   }
 
+  /// 본문 컨텐츠를 카드로 감싸는 공통 래퍼 (양옆 가득 채움)
+  Widget _buildBodyCard({required Widget child}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      color: isDark ? const Color(0xFF0F2854) : AppTheme.surfaceColor,
+      child: child,
+    );
+  }
+
   /// POSTER 레이아웃: 이미지 중심 (이미지 -> 원문 접기)
   Widget _buildPosterLayout() {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+    return _buildBodyCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -496,8 +509,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
 
   /// DOCUMENT 레이아웃: 텍스트 중심 (Markdown 본문 -> 이미지 하단)
   Widget _buildDocumentLayout() {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+    return _buildBodyCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -514,8 +526,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
 
   /// HYBRID 레이아웃: 이미지+텍스트 모두 중요 (이미지 -> 원문 접기)
   Widget _buildHybridLayout() {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+    return _buildBodyCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -602,46 +613,63 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
 
   /// 접기/펼치기 원문 (POSTER/HYBRID 모드용)
   Widget _buildCollapsibleContent() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Divider(),
-        InkWell(
-          onTap: () {
-            setState(() => _isContentExpanded = !_isContentExpanded);
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-            child: Row(
-              children: [
-                Builder(builder: (context) {
-                  final collapseIsDark = Theme.of(context).brightness == Brightness.dark;
-                  final collapseColor = collapseIsDark ? AppTheme.primaryLight : AppTheme.primaryColor;
-                  return Text(
-                    '원문 보기',
+        const SizedBox(height: AppSpacing.md),
+        Align(
+          alignment: Alignment.centerRight,
+          child: InkWell(
+            onTap: () {
+              setState(() => _isContentExpanded = !_isContentExpanded);
+            },
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm + 2,
+              ),
+              decoration: BoxDecoration(
+                color: accentColor.withOpacity(isDark ? 0.12 : 0.06),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.description_outlined,
+                    size: 16,
+                    color: accentColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '본문 보기',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: collapseColor,
+                      color: accentColor,
                     ),
-                  );
-                }),
-                const Spacer(),
-                Builder(builder: (context) {
-                  final collapseIsDark = Theme.of(context).brightness == Brightness.dark;
-                  return Icon(
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
                     _isContentExpanded
                         ? Icons.keyboard_arrow_up
                         : Icons.keyboard_arrow_down,
-                    color: collapseIsDark ? AppTheme.primaryLight : AppTheme.primaryColor,
-                  );
-                }),
-              ],
+                    size: 18,
+                    color: accentColor,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-        if (_isContentExpanded)
+        if (_isContentExpanded) ...[
+          const SizedBox(height: AppSpacing.md),
           _buildMarkdownContent(),
+        ],
       ],
     );
   }
@@ -653,7 +681,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     return Container(
       height: 200,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C4D8D) : Colors.grey.shade100,
+        color: isDark ? AppTheme.secondaryColor : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: const Center(
@@ -671,7 +699,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     return Container(
       height: 120,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C4D8D) : Colors.grey.shade100,
+        color: isDark ? AppTheme.secondaryColor : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
       ),
@@ -689,7 +717,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     );
   }
 
-  /// Markdown 본문 렌더링 (표, 볼드, 리스트 등 구조 보존)
+  /// Markdown 본문 렌더링 (표, 볼드, 리스트 등 구조 보존 + 정렬 지원)
   Widget _buildMarkdownContent() {
     // Markdown 내 이미지 문법(![](url))을 제거하여 텍스트만 표시
     var cleaned = _notice!.content
@@ -701,20 +729,87 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
       }
       return line;
     }).join('\n');
-    // 줄바꿈 보존: Markdown에서 단일 \n은 공백으로 처리되므로
-    // trailing 2 spaces를 추가하여 hard line break로 변환
-    cleaned = cleaned.replaceAll('\n', '  \n');
-    final contentWithoutImages = cleaned
-        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
-        .trim();
 
+    // 정렬 마커 확인 ({=center=}...{=/center=}, {=right=}...{=/right=})
+    final hasAlignMarkers =
+        cleaned.contains('{=center=}') || cleaned.contains('{=right=}');
+
+    if (!hasAlignMarkers) {
+      // 정렬 마커 없으면 기존 방식으로 렌더링
+      cleaned = cleaned.replaceAll('\n', '  \n');
+      final content = cleaned.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+      return _buildMarkdownBody(content);
+    }
+
+    // 정렬 마커가 있으면 섹션별 렌더링
+    final sections = _parseAlignedSections(cleaned);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: sections.map((section) {
+        var text = section.text
+            .replaceAll('\n', '  \n')
+            .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+            .trim();
+        if (text.isEmpty) return const SizedBox.shrink();
+
+        final align = section.align == 'center'
+            ? WrapAlignment.center
+            : section.align == 'right'
+                ? WrapAlignment.end
+                : WrapAlignment.start;
+        return _buildMarkdownBody(text, textAlign: align);
+      }).toList(),
+    );
+  }
+
+  /// 정렬 마커를 파싱하여 섹션 리스트 반환
+  List<_AlignedSection> _parseAlignedSections(String content) {
+    final sections = <_AlignedSection>[];
+    final regex =
+        RegExp(r'\{=(center|right)=\}(.*?)\{=/\1=\}', dotAll: true);
+
+    int lastEnd = 0;
+    for (final match in regex.allMatches(content)) {
+      // 마커 이전 텍스트 (정렬 없음)
+      if (match.start > lastEnd) {
+        final before = content.substring(lastEnd, match.start).trim();
+        if (before.isNotEmpty) {
+          sections.add(_AlignedSection('left', before));
+        }
+      }
+      // 정렬된 텍스트
+      final align = match.group(1)!;
+      final text = match.group(2)!.trim();
+      if (text.isNotEmpty) {
+        sections.add(_AlignedSection(align, text));
+      }
+      lastEnd = match.end;
+    }
+
+    // 마지막 마커 이후 남은 텍스트
+    if (lastEnd < content.length) {
+      final remaining = content.substring(lastEnd).trim();
+      if (remaining.isNotEmpty) {
+        sections.add(_AlignedSection('left', remaining));
+      }
+    }
+
+    return sections;
+  }
+
+  /// MarkdownBody 위젯 생성 헬퍼
+  Widget _buildMarkdownBody(String data,
+      {WrapAlignment textAlign = WrapAlignment.start}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return MarkdownBody(
-      data: contentWithoutImages,
+      data: data,
       selectable: true,
+      onTapLink: (text, href, title) {
+        if (href != null) _openUrl(href);
+      },
       styleSheet: MarkdownStyleSheet(
         p: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6),
+        a: TextStyle(color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor, decoration: TextDecoration.underline),
         h1: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
         h2: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         h3: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
@@ -727,109 +822,120 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
           border: Border(left: BorderSide(color: isDark ? Colors.white38 : Colors.grey.shade400, width: 3)),
         ),
         listBullet: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6),
+        textAlign: textAlign,
       ),
     );
   }
 
-  /// 태그 영역
+  /// 태그 영역 (가득 채움 + 여백)
   Widget _buildTags() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final tagAccent = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
+      color: isDark ? const Color(0xFF0F2854) : AppTheme.surfaceColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '태그',
-            style: Theme.of(context).textTheme.titleMedium,
+          Row(
+            children: [
+              Icon(Icons.tag, size: 16, color: tagAccent),
+              const SizedBox(width: 6),
+              Text(
+                '태그',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          Builder(builder: (context) {
-            final tagIsDark = Theme.of(context).brightness == Brightness.dark;
-            final tagAccent = tagIsDark ? AppTheme.primaryLight : AppTheme.primaryColor;
-            return Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: _notice!.tags.map((tag) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.sm,
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: _notice!.tags.map((tag) {
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: tagAccent.withOpacity(isDark ? 0.15 : 0.08),
+                  borderRadius: BorderRadius.circular(AppRadius.round),
+                ),
+                child: Text(
+                  '#$tag',
+                  style: TextStyle(
+                    color: tagAccent,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
-                  decoration: BoxDecoration(
-                    color: tagAccent.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(AppRadius.round),
-                    border: Border.all(
-                      color: tagAccent.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Text(
-                    '#$tag',
-                    style: TextStyle(
-                      color: tagAccent,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                );
-              }).toList(),
-            );
-          }),
+                ),
+              );
+            }).toList(),
+          ),
         ],
       ),
     );
   }
 
-  /// URL 섹션
+  /// URL 섹션 (가득 채움 + 여백)
   Widget _buildUrlSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final urlAccent = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '관련 링크',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Builder(builder: (context) {
-            final urlIsDark = Theme.of(context).brightness == Brightness.dark;
-            final urlAccent = urlIsDark ? AppTheme.primaryLight : AppTheme.primaryColor;
-            return InkWell(
-              onTap: () => _openUrl(_notice!.url!),
-              child: Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
+      width: double.infinity,
+      color: isDark ? const Color(0xFF0F2854) : AppTheme.surfaceColor,
+      child: InkWell(
+        onTap: () => _openUrl(_notice!.url!),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: urlAccent.withOpacity(0.15),
+                  color: urlAccent.withOpacity(isDark ? 0.15 : 0.08),
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
-                child: Row(
+                child: Icon(Icons.link, size: 20, color: urlAccent),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.link,
-                      color: urlAccent,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        _notice!.url!,
-                        style: TextStyle(
-                          color: urlAccent,
-                          decoration: TextDecoration.underline,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      '관련 링크',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                        fontSize: 12,
                       ),
                     ),
-                    Icon(
-                      Icons.open_in_new,
-                      color: urlAccent,
-                      size: 20,
+                    const SizedBox(height: 2),
+                    Text(
+                      _notice!.url!,
+                      style: TextStyle(
+                        color: urlAccent,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-            );
-          }),
-        ],
+              Icon(
+                Icons.open_in_new,
+                color: urlAccent,
+                size: 18,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -939,4 +1045,12 @@ HeyBro 앱에서 확인하세요!
         return AppTheme.textSecondary;
     }
   }
+
+}
+
+/// 정렬 정보가 포함된 Markdown 섹션
+class _AlignedSection {
+  final String align; // 'left', 'center', 'right'
+  final String text;
+  const _AlignedSection(this.align, this.text);
 }

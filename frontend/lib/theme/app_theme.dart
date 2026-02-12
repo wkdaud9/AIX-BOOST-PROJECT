@@ -31,18 +31,56 @@ class AppTheme {
   // 라이트 틴트 (섹션 배경, 하이라이트)
   static const Color lightTint = Color(0xFFBDE8F5);
 
-  // 공지사항 카테고리 컬러 (트렌디한 파스텔 톤)
+  // 공지사항 카테고리 컬러 - 라이트 모드 (Muted & Dusty 톤)
   static const Map<String, Color> categoryColors = {
-    '학사': Color(0xFF4988C4),       // 액센트 블루
-    '학사공지': Color(0xFF4988C4),   // 액센트 블루
-    '장학': Color(0xFF56C596),       // 부드러운 그린
-    '취업': Color(0xFFFFB84D),       // 부드러운 오렌지
-    '행사': Color(0xFFAD7FFF),       // 부드러운 퍼플
-    '학생활동': Color(0xFFAD7FFF),   // 부드러운 퍼플
-    '시설': Color(0xFF5DDAB4),       // 부드러운 민트
-    '교육': Color(0xFF3A78B5),       // 네이비 블루
-    '공모전': Color(0xFFFFD66B),     // 부드러운 골드
-    '기타': Color(0xFF9AA5B8),       // 부드러운 그레이
+    '학사': Color(0xFF5B85C2),       // 더스티 블루
+    '학사공지': Color(0xFF5B85C2),   // 더스티 블루
+    '장학': Color(0xFFC2849B),       // 더스티 로즈
+    '취업': Color(0xFFD18056),       // 웜 테라코타
+    '행사': Color(0xFF9678C4),       // 더스티 플럼
+    '학생활동': Color(0xFF9678C4),   // 더스티 플럼
+    '시설': Color(0xFF52A6A0),       // 뮤티드 틸
+    '교육': Color(0xFF4A96B0),       // 오션 틸
+    '공모전': Color(0xFFB89B5E),     // 더스티 골드
+    '기타': Color(0xFF8B95A5),       // 쿨 슬레이트
+  };
+
+  // MyBro 탭 색상 - 라이트 모드 (Muted & Dusty 톤)
+  static const Map<String, Color> myBroColors = {
+    'AI 맞춤 추천': Color(0xFF6E7FC4),   // 소프트 퍼리윙클
+    '오늘 필수': Color(0xFFC87068),      // 더스티 코랄
+    '학과 인기': Color(0xFF6BA68A),      // 세이지 그린
+    '마감 임박': Color(0xFFCB8B5A),      // 더스티 앰버
+  };
+
+  // MyBro 탭 색상 - 다크 모드 (고채도 비비드 톤)
+  static const Map<String, Color> myBroColorsDark = {
+    'AI 맞춤 추천': Color(0xFF7E96EC),   // 비비드 퍼리윙클
+    '오늘 필수': Color(0xFFEF7B74),      // 비비드 코랄 레드
+    '학과 인기': Color(0xFF58C8A2),      // 비비드 에메랄드
+    '마감 임박': Color(0xFFECA45C),      // 비비드 앰버
+  };
+
+  /// MyBro 탭 색상 조회 (다크모드 자동 분기)
+  static Color getMyBroColor(String tabName, {bool isDark = false}) {
+    if (isDark) {
+      return myBroColorsDark[tabName] ?? myBroColorsDark['AI 맞춤 추천']!;
+    }
+    return myBroColors[tabName] ?? myBroColors['AI 맞춤 추천']!;
+  }
+
+  // 공지사항 카테고리 컬러 - 다크 모드 (고채도 비비드 톤)
+  static const Map<String, Color> categoryColorsDark = {
+    '학사': Color(0xFF6AAEEF),       // 비비드 스카이 블루
+    '학사공지': Color(0xFF6AAEEF),   // 비비드 스카이 블루
+    '장학': Color(0xFFF08DA6),       // 비비드 로즈 핑크
+    '취업': Color(0xFFF09A68),       // 비비드 코랄 오렌지
+    '행사': Color(0xFFBB90EA),       // 비비드 라벤더
+    '학생활동': Color(0xFFBB90EA),   // 비비드 라벤더
+    '시설': Color(0xFF4DCABE),       // 비비드 민트 틸
+    '교육': Color(0xFF4CBCE0),       // 비비드 오션 시안
+    '공모전': Color(0xFFE4C254),     // 비비드 앰버 골드
+    '기타': Color(0xFF9AB0CA),       // 쿨 블루 슬레이트
   };
 
   /// 라이트 테마
@@ -68,6 +106,8 @@ class AppTheme {
     // AppBar 테마
     appBarTheme: const AppBarTheme(
       elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
       centerTitle: false,
       backgroundColor: surfaceColor,
       foregroundColor: textPrimary,
@@ -208,6 +248,8 @@ class AppTheme {
     // AppBar 테마 (다크)
     appBarTheme: const AppBarTheme(
       elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
       centerTitle: false,
       backgroundColor: Color(0xFF060E1F),
       foregroundColor: Colors.white,
@@ -282,6 +324,10 @@ class AppTheme {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: const Color(0xFF1C4D8D),
+      labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+      floatingLabelStyle: const TextStyle(color: Colors.white),
+      hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+      prefixIconColor: Colors.white.withOpacity(0.7),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
@@ -292,7 +338,7 @@ class AppTheme {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: primaryColor, width: 2),
+        borderSide: const BorderSide(color: primaryLight, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -337,8 +383,11 @@ class AppTheme {
     ),
   );
 
-  /// 카테고리별 색상 가져오기
-  static Color getCategoryColor(String category) {
+  /// 카테고리별 색상 가져오기 (다크 모드 시 밝은 톤 자동 반환)
+  static Color getCategoryColor(String category, {bool isDark = false}) {
+    if (isDark) {
+      return categoryColorsDark[category] ?? categoryColorsDark['기타']!;
+    }
     return categoryColors[category] ?? categoryColors['기타']!;
   }
 }

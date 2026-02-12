@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/settings_provider.dart';
+import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 
 /// 설정 화면 (토스 스타일)
@@ -73,6 +76,24 @@ class SettingsScreen extends StatelessWidget {
                       title: '설정 초기화',
                       subtitle: '모든 설정을 기본값으로 되돌리기',
                       onTap: () => _showResetSettingsDialog(context, settings),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: AppSpacing.lg),
+
+                // 계정 섹션
+                _buildSection(
+                  context,
+                  title: '계정',
+                  children: [
+                    _buildActionTile(
+                      context,
+                      icon: Icons.person_remove_outlined,
+                      title: '회원 탈퇴',
+                      subtitle: '계정 및 데이터가 영구 삭제됩니다',
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _showDeleteAccountDialog(context),
                     ),
                   ],
                 ),
@@ -266,41 +287,13 @@ class SettingsScreen extends StatelessWidget {
               ],
             ),
           ),
-          PopupMenuButton<NotificationMode>(
-            initialValue: settings.notificationMode,
-            position: PopupMenuPosition.under,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            onSelected: (value) {
-              settings.setNotificationMode(value);
-            },
-            itemBuilder: (context) => NotificationMode.values.map((mode) {
-              String label;
-              switch (mode) {
-                case NotificationMode.allOff:
-                  label = '모두 끔';
-                  break;
-                case NotificationMode.scheduleOnly:
-                  label = '일정만';
-                  break;
-                case NotificationMode.noticeOnly:
-                  label = '공지만';
-                  break;
-                case NotificationMode.allOn:
-                  label = '모두 켬';
-                  break;
-              }
-              return PopupMenuItem(
-                value: mode,
-                child: Text(label),
-              );
-            }).toList(),
-            child: Builder(
-              builder: (context) {
-                final isDarkDropdown = Theme.of(context).brightness == Brightness.dark;
-                final dropdownAccent = isDarkDropdown ? AppTheme.primaryLight : AppTheme.primaryColor;
-                return Container(
+          Builder(
+            builder: (context) {
+              final isDarkDropdown = Theme.of(context).brightness == Brightness.dark;
+              final dropdownAccent = isDarkDropdown ? AppTheme.primaryLight : AppTheme.primaryColor;
+              return GestureDetector(
+                onTap: () => _showNotificationModeSheet(context, settings),
+                child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: dropdownAccent.withOpacity(0.15),
@@ -320,13 +313,11 @@ class SettingsScreen extends StatelessWidget {
                           color: isDarkDropdown ? Colors.white : AppTheme.textPrimary,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.keyboard_arrow_down, size: 20),
                     ],
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -350,21 +341,8 @@ class SettingsScreen extends StatelessWidget {
           const Expanded(
             child: Text('알림 시점', style: TextStyle(fontSize: 16)),
           ),
-          PopupMenuButton<int>(
-            initialValue: settings.deadlineReminderDays,
-            position: PopupMenuPosition.under,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            onSelected: (value) {
-              settings.setDeadlineReminderDays(value);
-            },
-            itemBuilder: (context) => [1, 2, 3, 5, 7].map((days) {
-              return PopupMenuItem(
-                value: days,
-                child: Text('D-$days'),
-              );
-            }).toList(),
+          GestureDetector(
+            onTap: () => _showReminderDaysSheet(context, settings),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -381,8 +359,6 @@ class SettingsScreen extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.keyboard_arrow_down, size: 20),
                 ],
               ),
             ),
@@ -509,6 +485,209 @@ class SettingsScreen extends StatelessWidget {
               );
             },
             child: Text('확인', style: TextStyle(color: AppTheme.errorColor)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 알림 설정 Bottom Sheet
+  void _showNotificationModeSheet(BuildContext context, SettingsProvider settings) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final options = <MapEntry<NotificationMode, String>>[
+      const MapEntry(NotificationMode.allOn, '모두 켬'),
+      const MapEntry(NotificationMode.noticeOnly, '공지만'),
+      const MapEntry(NotificationMode.scheduleOnly, '일정만'),
+      const MapEntry(NotificationMode.allOff, '모두 끔'),
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 드래그 핸들
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // 제목
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Text(
+                  '알림 설정',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+              Divider(height: 1, color: isDark ? Colors.white12 : Colors.grey.shade200),
+              // 옵션 리스트
+              ...options.map((entry) {
+                final isSelected = settings.notificationMode == entry.key;
+                return ListTile(
+                  title: Text(
+                    entry.value,
+                    style: TextStyle(
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: isSelected
+                          ? (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                          : (isDark ? Colors.white : AppTheme.textPrimary),
+                    ),
+                  ),
+                  trailing: isSelected
+                      ? Icon(Icons.check, color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                      : null,
+                  onTap: () {
+                    settings.setNotificationMode(entry.key);
+                    Navigator.pop(context);
+                  },
+                );
+              }),
+              const SizedBox(height: AppSpacing.md),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 알림 시점 Bottom Sheet
+  void _showReminderDaysSheet(BuildContext context, SettingsProvider settings) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dayOptions = [1, 2, 3, 5, 7];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 드래그 핸들
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // 제목
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Text(
+                  '알림 시점',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+              Divider(height: 1, color: isDark ? Colors.white12 : Colors.grey.shade200),
+              // 옵션 리스트
+              ...dayOptions.map((days) {
+                final isSelected = settings.deadlineReminderDays == days;
+                return ListTile(
+                  title: Text(
+                    'D-$days',
+                    style: TextStyle(
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: isSelected
+                          ? (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                          : (isDark ? Colors.white : AppTheme.textPrimary),
+                    ),
+                  ),
+                  subtitle: Text(
+                    '마감 $days일 전 알림',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white38 : AppTheme.textHint,
+                    ),
+                  ),
+                  trailing: isSelected
+                      ? Icon(Icons.check, color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                      : null,
+                  onTap: () {
+                    settings.setDeadlineReminderDays(days);
+                    Navigator.pop(context);
+                  },
+                );
+              }),
+              const SizedBox(height: AppSpacing.md),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 회원 탈퇴 확인 다이얼로그
+  void _showDeleteAccountDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('회원 탈퇴'),
+        content: const Text(
+          '탈퇴 시 계정 정보와 저장된 데이터가 모두 삭제되며, 복구할 수 없습니다.\n\n정말 탈퇴하시겠습니까?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              try {
+                final userId = Supabase.instance.client.auth.currentUser?.id;
+                if (userId != null) {
+                  await context.read<ApiService>().deleteUser(userId);
+                }
+                await context.read<AuthService>().signOut();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('회원 탈퇴가 완료되었습니다')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('탈퇴 처리 중 오류가 발생했습니다: $e')),
+                  );
+                }
+              }
+            },
+            child: Text(
+              '탈퇴',
+              style: TextStyle(
+                color: AppTheme.errorColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('취소'),
           ),
         ],
       ),

@@ -17,13 +17,19 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final ApiService _apiService = ApiService();
+  late final ApiService _apiService;
 
   List<Notice> _searchResults = [];
   bool _isLoading = false;
   bool _hasSearched = false;
   String? _errorMessage;
   Timer? _debounceTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _apiService = context.read<ApiService>();
+  }
 
   @override
   void dispose() {
@@ -307,7 +313,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   /// 공지사항 카드 (CategoryNoticeScreen 패턴 재사용)
   Widget _buildNoticeCard(Notice notice, bool isDark) {
-    final categoryColor = AppTheme.getCategoryColor(notice.category);
+    final categoryColor = AppTheme.getCategoryColor(notice.category, isDark: isDark);
     final showDDay = notice.deadline != null &&
         notice.daysUntilDeadline != null &&
         notice.daysUntilDeadline! >= 0;
@@ -319,7 +325,7 @@ class _SearchScreenState extends State<SearchScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF25253D) : Colors.white,
+        color: isDark ? Theme.of(context).colorScheme.surface : Colors.white,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         boxShadow: isDark ? null : AppShadow.soft,
       ),
@@ -518,27 +524,27 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  /// 카테고리별 아이콘 매핑
-  IconData _getCategoryIcon(String category) {
+  /// 카테고리별 이모지 매핑
+  String _getCategoryEmoji(String category) {
     switch (category) {
       case '학사':
       case '학사공지':
-        return Icons.school_rounded;
+        return '🎓';
       case '장학':
-        return Icons.attach_money_rounded;
+        return '💰';
       case '취업':
-        return Icons.work_rounded;
+        return '💼';
       case '행사':
       case '학생활동':
-        return Icons.event_rounded;
+        return '🎉';
       case '교육':
-        return Icons.menu_book_rounded;
+        return '📚';
       case '공모전':
-        return Icons.emoji_events_rounded;
+        return '🏆';
       case '시설':
-        return Icons.apartment_rounded;
+        return '🏢';
       default:
-        return Icons.article_outlined;
+        return '📋';
     }
   }
 
@@ -553,10 +559,11 @@ class _SearchScreenState extends State<SearchScreen> {
             : categoryColor.withOpacity(0.08),
         borderRadius: BorderRadius.circular(AppRadius.md),
       ),
-      child: Icon(
-        _getCategoryIcon(notice.category),
-        size: 32,
-        color: categoryColor.withOpacity(isDark ? 0.7 : 0.5),
+      child: Center(
+        child: Text(
+          _getCategoryEmoji(notice.category),
+          style: const TextStyle(fontSize: 28),
+        ),
       ),
     );
   }

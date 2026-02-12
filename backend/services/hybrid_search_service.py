@@ -76,6 +76,7 @@ class HybridSearchService:
         self,
         user_id: str,
         limit: int = 20,
+        offset: int = 0,
         min_score: float = 0.3,
         weights: Optional[Dict[str, float]] = None
     ) -> List[Dict[str, Any]]:
@@ -85,6 +86,7 @@ class HybridSearchService:
         매개변수:
         - user_id: 사용자 ID
         - limit: 최대 결과 수
+        - offset: 건너뛸 결과 수 (페이지네이션용)
         - min_score: 최소 점수 (0~1)
         - weights: 점수 가중치 (hard_filter, vector)
 
@@ -143,7 +145,8 @@ class HybridSearchService:
             x["total_score"]
         ), reverse=True)
 
-        return results[:limit]
+        # offset 적용 (새로고침 시 다음 배치 제공)
+        return results[offset:offset + limit]
 
     def find_relevant_users(
         self,
@@ -500,8 +503,14 @@ class HybridSearchService:
             notices = result.data or []
 
             # Python에서 필터링 (JSONB 쿼리가 복잡해서)
+            now_iso = datetime.utcnow().isoformat()
             filtered = []
             for notice in notices:
+                # 마감일이 지난 공지 제외 (deadline이 있고, 오늘 이전이면 스킵)
+                deadline = notice.get("deadline") or (notice.get("enriched_metadata") or {}).get("deadline")
+                if deadline and str(deadline) < now_iso:
+                    continue
+
                 enriched = notice.get("enriched_metadata") or {}
 
                 # 전체 대상이면 패스

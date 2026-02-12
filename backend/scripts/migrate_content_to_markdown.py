@@ -24,7 +24,7 @@ import random
 import argparse
 import requests
 from bs4 import BeautifulSoup
-from markdownify import markdownify as md
+from markdownify import markdownify as md, MarkdownConverter
 
 # 프로젝트 루트 경로 추가
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -58,6 +58,59 @@ def clean_markdown(text: str) -> str:
     # 7. 연속 빈 줄 정리 (3줄 이상 → 2줄)
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
+
+
+class AlignPreservingConverter(MarkdownConverter):
+    """text-align CSS 속성을 마커로 보존하는 Markdown 변환기"""
+
+    def _get_align(self, el):
+        """엘리먼트의 text-align 속성 확인 (CSS style + HTML align 속성)"""
+        style = el.get('style', '') if hasattr(el, 'get') else ''
+        align_attr = el.get('align', '') if hasattr(el, 'get') else ''
+
+        if 'text-align' in style:
+            match = re.search(r'text-align\s*:\s*(center|right)', style)
+            if match:
+                return match.group(1)
+        if align_attr in ('center', 'right'):
+            return align_attr
+        return None
+
+    def convert_p(self, el, text, *args, **kwargs):
+        """p 태그 변환 시 text-align 보존"""
+        result = super().convert_p(el, text, *args, **kwargs)
+        align = self._get_align(el)
+        if align and result.strip():
+            stripped = result.strip()
+            result = f'\n\n{{={align}=}}{stripped}{{=/{align}=}}\n\n'
+        return result
+
+    def convert_div(self, el, text, *args, **kwargs):
+        """div 태그 변환 시 text-align 보존 (하위 요소에 마커가 없는 경우만)"""
+        result = super().convert_div(el, text, *args, **kwargs)
+        align = self._get_align(el)
+        if align and result.strip() and '{=' not in result:
+            lines = result.strip().split('\n')
+            marked = []
+            for line in lines:
+                if line.strip():
+                    marked.append(f'{{={align}=}}{line}{{=/{align}=}}')
+                else:
+                    marked.append(line)
+            result = '\n\n' + '\n'.join(marked) + '\n\n'
+        return result
+
+    def convert_center(self, el, text, *args, **kwargs):
+        """<center> 태그를 center 마커로 변환"""
+        if text.strip():
+            return f'\n\n{{=center=}}{text.strip()}{{=/center=}}\n\n'
+        return text
+
+
+def md_with_align(html, **kwargs):
+    """text-align 보존 Markdown 변환 헬퍼 함수"""
+    return AlignPreservingConverter(**kwargs).convert(html)
+
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -109,8 +162,8 @@ def fetch_and_convert(source_url: str, session: requests.Session) -> dict:
             if src and not src.startswith('http'):
                 img['src'] = BASE_URL + src
 
-        # HTML → Markdown 변환 + 파편화된 서식 정리
-        content_md = clean_markdown(md(
+        # HTML → Markdown 변환 + 정렬 보존 + 파편화된 서식 정리
+        content_md = clean_markdown(md_with_align(
             str(content_elem),
             heading_style="ATX",
             strip=['script', 'style'],

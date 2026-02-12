@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../env_config.dart';
 
 /// Backend API와 통신하는 서비스 클래스
 /// RESTful API 호출 및 응답 처리를 담당합니다.
@@ -8,7 +8,7 @@ class ApiService {
   final String baseUrl;
 
   ApiService({String? baseUrl})
-      : baseUrl = baseUrl ?? dotenv.env['BACKEND_URL'] ?? 'http://localhost:5000' {
+      : baseUrl = baseUrl ?? EnvConfig.backendUrl {
     _dio = Dio(BaseOptions(
       baseUrl: this.baseUrl,
       connectTimeout: const Duration(seconds: 30),
@@ -60,6 +60,7 @@ class ApiService {
     String? category,
     int limit = 20,
     int offset = 0,
+    String? deadlineFrom,
   }) async {
     try {
       final queryParams = <String, dynamic>{
@@ -69,8 +70,61 @@ class ApiService {
       if (category != null) {
         queryParams['category'] = category;
       }
+      if (deadlineFrom != null) {
+        queryParams['deadline_from'] = deadlineFrom;
+      }
 
       final response = await _dio.get('/api/notices/', queryParameters: queryParams);
+      return _handleListResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 조회수 기준 인기 공지사항 조회 (DB 전체 대상)
+  Future<List<Map<String, dynamic>>> getPopularNotices({int limit = 5}) async {
+    try {
+      final response = await _dio.get('/api/notices/popular', queryParameters: {'limit': limit});
+      return _handleListResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 이번 주 마감 공지사항 조회 (홈 화면 경량 API)
+  Future<List<Map<String, dynamic>>> getDeadlineNotices({int limit = 10}) async {
+    try {
+      final response = await _dio.get('/api/notices/deadlines', queryParameters: {'limit': limit});
+      return _handleListResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 사용자 북마크 공지사항 조회 (홈 화면 경량 API)
+  Future<List<Map<String, dynamic>>> getBookmarkedNotices({int limit = 10}) async {
+    try {
+      final response = await _dio.get('/api/notices/bookmarked', queryParameters: {'limit': limit});
+      return _handleListResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 오늘 필수 공지사항 조회 (MyBro 탭용, 백엔드 점수 기반 정렬)
+  Future<List<Map<String, dynamic>>> getEssentialNotices({int limit = 10}) async {
+    try {
+      final response = await _dio.get('/api/notices/essential', queryParameters: {'limit': limit});
+      return _handleListResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 마감 임박 공지사항 조회 (MyBro 탭용, 오늘~D+7 마감일순)
+  Future<List<Map<String, dynamic>>> getDeadlineSoonNotices({int limit = 10}) async {
+    try {
+      final response = await _dio.get('/api/notices/deadline-soon', queryParameters: {'limit': limit});
       return _handleListResponse(response);
     } catch (e) {
       throw _handleError(e);
@@ -153,6 +207,26 @@ class ApiService {
     }
   }
 
+  /// 사용자 프로필(이름, 학과, 학년) 업데이트
+  Future<Map<String, dynamic>> updateUserProfile({
+    required String userId,
+    String? name,
+    String? department,
+    int? grade,
+  }) async {
+    try {
+      final data = <String, dynamic>{};
+      if (name != null) data['name'] = name;
+      if (department != null) data['department'] = department;
+      if (grade != null) data['grade'] = grade;
+
+      final response = await _dio.put('/api/users/profile/$userId', data: data);
+      return _handleResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// 사용자 선호도(카테고리) 업데이트
   Future<Map<String, dynamic>> updateUserPreferences({
     required String userId,
@@ -177,12 +251,32 @@ class ApiService {
     }
   }
 
+  /// 아이디(이메일) 찾기
+  /// 학번과 이름으로 마스킹된 이메일을 조회합니다.
+  Future<String> findEmail({
+    required String studentId,
+    required String name,
+  }) async {
+    try {
+      final response = await _dio.post('/api/users/find-email', data: {
+        'student_id': studentId,
+        'name': name,
+      });
+      final data = _handleResponse(response);
+      return data['masked_email'] as String;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// AI 맞춤 추천 공지사항 조회 (사용자 관심사 기반 하이브리드 검색)
   ///
   /// [limit] 최대 결과 수 (기본 20)
+  /// [offset] 건너뛸 결과 수 (기본 0, 새로고침 시 다음 배치용)
   /// [minScore] 최소 관련도 점수 (기본 0.3)
   Future<List<Map<String, dynamic>>> getRecommendedNotices({
     int limit = 20,
+    int offset = 0,
     double minScore = 0.3,
   }) async {
     try {
@@ -190,6 +284,7 @@ class ApiService {
         '/api/search/notices',
         queryParameters: {
           'limit': limit,
+          'offset': offset,
           'min_score': minScore,
           'rerank': 'true',
         },

@@ -38,6 +38,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
   /// 학과 입력 컨트롤러
   final _departmentController = TextEditingController();
 
+  /// 학년 표시용 컨트롤러
+  final _gradeController = TextEditingController();
+
   /// 선택된 학년
   int? _selectedGrade;
 
@@ -110,6 +113,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _nameController.dispose();
     _studentIdController.dispose();
     _departmentController.dispose();
+    _gradeController.dispose();
     super.dispose();
   }
 
@@ -221,7 +225,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           e.message.contains('already been registered')) {
         errorMessage = '이미 가입된 이메일입니다.';
       } else if (e.message.contains('Password should be')) {
-        errorMessage = '비밀번호는 6자 이상이어야 합니다.';
+        errorMessage = '비밀번호는 8자 이상이며 특수문자를 포함해야 합니다.';
       }
 
       setState(() {
@@ -273,9 +277,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _showCategoryDialog() async {
     await showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
+        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
+        final accentColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogContext, setDialogState) {
             return AlertDialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -289,7 +295,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     return CheckboxListTile(
                       title: Text(category),
                       value: isSelected,
-                      activeColor: AppTheme.primaryColor,
+                      activeColor: accentColor,
                       onChanged: (value) {
                         setDialogState(() {
                           setState(() {
@@ -308,9 +314,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
               actions: [
                 TextButton(
                   onPressed: () {
-                    Navigator.of(context).pop();
+                    Navigator.of(dialogContext).pop();
                   },
-                  child: const Text('완료'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: isDark ? Colors.white : accentColor,
+                  ),
+                  child: const Text('완료',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ],
             );
@@ -328,10 +338,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
+        final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
+        final accentColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+        final sheetColorScheme = Theme.of(sheetContext).colorScheme;
         String searchQuery = '';
         return StatefulBuilder(
-          builder: (context, setSheetState) {
+          builder: (sheetContext, setSheetState) {
             // 검색어로 학과 필터링
             final filteredColleges = <String, List<String>>{};
             _departmentsByCollege.forEach((college, depts) {
@@ -363,7 +376,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       child: Text(
                         college,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: AppTheme.primaryColor,
+                              color: accentColor,
                               fontWeight: FontWeight.bold,
                             ),
                       ),
@@ -379,16 +392,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           dept,
                           style: TextStyle(
                             color: isSelected
-                                ? AppTheme.primaryColor
-                                : AppTheme.textPrimary,
+                                ? accentColor
+                                : sheetColorScheme.onSurface,
                             fontWeight: isSelected
                                 ? FontWeight.bold
                                 : FontWeight.normal,
                           ),
                         ),
                         trailing: isSelected
-                            ? const Icon(Icons.check,
-                                color: AppTheme.primaryColor, size: 20)
+                            ? Icon(Icons.check,
+                                color: accentColor, size: 20)
                             : null,
                         onTap: () {
                           setState(() {
@@ -410,7 +423,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey[300],
+                        color: sheetColorScheme.onSurface.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -466,6 +479,73 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
+  /// 학년 선택 바텀시트
+  Future<void> _showGradePicker() async {
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
+        final accentColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+        final sheetColorScheme = Theme.of(sheetContext).colorScheme;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 상단 핸들 바
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: sheetColorScheme.onSurface.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // 제목
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  '학년 선택',
+                  style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ),
+              // 학년 목록
+              ...[1, 2, 3, 4].map((grade) {
+                final isSelected = _selectedGrade == grade;
+                return ListTile(
+                  title: Text(
+                    '$grade학년',
+                    style: TextStyle(
+                      color: isSelected ? accentColor : sheetColorScheme.onSurface,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                  trailing: isSelected
+                      ? Icon(Icons.check, color: accentColor, size: 20)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      _selectedGrade = grade;
+                      _gradeController.text = '$grade학년';
+                      _studentInfoError = null;
+                    });
+                    Navigator.of(sheetContext).pop();
+                  },
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   /// 이메일 유효성 검사
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) {
@@ -480,14 +560,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return null;
   }
 
-  /// 비밀번호 유효성 검사
+  /// 비밀번호 유효성 검사 (최소 8자 + 특수문자 1개 이상)
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) {
       return '비밀번호를 입력해주세요';
     }
 
-    if (value.length < 6) {
-      return '6자 이상 입력해주세요';
+    if (value.length < 8) {
+      return '8자 이상 입력해주세요';
+    }
+
+    // 특수문자 포함 여부 확인
+    final specialCharRegex = RegExp(r'[!@#$%^&*(),.?":{}|<>]');
+    if (!specialCharRegex.hasMatch(value)) {
+      return '특수문자를 1개 이상 포함해주세요';
     }
 
     return null;
@@ -535,8 +621,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('회원가입'),
         leading: IconButton(
@@ -559,7 +646,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   '군산대학교 학생 정보를 입력해주세요',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppTheme.textSecondary,
+                        color: colorScheme.onSurface.withOpacity(0.6),
                       ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
@@ -624,164 +711,154 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       decoration: const InputDecoration(
                         labelText: '학과',
                         prefixIcon: Icon(Icons.school_outlined),
-                        suffixIcon: Icon(Icons.arrow_drop_down),
                       ),
                       validator: _validateDepartment,
                     ),
-                    // 학년 선택 드롭다운
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: DropdownButtonFormField<int>(
-                        decoration: const InputDecoration(
-                          labelText: '학년',
-                          prefixIcon: Icon(Icons.stairs_outlined),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        items: [1, 2, 3, 4].map((grade) {
-                          return DropdownMenuItem(
-                            value: grade,
-                            child: Text('$grade학년'),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedGrade = value;
-                            _studentInfoError = null;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null) {
-                            return '학년을 선택해주세요';
-                          }
-                          return null;
-                        },
+                    // 학년 선택 (바텀시트)
+                    TextFormField(
+                      readOnly: true,
+                      onTap: _showGradePicker,
+                      controller: _gradeController,
+                      decoration: const InputDecoration(
+                        labelText: '학년',
+                        prefixIcon: Icon(Icons.stairs_outlined),
                       ),
+                      validator: (value) {
+                        if (_selectedGrade == null) {
+                          return '학년을 선택해주세요';
+                        }
+                        return null;
+                      },
                     ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xl),
 
                 // 관심 카테고리 섹션 (강조된 박스 디자인)
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
-                      width: 2,
+                Builder(builder: (context) {
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
+                  final accentColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: accentColor.withOpacity(isDark ? 0.1 : 0.05),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: accentColor.withOpacity(0.3),
+                        width: 2,
+                      ),
                     ),
-                  ),
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // 헤더 섹션
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor,
-                              borderRadius: BorderRadius.circular(12),
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 헤더 섹션
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: accentColor,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.star_rounded,
+                                color: Colors.white,
+                                size: 24,
+                              ),
                             ),
-                            child: const Icon(
-                              Icons.star_rounded,
-                              color: Colors.white,
-                              size: 24,
+                            const SizedBox(width: AppSpacing.md),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '관심 카테고리',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: accentColor,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '맞춤 공지사항을 위해 선택해주세요',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: colorScheme.onSurface.withOpacity(0.6),
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: AppSpacing.lg),
+
+                        // 카테고리 선택 버튼
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _showCategoryDialog,
+                            icon: const Icon(Icons.category_outlined),
+                            label: Text(
+                              _selectedCategories.isEmpty
+                                  ? '카테고리 선택하기'
+                                  : '${_selectedCategories.length}개 카테고리 선택됨',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: accentColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.lg,
+                                vertical: AppSpacing.md,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
-                          const SizedBox(width: AppSpacing.md),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '관심 카테고리',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.primaryColor,
-                                      ),
+                        ),
+
+                        // 선택된 카테고리 칩 표시
+                        if (_selectedCategories.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _selectedCategories.map((category) {
+                              return Chip(
+                                label: Text(
+                                  category,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '맞춤 공지사항을 위해 선택해주세요',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: AppTheme.textSecondary,
-                                      ),
+                                backgroundColor: accentColor,
+                                side: BorderSide.none,
+                                deleteIcon: const Icon(
+                                  Icons.close,
+                                  size: 18,
+                                  color: Colors.white,
                                 ),
-                              ],
-                            ),
+                                onDeleted: () {
+                                  setState(() {
+                                    _selectedCategories.remove(category);
+                                  });
+                                },
+                              );
+                            }).toList(),
                           ),
                         ],
-                      ),
-
-                      const SizedBox(height: AppSpacing.lg),
-
-                      // 카테고리 선택 버튼
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _showCategoryDialog,
-                          icon: const Icon(Icons.category_outlined),
-                          label: Text(
-                            _selectedCategories.isEmpty
-                                ? '카테고리 선택하기'
-                                : '${_selectedCategories.length}개 카테고리 선택됨',
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.lg,
-                              vertical: AppSpacing.md,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // 선택된 카테고리 칩 표시
-                      if (_selectedCategories.isNotEmpty) ...[
-                        const SizedBox(height: AppSpacing.md),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: _selectedCategories.map((category) {
-                            return Chip(
-                              label: Text(
-                                category,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              backgroundColor: AppTheme.primaryColor,
-                              deleteIcon: const Icon(
-                                Icons.close,
-                                size: 18,
-                                color: Colors.white,
-                              ),
-                              onDeleted: () {
-                                setState(() {
-                                  _selectedCategories.remove(category);
-                                });
-                              },
-                            );
-                          }).toList(),
-                        ),
                       ],
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                }),
 
                 const SizedBox(height: AppSpacing.xl),
 

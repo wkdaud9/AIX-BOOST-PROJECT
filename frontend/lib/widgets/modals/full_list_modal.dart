@@ -4,6 +4,7 @@ import '../../models/notice.dart';
 import '../../providers/notice_provider.dart';
 import '../../screens/notice_detail_screen.dart';
 import '../../theme/app_theme.dart';
+import '../animated_bookmark_button.dart';
 
 /// 전체보기 모달 (추천정보 카드에서 사용)
 /// 인기 게시물, 저장한 일정, AI 추천, 이번 주 일정 전체 목록을 표시
@@ -14,6 +15,7 @@ class FullListModal extends StatelessWidget {
   final Color themeColor;
   final IconData icon;
   final FullListType listType;
+  final VoidCallback? onMoreTap;
 
   const FullListModal({
     super.key,
@@ -23,24 +25,23 @@ class FullListModal extends StatelessWidget {
     required this.themeColor,
     required this.icon,
     required this.listType,
+    this.onMoreTap,
   });
 
-  /// 인기 게시물 전체보기 모달
+  /// HOT 게시물 전체보기 모달 (인기 공지 최대 10개)
   static void showPopular(BuildContext context) {
     final provider = context.read<NoticeProvider>();
-    final sorted = List<Notice>.from(provider.notices);
-    sorted.sort((a, b) => b.views.compareTo(a.views));
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => FullListModal(
-        title: '인기 게시물',
-        subtitle: '조회수 기준 정렬',
-        notices: sorted,
-        themeColor: AppTheme.warningColor,
-        icon: Icons.trending_up,
+        title: 'HOT 게시물',
+        subtitle: '조회수 TOP',
+        notices: provider.popularNotices,
+        themeColor: const Color(0xFFFF6B6B),
+        icon: Icons.local_fire_department_rounded,
         listType: FullListType.popular,
       ),
     );
@@ -73,15 +74,16 @@ class FullListModal extends StatelessWidget {
         title: '저장한 일정',
         subtitle: '마감 임박 순 정렬',
         notices: bookmarked,
-        themeColor: AppTheme.infoColor,
-        icon: Icons.event,
+        themeColor: const Color(0xFF7C8CF8),
+        icon: Icons.bookmark_rounded,
         listType: FullListType.savedEvents,
       ),
     );
   }
 
   /// AI 추천 전체보기 모달
-  static void showAIRecommend(BuildContext context) {
+  /// [onMoreTap] 더 보기 버튼 클릭 시 실행할 콜백 (MyBro 탭 이동 등)
+  static void showAIRecommend(BuildContext context, {VoidCallback? onMoreTap}) {
     final provider = context.read<NoticeProvider>();
 
     showModalBottomSheet(
@@ -92,9 +94,10 @@ class FullListModal extends StatelessWidget {
         title: 'AI 추천',
         subtitle: '맞춤 공지사항',
         notices: provider.recommendedNotices,
-        themeColor: AppTheme.primaryLight,
+        themeColor: const Color(0xFFA855F7),
         icon: Icons.auto_awesome,
         listType: FullListType.aiRecommend,
+        onMoreTap: onMoreTap,
       ),
     );
   }
@@ -133,7 +136,7 @@ class FullListModal extends StatelessWidget {
       builder: (context) => FullListModal(
         title: '오늘 꼭 봐야 할 공지',
         subtitle: '긴급/마감임박/최신 종합',
-        notices: provider.todayMustSeeNotices,
+        notices: provider.essentialNotices,
         themeColor: AppTheme.errorColor,
         icon: Icons.push_pin_rounded,
         listType: FullListType.todayMustSee,
@@ -175,19 +178,17 @@ class FullListModal extends StatelessWidget {
   /// 이번 주 일정 전체보기 모달
   static void showWeeklySchedule(BuildContext context) {
     final provider = context.read<NoticeProvider>();
-    final now = DateTime.now();
-    final weekStart = now.subtract(Duration(days: now.weekday - 1));
-    final weekEnd = weekStart.add(const Duration(days: 6, hours: 23, minutes: 59));
 
-    final weeklyNotices = provider.notices
-        .where((n) =>
-            n.deadline != null &&
-            n.deadline!.isAfter(weekStart.subtract(const Duration(days: 1))) &&
-            n.deadline!.isBefore(weekEnd))
-        .toList();
+    // 홈에서 별도 API로 가져온 이번 주 마감 공지 사용
+    final weeklyNotices = List<Notice>.from(provider.weeklyDeadlineNotices);
 
     // 마감일 순 정렬
-    weeklyNotices.sort((a, b) => a.deadline!.compareTo(b.deadline!));
+    weeklyNotices.sort((a, b) {
+      if (a.deadline == null && b.deadline == null) return 0;
+      if (a.deadline == null) return 1;
+      if (b.deadline == null) return -1;
+      return a.deadline!.compareTo(b.deadline!);
+    });
 
     showModalBottomSheet(
       context: context,
@@ -197,8 +198,8 @@ class FullListModal extends StatelessWidget {
         title: '이번 주 일정',
         subtitle: '마감 예정 공지사항',
         notices: weeklyNotices,
-        themeColor: AppTheme.successColor,
-        icon: Icons.calendar_today,
+        themeColor: const Color(0xFF38BDF8),
+        icon: Icons.date_range_rounded,
         listType: FullListType.weekly,
       ),
     );
@@ -215,7 +216,7 @@ class FullListModal extends StatelessWidget {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF060E1F) : Colors.white,
+            color: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.white,
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppRadius.xl),
             ),
@@ -233,24 +234,17 @@ class FullListModal extends StatelessWidget {
                 ),
               ),
 
-              // 헤더
+              // 헤더 (아이콘 배경 없이 깔끔하게)
               Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: themeColor.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        icon,
-                        color: themeColor,
-                        size: 24,
-                      ),
+                    Icon(
+                      icon,
+                      color: themeColor,
+                      size: 28,
                     ),
-                    const SizedBox(width: AppSpacing.md),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,28 +274,106 @@ class FullListModal extends StatelessWidget {
                 ),
               ),
 
-              const Divider(height: 1),
-
-              // 목록
+              // 목록 영역 (배경 tint + 카드 화이트)
               Expanded(
-                child: notices.isEmpty
-                    ? _buildEmptyState(isDark)
-                    : ListView.separated(
-                        controller: scrollController,
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        itemCount: notices.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: AppSpacing.sm),
-                        itemBuilder: (context, index) {
-                          final notice = notices[index];
-                          return _buildNoticeItem(context, notice, index, isDark);
-                        },
-                      ),
+                child: Container(
+                  color: isDark
+                      ? Colors.white.withOpacity(0.03)
+                      : Colors.grey.shade100,
+                  child: listType == FullListType.savedEvents
+                      ? Consumer<NoticeProvider>(
+                          builder: (context, provider, child) {
+                            final liveBookmarked = List<Notice>.from(provider.bookmarkedNotices);
+                            final now = DateTime.now();
+                            liveBookmarked.sort((a, b) {
+                              if (a.deadline == null && b.deadline == null) return 0;
+                              if (a.deadline == null) return 1;
+                              if (b.deadline == null) return -1;
+                              final aExpired = a.deadline!.isBefore(now);
+                              final bExpired = b.deadline!.isBefore(now);
+                              if (aExpired && !bExpired) return 1;
+                              if (!aExpired && bExpired) return -1;
+                              if (aExpired && bExpired) return b.deadline!.compareTo(a.deadline!);
+                              return a.deadline!.compareTo(b.deadline!);
+                            });
+                            return liveBookmarked.isEmpty
+                                ? _buildEmptyState(isDark)
+                                : ListView.separated(
+                                    controller: scrollController,
+                                    padding: const EdgeInsets.all(AppSpacing.md),
+                                    itemCount: liveBookmarked.length,
+                                    separatorBuilder: (context, index) =>
+                                        const SizedBox(height: AppSpacing.sm),
+                                    itemBuilder: (context, index) {
+                                      final notice = liveBookmarked[index];
+                                      return _buildNoticeItem(context, notice, index, isDark);
+                                    },
+                                  );
+                          },
+                        )
+                      : notices.isEmpty
+                          ? _buildEmptyState(isDark)
+                          : ListView.separated(
+                              controller: scrollController,
+                              padding: const EdgeInsets.all(AppSpacing.md),
+                              // onMoreTap이 있으면 마지막에 "더 보기" 버튼 추가
+                              itemCount: notices.length + (onMoreTap != null ? 1 : 0),
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: AppSpacing.sm),
+                              itemBuilder: (context, index) {
+                                // 마지막 아이템: "더 보기" 버튼
+                                if (onMoreTap != null && index == notices.length) {
+                                  return _buildMoreButton(context, isDark);
+                                }
+                                final notice = notices[index];
+                                return _buildNoticeItem(context, notice, index, isDark);
+                              },
+                            ),
+                ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  /// "더 보기" 버튼 (MyBro 탭 이동)
+  Widget _buildMoreButton(BuildContext context, bool isDark) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(context);
+        onMoreTap?.call();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.auto_awesome,
+              size: 16,
+              color: themeColor,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'MyBro에서 더 보기',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: themeColor,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 12,
+              color: themeColor,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -332,7 +404,7 @@ class FullListModal extends StatelessWidget {
   String _getEmptyMessage() {
     switch (listType) {
       case FullListType.popular:
-        return '인기 게시물이 없습니다';
+        return 'HOT 게시물이 없습니다';
       case FullListType.savedEvents:
         return '저장된 일정이 없습니다';
       case FullListType.aiRecommend:
@@ -348,7 +420,7 @@ class FullListModal extends StatelessWidget {
     }
   }
 
-  /// 공지사항 아이템 위젯
+  /// 공지사항 아이템 위젯 (통일된 크기)
   Widget _buildNoticeItem(
     BuildContext context,
     Notice notice,
@@ -367,15 +439,16 @@ class FullListModal extends StatelessWidget {
       },
       borderRadius: BorderRadius.circular(AppRadius.md),
       child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
+        constraints: const BoxConstraints(minHeight: 72),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
         decoration: BoxDecoration(
           color: isDark
-              ? Colors.white.withOpacity(0.05)
-              : Colors.grey.shade50,
+              ? const Color(0xFF0D1F3C)
+              : Colors.white,
           borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
             color: isDark
-                ? Colors.white.withOpacity(0.1)
+                ? Colors.white.withOpacity(0.08)
                 : Colors.grey.shade200,
           ),
         ),
@@ -383,25 +456,17 @@ class FullListModal extends StatelessWidget {
           children: [
             // 순위 표시 (인기 게시물일 경우)
             if (listType == FullListType.popular) ...[
-              Container(
+              SizedBox(
                 width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: index < 3
-                      ? themeColor.withOpacity(0.15)
-                      : Colors.grey.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Text(
-                    '${index + 1}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: index < 3
-                          ? themeColor
-                          : (isDark ? Colors.white54 : AppTheme.textSecondary),
-                    ),
+                child: Text(
+                  '${index + 1}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: index < 3
+                        ? themeColor
+                        : (isDark ? Colors.white38 : AppTheme.textHint),
                   ),
                 ),
               ),
@@ -412,18 +477,19 @@ class FullListModal extends StatelessWidget {
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     notice.title,
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: isDark ? Colors.white : AppTheme.textPrimary,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
                       // 카테고리 태그
@@ -433,7 +499,7 @@ class FullListModal extends StatelessWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.getCategoryColor(notice.category)
+                          color: AppTheme.getCategoryColor(notice.category, isDark: isDark)
                               .withOpacity(0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
@@ -442,11 +508,11 @@ class FullListModal extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
-                            color: AppTheme.getCategoryColor(notice.category),
+                            color: AppTheme.getCategoryColor(notice.category, isDark: isDark),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const Spacer(),
 
                       // 추가 정보 (리스트 타입에 따라 다름)
                       _buildExtraInfo(notice, isDark),
@@ -456,7 +522,9 @@ class FullListModal extends StatelessWidget {
               ),
             ),
 
-            // 우측 아이콘/정보
+            const SizedBox(width: 4),
+
+            // 우측 북마크 버튼
             _buildTrailingWidget(context, notice, isDark),
           ],
         ),
@@ -609,20 +677,19 @@ class FullListModal extends StatelessWidget {
     }
   }
 
-  /// 우측 위젯 (북마크 버튼 등)
+  /// 우측 위젯 (북마크 버튼 - 애니메이션)
+  /// Provider의 모든 리스트에서 실시간 북마크 상태를 조회
   Widget _buildTrailingWidget(BuildContext context, Notice notice, bool isDark) {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
-        return IconButton(
-          icon: Icon(
-            notice.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-            color: notice.isBookmarked
-                ? AppTheme.primaryColor
-                : (isDark ? Colors.white38 : AppTheme.textHint),
-          ),
-          onPressed: () {
-            provider.toggleBookmark(notice.id);
-          },
+        // bookmarkedNotices를 먼저 확인 (가장 확실한 소스)
+        final isBookmarked = provider.bookmarkedNotices.any((n) => n.id == notice.id);
+        return AnimatedBookmarkButton(
+          isBookmarked: isBookmarked,
+          onTap: () => provider.toggleBookmark(notice.id),
+          activeColor: themeColor,
+          inactiveColor: isDark ? Colors.white38 : AppTheme.textHint,
+          size: 22,
         );
       },
     );

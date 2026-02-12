@@ -4,7 +4,7 @@
 마감일 리마인더 알림 스크립트
 
 이 파일이 하는 일:
-매일 00:00(KST)에 Render Cron Job으로 실행되어,
+매일 09:00(KST)에 APScheduler에 의해 자동 실행되어,
 마감일이 임박한 공지사항에 대해 사용자별 설정에 맞춰 알림을 발송합니다.
 
 동작 방식:
@@ -19,14 +19,14 @@ python backend/scripts/send_deadline_reminders.py
 
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 
 # 프로젝트 루트를 Python 경로에 추가
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from supabase import create_client
+from services.supabase_service import get_supabase_client
 from services.fcm_service import FCMService
 
 
@@ -37,13 +37,11 @@ class DeadlineReminderPipeline:
         """파이프라인을 초기화합니다."""
         print("\n" + "="*60)
         print("[시작] 마감일 리마인더 알림 파이프라인")
-        print(f"[시간] {datetime.now().isoformat()}")
+        print(f"[시간] {datetime.now(timezone.utc).isoformat()}")
         print("="*60)
 
         # Supabase 클라이언트
-        self.supabase_url = os.getenv("SUPABASE_URL")
-        self.supabase_key = os.getenv("SUPABASE_KEY")
-        self.supabase = create_client(self.supabase_url, self.supabase_key)
+        self.supabase = get_supabase_client()
 
         # FCM 서비스 초기화
         try:
@@ -55,12 +53,12 @@ class DeadlineReminderPipeline:
 
     def run(self) -> Dict[str, int]:
         """전체 파이프라인을 실행합니다."""
-        start_time = datetime.now()
+        start_time = datetime.now(timezone.utc)
 
-        # 1. 마감 임박 공지 조회 (D-1 ~ D-7)
-        upcoming_notices = self._find_upcoming_deadlines()
-        if not upcoming_notices:
-            print("\n[완료] 마감 임박 공지가 없습니다.")
+        # 1. 북마크된 마감 임박 공지 + 사용자 쌍 조회 (JOIN 1회)
+        bookmarked_deadlines = self._find_bookmarked_upcoming_deadlines()
+        if not bookmarked_deadlines:
+            print("\n[완료] 북마크된 마감 임박 공지가 없습니다.")
             return {"notices": 0, "sent": 0, "skipped": 0}
 
         # 2. 사용자별 알림 설정 조회
@@ -68,59 +66,93 @@ class DeadlineReminderPipeline:
 
         # 3. 알림 발송
         sent_count, skipped_count = self._send_reminders(
-            upcoming_notices, user_settings
+            bookmarked_deadlines, user_settings
         )
 
         # 4. 통계 출력
-        elapsed = (datetime.now() - start_time).total_seconds()
+        unique_notices = {bd["notice_id"] for bd in bookmarked_deadlines}
+        elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
         print(f"\n{'='*60}")
         print(f"[완료] 마감일 리마인더 파이프라인 종료")
-        print(f"  - 마감 임박 공지: {len(upcoming_notices)}건")
+        print(f"  - 마감 임박 공지: {len(unique_notices)}건")
+        print(f"  - (사용자, 공지) 쌍: {len(bookmarked_deadlines)}건")
         print(f"  - 알림 발송: {sent_count}건")
         print(f"  - 스킵 (설정/중복): {skipped_count}건")
         print(f"  - 소요 시간: {elapsed:.1f}초")
         print(f"{'='*60}")
 
         return {
-            "notices": len(upcoming_notices),
+            "notices": len(unique_notices),
             "sent": sent_count,
             "skipped": skipped_count
         }
 
-    def _find_upcoming_deadlines(self) -> List[Dict[str, Any]]:
-        """D-1 ~ D-7 범위의 마감 임박 공지를 조회합니다."""
-        print("\n[1단계] 마감 임박 공지 조회")
+    def _find_bookmarked_upcoming_deadlines(self) -> List[Dict[str, Any]]:
+        """
+        북마크된 마감 임박 공지를 (사용자, 공지) 쌍으로 조회합니다.
 
-        today = datetime.now().date()
-        date_from = today + timedelta(days=1)   # D-1 (내일)
+        user_bookmarks JOIN notices (1회 쿼리)로
+        기존 N회 쿼리(공지별 북마크 조회)를 대체합니다.
+        """
+        print("\n[1단계] 북마크된 마감 임박 공지 조회 (JOIN)")
+
+        today = datetime.now(timezone.utc).date()
+        date_from = today                        # D-0 (오늘 마감 포함)
         date_to = today + timedelta(days=7)     # D-7
 
         print(f"  - 조회 범위: {date_from} ~ {date_to}")
 
         try:
-            result = self.supabase.table("notices")\
-                .select("id, title, ai_summary, category, deadline, deadlines")\
-                .gte("deadline", date_from.isoformat())\
-                .lte("deadline", date_to.isoformat())\
+            # user_bookmarks + notices INNER JOIN (마감일 범위 필터)
+            result = self.supabase.table("user_bookmarks")\
+                .select(
+                    "user_id, notice_id, "
+                    "notices!inner(id, title, ai_summary, category, deadline)"
+                )\
+                .gte("notices.deadline", date_from.isoformat())\
+                .lte("notices.deadline", date_to.isoformat())\
                 .execute()
 
-            notices = result.data or []
+            pairs = result.data or []
 
-            # 각 공지의 D-day 계산
-            for notice in notices:
+            # 데이터 평탄화 + D-day 계산
+            bookmarked_deadlines = []
+            for pair in pairs:
+                notice = pair.get("notices", {})
+                deadline_str = notice.get("deadline", "")
+                if not deadline_str:
+                    continue
+
                 deadline_date = datetime.strptime(
-                    notice["deadline"][:10], "%Y-%m-%d"
+                    deadline_str[:10], "%Y-%m-%d"
                 ).date()
-                notice["days_until"] = (deadline_date - today).days
+                days_until = (deadline_date - today).days
 
-            print(f"  - 발견: {len(notices)}건")
-            for n in notices:
-                print(f"    - D-{n['days_until']}: {n['title'][:40]}...")
+                bookmarked_deadlines.append({
+                    "user_id": pair["user_id"],
+                    "notice_id": pair["notice_id"],
+                    "title": notice.get("title", "공지사항"),
+                    "ai_summary": notice.get("ai_summary", ""),
+                    "category": notice.get("category", ""),
+                    "deadline": deadline_str,
+                    "days_until": days_until
+                })
 
-            return notices
+            # 통계 출력
+            unique_notices = {bd["notice_id"] for bd in bookmarked_deadlines}
+            unique_users = {bd["user_id"] for bd in bookmarked_deadlines}
+            print(f"  - 발견: {len(unique_notices)}개 공지, "
+                  f"{len(unique_users)}명 사용자, "
+                  f"{len(bookmarked_deadlines)}개 (사용자, 공지) 쌍")
+
+            for bd in bookmarked_deadlines:
+                print(f"    - D-{bd['days_until']}: "
+                      f"user {bd['user_id'][:8]}... → {bd['title'][:30]}...")
+
+            return bookmarked_deadlines
 
         except Exception as e:
-            print(f"  [오류] 마감 공지 조회 실패: {str(e)}")
+            print(f"  [오류] 북마크 마감 공지 조회 실패: {str(e)}")
             return []
 
     def _load_user_settings(self) -> Dict[str, Dict[str, Any]]:
@@ -148,84 +180,88 @@ class DeadlineReminderPipeline:
 
     def _send_reminders(
         self,
-        notices: List[Dict[str, Any]],
+        bookmarked_deadlines: List[Dict[str, Any]],
         user_settings: Dict[str, Dict[str, Any]]
     ) -> tuple:
-        """마감일 리마인더를 발송합니다."""
+        """마감일 리마인더를 발송합니다 (북마크 기반, 평탄화된 쌍 순회)."""
         print("\n[3단계] 리마인더 발송")
 
         sent_count = 0
         skipped_count = 0
 
-        for notice in notices:
-            notice_id = notice["id"]
-            days_until = notice["days_until"]
-            title = notice.get("title", "공지사항")
-            summary = notice.get("ai_summary", "")
+        for item in bookmarked_deadlines:
+            user_id = item["user_id"]
+            notice_id = item["notice_id"]
+            days_until = item["days_until"]
+            title = item["title"]
+            summary = item.get("ai_summary", "")
 
             # 알림 제목/본문 생성
             alert_title = f"마감 D-{days_until}: {title[:30]}"
             alert_body = summary if summary else f"'{title}'의 마감일이 {days_until}일 남았습니다."
 
-            # 해당 공지에 리마인더를 받을 사용자 필터링
-            for user_id, settings in user_settings.items():
-                mode = settings.get("notification_mode", "all_on")
-                reminder_days = settings.get("deadline_reminder_days", 3)
+            # 알림 설정 체크
+            settings = user_settings.get(user_id, {
+                "notification_mode": "all_on",
+                "deadline_reminder_days": 3
+            })
+            mode = settings.get("notification_mode", "all_on")
+            reminder_days = settings.get("deadline_reminder_days", 3)
 
-                # 알림 모드 체크: 일정 알림은 schedule_only 또는 all_on에서만
-                if mode == "all_off" or mode == "notice_only":
+            # 알림 모드 체크: 일정 알림은 schedule_only 또는 all_on에서만
+            if mode == "all_off" or mode == "notice_only":
+                skipped_count += 1
+                continue
+
+            # D-day 설정 체크: 사용자가 설정한 일수와 일치할 때만
+            if days_until > reminder_days:
+                skipped_count += 1
+                continue
+
+            # 중복 발송 체크
+            if self._is_already_sent(user_id, notice_id):
+                skipped_count += 1
+                continue
+
+            # 알림 로그 저장
+            try:
+                self.supabase.table("notification_logs").insert({
+                    "user_id": user_id,
+                    "notice_id": notice_id,
+                    "title": alert_title,
+                    "body": alert_body,
+                    "sent_at": datetime.now(timezone.utc).isoformat(),
+                    "is_read": False,
+                    "notification_type": "deadline"
+                }).execute()
+                sent_count += 1
+            except Exception as e:
+                # 중복 키 에러는 정상 (이미 발송됨)
+                if "duplicate" in str(e).lower():
                     skipped_count += 1
                     continue
+                print(f"  [오류] 알림 로그 저장 실패: {str(e)}")
+                continue
 
-                # D-day 설정 체크: 사용자가 설정한 일수와 일치할 때만
-                if days_until > reminder_days:
-                    skipped_count += 1
-                    continue
-
-                # 중복 발송 체크
-                if self._is_already_sent(user_id, notice_id):
-                    skipped_count += 1
-                    continue
-
-                # 알림 로그 저장
+            # FCM 푸시 발송
+            if self.fcm_service:
                 try:
-                    self.supabase.table("notification_logs").insert({
-                        "user_id": user_id,
-                        "notice_id": notice_id,
-                        "title": alert_title,
-                        "body": alert_body,
-                        "sent_at": datetime.now().isoformat(),
-                        "is_read": False,
-                        "notification_type": "deadline"
-                    }).execute()
-                    sent_count += 1
+                    result = self.fcm_service.send_to_user(
+                        user_id=user_id,
+                        title=alert_title,
+                        body=alert_body,
+                        data={
+                            "notice_id": notice_id,
+                            "category": item.get("category", ""),
+                            "type": "deadline",
+                            "days_until": str(days_until)
+                        }
+                    )
+                    if result["sent"] > 0:
+                        print(f"  [발송] user {user_id[:8]}... D-{days_until} "
+                              f"FCM {result['sent']}건")
                 except Exception as e:
-                    # 중복 키 에러는 정상 (이미 발송됨)
-                    if "duplicate" in str(e).lower():
-                        skipped_count += 1
-                        continue
-                    print(f"  [오류] 알림 로그 저장 실패: {str(e)}")
-                    continue
-
-                # FCM 푸시 발송
-                if self.fcm_service:
-                    try:
-                        result = self.fcm_service.send_to_user(
-                            user_id=user_id,
-                            title=alert_title,
-                            body=alert_body,
-                            data={
-                                "notice_id": notice_id,
-                                "category": notice.get("category", ""),
-                                "type": "deadline",
-                                "days_until": str(days_until)
-                            }
-                        )
-                        if result["sent"] > 0:
-                            print(f"  [발송] user {user_id[:8]}... D-{days_until} "
-                                  f"FCM {result['sent']}건")
-                    except Exception as e:
-                        print(f"  [경고] FCM 발송 실패: {str(e)}")
+                    print(f"  [경고] FCM 발송 실패: {str(e)}")
 
         return sent_count, skipped_count
 

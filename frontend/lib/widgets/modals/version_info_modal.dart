@@ -26,7 +26,7 @@ class VersionInfoModal extends StatelessWidget {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF060E1F) : Colors.white,
+            color: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.white,
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppRadius.xl),
             ),
@@ -141,7 +141,7 @@ class VersionInfoModal extends StatelessWidget {
                       _buildInfoRow(context, '개발팀', 'HeyBro Team'),
                       _buildInfoRow(context, '기술 스택', 'Flutter, Flask, Supabase'),
                       _buildInfoRow(context, 'AI 엔진', 'Google Gemini 2.0'),
-                      _buildInfoRow(context, '문의', 'heybro@kunsan.ac.kr'),
+                      _buildInfoRow(context, '문의', 'mullabproject2026@gmail.com'),
 
                       const SizedBox(height: AppSpacing.xl),
 

@@ -26,7 +26,7 @@ class PrivacyPolicyModal extends StatelessWidget {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF060E1F) : Colors.white,
+            color: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.white,
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppRadius.xl),
             ),
@@ -175,7 +175,7 @@ HeyBro(이하 "서비스")는 다음의 목적을 위하여 개인정보를 처�
 서비스의 개인정보 관련 문의는 아래로 연락해 주시기 바랍니다:
 
 • 담당: HeyBro 개인정보 보호팀
-• 이메일: privacy@kunsan.ac.kr
+• 이메일: mullabproject2026@gmail.com
 • 주소: 전라북도 군산시 대학로 558 군산대학교
 ''',
                       ),

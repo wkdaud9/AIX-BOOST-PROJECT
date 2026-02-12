@@ -22,44 +22,43 @@ class _RecommendScreenState extends State<RecommendScreen> {
   late PageController _categoryPageController;
   int _currentCategoryIndex = 0;
 
-  /// 카테고리 정보 (제목, 아이콘, 악센트 색상)
+  /// 카테고리 정보 (제목, 아이콘)
   static const List<_CategoryInfo> _categories = [
-    _CategoryInfo('AI 맞춤 추천', Icons.auto_awesome_rounded, AppTheme.primaryColor),
-    _CategoryInfo('오늘 필수', Icons.push_pin_rounded, AppTheme.errorColor),
-    _CategoryInfo('학과 인기', Icons.star_rounded, AppTheme.infoColor),
-    _CategoryInfo('마감 임박', Icons.alarm_rounded, AppTheme.warningColor),
+    _CategoryInfo('AI 맞춤 추천', Icons.auto_awesome_rounded),
+    _CategoryInfo('오늘 필수', Icons.push_pin_rounded),
+    _CategoryInfo('학과 인기', Icons.star_rounded),
+    _CategoryInfo('마감 임박', Icons.alarm_rounded),
   ];
 
   @override
   void initState() {
     super.initState();
     _categoryPageController = PageController();
-    _loadData();
+  }
+
+  /// 탭 전환 시 해당 탭 데이터를 개별 로드 (캐시 유효하면 스킵)
+  void _fetchForTab(int index) {
+    final provider = context.read<NoticeProvider>();
+    switch (index) {
+      case 0:
+        provider.fetchRecommendedNotices();
+        break;
+      case 1:
+        provider.fetchEssentialNotices();
+        break;
+      case 2:
+        provider.fetchDepartmentPopularNotices();
+        break;
+      case 3:
+        provider.fetchDeadlineSoonNotices();
+        break;
+    }
   }
 
   @override
   void dispose() {
     _categoryPageController.dispose();
     super.dispose();
-  }
-
-  /// 데이터 로드
-  void _loadData() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<NoticeProvider>();
-      provider.fetchRecommendedNotices();
-      provider.fetchDepartmentPopularNotices();
-    });
-  }
-
-  /// 새로고침
-  Future<void> _onRefresh() async {
-    final provider = context.read<NoticeProvider>();
-    await Future.wait([
-      provider.fetchNotices(),
-      provider.fetchRecommendedNotices(),
-      provider.fetchDepartmentPopularNotices(),
-    ]);
   }
 
   @override
@@ -69,12 +68,6 @@ class _RecommendScreenState extends State<RecommendScreen> {
     return Scaffold(
       body: Consumer<NoticeProvider>(
         builder: (context, provider, child) {
-          // 마감 임박 공지 필터
-          final deadlineSoon = provider.notices
-              .where((n) => n.deadline != null && n.isDeadlineSoon)
-              .toList()
-            ..sort((a, b) => a.deadline!.compareTo(b.deadline!));
-
           // 학과 인기 (API 결과 없으면 로컬 폴백)
           List<Notice> deptPopular = provider.departmentPopularNotices;
           if (deptPopular.isEmpty) {
@@ -83,21 +76,18 @@ class _RecommendScreenState extends State<RecommendScreen> {
                 authService.department, authService.grade);
           }
 
-          // 카테고리별 데이터 매핑
+          // 카테고리별 데이터 매핑 (탭별 독립 API 결과)
           final categoryData = <int, _CategoryData>{
             0: _CategoryData(provider.recommendedNotices, provider.isRecommendedLoading, '추천 공지가 없습니다'),
-            1: _CategoryData(provider.todayMustSeeNotices, false, '오늘 필수 공지가 없습니다'),
+            1: _CategoryData(provider.essentialNotices, provider.isEssentialLoading, '오늘 필수 공지가 없습니다'),
             2: _CategoryData(deptPopular, provider.isDepartmentPopularLoading, '학과 인기 공지가 없습니다'),
-            3: _CategoryData(deadlineSoon, false, '마감 임박 공지가 없습니다'),
+            3: _CategoryData(provider.deadlineSoonNotices, provider.isDeadlineSoonLoading, '마감 임박 공지가 없습니다'),
           };
 
           return Column(
             children: [
-              // 헤더
-              _buildHeader(colorScheme),
-
-              // 카테고리 탭 인디케이터
-              _buildCategoryTabs(colorScheme),
+              // 헤더 + 탭
+              _buildHeaderWithTabs(colorScheme),
 
               // 카드 영역 (좌우=카테고리 전환, 상하=공지 넘김)
               Expanded(
@@ -106,14 +96,17 @@ class _RecommendScreenState extends State<RecommendScreen> {
                   itemCount: _categories.length,
                   onPageChanged: (index) {
                     setState(() => _currentCategoryIndex = index);
+                    _fetchForTab(index);
                   },
                   itemBuilder: (context, index) {
                     final cat = _categories[index];
                     final data = categoryData[index]!;
+                    final isDark = Theme.of(context).brightness == Brightness.dark;
+                    final accentColor = AppTheme.getMyBroColor(cat.title, isDark: isDark);
                     return FlipCardSection(
                       title: cat.title,
                       icon: cat.icon,
-                      accentColor: cat.color,
+                      accentColor: accentColor,
                       notices: data.notices,
                       isLoading: data.isLoading,
                       emptyMessage: data.emptyMessage,
@@ -129,89 +122,21 @@ class _RecommendScreenState extends State<RecommendScreen> {
     );
   }
 
-  /// 카테고리 탭 인디케이터
-  Widget _buildCategoryTabs(ColorScheme colorScheme) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      color: colorScheme.surface,
-      child: Row(
-        children: List.generate(_categories.length, (index) {
-          final cat = _categories[index];
-          final isSelected = _currentCategoryIndex == index;
+  /// 헤더 + 언더라인 탭 (통합)
+  Widget _buildHeaderWithTabs(ColorScheme colorScheme) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
 
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                _categoryPageController.animateToPage(
-                  index,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: EdgeInsets.only(
-                  left: index == 0 ? 0 : 3,
-                  right: index == _categories.length - 1 ? 0 : 3,
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? cat.color.withOpacity(0.1)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                  border: Border.all(
-                    color: isSelected
-                        ? cat.color.withOpacity(0.3)
-                        : colorScheme.onSurface.withOpacity(0.06),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      cat.icon,
-                      size: 16,
-                      color: isSelected
-                          ? cat.color
-                          : colorScheme.onSurface.withOpacity(0.3),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      cat.title,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight:
-                            isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected
-                            ? cat.color
-                            : colorScheme.onSurface.withOpacity(0.4),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-
-  /// 헤더 (모던 클린 스타일, colorScheme 기반)
-  Widget _buildHeader(ColorScheme colorScheme) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-          20, MediaQuery.of(context).padding.top + 16, 20, 12),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-      ),
-      child: Row(
+      color: colorScheme.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
+          // 타이틀
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+                20, MediaQuery.of(context).padding.top + 16, 20, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -220,7 +145,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
-                    color: colorScheme.primary,
+                    color: accentColor,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -236,22 +161,91 @@ class _RecommendScreenState extends State<RecommendScreen> {
               ],
             ),
           ),
-          // 새로고침 버튼
-          GestureDetector(
-            onTap: _onRefresh,
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(AppRadius.md),
+          const SizedBox(height: 16),
+
+          // 언더라인 탭
+          Stack(
+            children: [
+              // 하단 베이스 라인
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  height: 1,
+                  color: colorScheme.onSurface.withOpacity(isDark ? 0.08 : 0.06),
+                ),
               ),
-              child: Icon(
-                Icons.refresh_rounded,
-                color: colorScheme.primary,
-                size: 22,
+              // 탭 아이템
+              Row(
+                children: List.generate(_categories.length, (index) {
+                  final cat = _categories[index];
+                  final isSelected = _currentCategoryIndex == index;
+
+                  return Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        _categoryPageController.animateToPage(
+                          index,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  cat.icon,
+                                  size: 14,
+                                  color: isSelected
+                                      ? accentColor
+                                      : colorScheme.onSurface.withOpacity(isDark ? 0.3 : 0.25),
+                                ),
+                                const SizedBox(width: 5),
+                                Flexible(
+                                  child: Text(
+                                    cat.title,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                      color: isSelected
+                                          ? (isDark ? Colors.white : colorScheme.onSurface)
+                                          : colorScheme.onSurface.withOpacity(isDark ? 0.35 : 0.3),
+                                      letterSpacing: -0.2,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // 인디케이터 바
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOutCubic,
+                            height: 2.5,
+                            margin: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? accentColor
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
               ),
-            ),
+            ],
           ),
         ],
       ),
@@ -259,13 +253,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
   }
 }
 
-/// 카테고리 정보 (제목, 아이콘, 색상)
+/// 카테고리 정보 (제목, 아이콘)
 class _CategoryInfo {
   final String title;
   final IconData icon;
-  final Color color;
 
-  const _CategoryInfo(this.title, this.icon, this.color);
+  const _CategoryInfo(this.title, this.icon);
 }
 
 /// 카테고리별 데이터 (공지 목록, 로딩 상태, 빈 메시지)

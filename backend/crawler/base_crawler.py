@@ -101,8 +101,13 @@ class BaseCrawler:
                 # 인코딩 설정 (한글 깨짐 방지)
                 response.encoding = 'utf-8'
 
-                # HTML 파싱
-                soup = BeautifulSoup(response.text, 'html.parser')
+                # HTML 파싱 후 응답 객체 즉시 해제 (메모리 절약)
+                html_text = response.text
+                response.close()
+                del response
+
+                soup = BeautifulSoup(html_text, 'html.parser')
+                del html_text
 
                 # 서버 부담 최소화: 1~2초 랜덤 대기
                 delay = random.uniform(*delay_range)

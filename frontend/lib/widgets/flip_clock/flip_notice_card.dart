@@ -64,7 +64,7 @@ class _FlipNoticeCardState extends State<FlipNoticeCard>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final categoryColor = AppTheme.getCategoryColor(widget.notice.category);
+    final categoryColor = AppTheme.getCategoryColor(widget.notice.category, isDark: isDark);
 
     // 적층 효과: 아래 카드일수록 살짝 줄이고 오프셋
     final stackScale = widget.showStackEffect

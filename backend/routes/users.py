@@ -82,6 +82,7 @@ def get_departments():
 
 
 @users_bp.route('/profile', methods=['POST'])
+@login_required
 def create_user_profile():
     """
     회원가입 후 사용자 프로필 및 선호도를 생성합니다.
@@ -121,6 +122,14 @@ def create_user_profile():
                 }), 400
 
         user_id = data['user_id']
+
+        # 토큰의 사용자 ID와 요청 body의 user_id 일치 확인 (위변조 방지)
+        if g.user_id != user_id:
+            return jsonify({
+                "status": "error",
+                "message": "인증된 사용자와 요청 user_id가 일치하지 않습니다."
+            }), 403
+
         email = data['email']
         name = data['name']
         student_id = data['student_id']
@@ -209,7 +218,7 @@ def create_user_profile():
 
         return jsonify({
             "status": "error",
-            "message": error_msg
+            "message": "프로필 생성에 실패했습니다."
         }), 500
 
 
@@ -232,7 +241,7 @@ def get_user_profile(user_id):
     """
     try:
         # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 프로필만 조회할 수 있습니다."
@@ -272,7 +281,119 @@ def get_user_profile(user_id):
         print(f"[ERROR] 프로필 조회 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "프로필 조회에 실패했습니다."
+        }), 500
+
+
+@users_bp.route('/profile/<user_id>', methods=['PUT'])
+@login_required
+def update_user_profile(user_id):
+    """
+    사용자 프로필(이름, 학과, 학년) 업데이트
+
+    PUT /api/users/profile/<user_id>
+    Body (JSON):
+    {
+        "name": "홍길동",
+        "department": "컴퓨터정보공학과",
+        "grade": 3
+    }
+
+    응답:
+    {
+        "status": "success",
+        "data": {
+            "message": "프로필이 업데이트되었습니다.",
+            "user": {...}
+        }
+    }
+    """
+    try:
+        # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
+        if g.user_id != user_id:
+            return jsonify({
+                "status": "error",
+                "message": "자신의 프로필만 변경할 수 있습니다."
+            }), 403
+
+        data = request.get_json()
+
+        # 업데이트할 필드 수집
+        update_data = {}
+        if 'name' in data and data['name']:
+            update_data['name'] = data['name'].strip()
+        if 'department' in data and data['department']:
+            update_data['department'] = data['department']
+        if 'grade' in data and data['grade'] is not None:
+            update_data['grade'] = int(data['grade'])
+
+        if not update_data:
+            return jsonify({
+                "status": "error",
+                "message": "변경할 필드가 없습니다."
+            }), 400
+
+        supabase = SupabaseService()
+
+        # users 테이블 업데이트
+        result = supabase.client.table("users")\
+            .update(update_data)\
+            .eq("id", user_id)\
+            .execute()
+
+        if not result.data:
+            return jsonify({
+                "status": "error",
+                "message": "프로필 업데이트에 실패했습니다."
+            }), 500
+
+        # 학과/학년이 변경된 경우 임베딩 재생성
+        if 'department' in update_data or 'grade' in update_data:
+            try:
+                # 현재 카테고리 조회
+                pref_result = supabase.client.table("user_preferences")\
+                    .select("categories")\
+                    .eq("user_id", user_id)\
+                    .single()\
+                    .execute()
+
+                if pref_result.data and pref_result.data.get("categories"):
+                    updated_user = result.data[0]
+                    interests_embedding, enriched_profile = _generate_user_embedding_and_profile(
+                        department=updated_user.get("department", ""),
+                        categories=pref_result.data["categories"],
+                        grade=updated_user.get("grade")
+                    )
+
+                    pref_update = {}
+                    if interests_embedding:
+                        pref_update["interests_embedding"] = interests_embedding
+                    if enriched_profile:
+                        pref_update["enriched_profile"] = enriched_profile
+
+                    if pref_update:
+                        supabase.client.table("user_preferences")\
+                            .update(pref_update)\
+                            .eq("user_id", user_id)\
+                            .execute()
+            except Exception as embed_err:
+                print(f"[임베딩] 프로필 변경 후 임베딩 재생성 실패 (무시): {embed_err}")
+
+        print(f"[프로필 업데이트] 완료: {user_id} - {update_data}")
+
+        return jsonify({
+            "status": "success",
+            "data": {
+                "message": "프로필이 업데이트되었습니다.",
+                "user": result.data[0]
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] 프로필 업데이트 에러: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": "프로필 업데이트에 실패했습니다."
         }), 500
 
 
@@ -299,7 +420,7 @@ def update_user_preferences(user_id):
     """
     try:
         # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 선호도만 변경할 수 있습니다."
@@ -383,7 +504,7 @@ def update_user_preferences(user_id):
         print(f"[ERROR] 선호도 업데이트 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "선호도 업데이트에 실패했습니다."
         }), 500
 
 
@@ -421,7 +542,7 @@ def update_notification_settings(user_id):
     }
     """
     try:
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 설정만 변경할 수 있습니다."
@@ -443,7 +564,13 @@ def update_notification_settings(user_id):
             update_data['notification_mode'] = mode
 
         if 'deadline_reminder_days' in data:
-            days = int(data['deadline_reminder_days'])
+            try:
+                days = int(data['deadline_reminder_days'])
+            except (ValueError, TypeError):
+                return jsonify({
+                    "status": "error",
+                    "message": "deadline_reminder_days는 정수여야 합니다."
+                }), 400
             if days < 1 or days > 7:
                 return jsonify({
                     "status": "error",
@@ -484,7 +611,7 @@ def update_notification_settings(user_id):
         print(f"[ERROR] 알림 설정 업데이트 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "알림 설정 업데이트에 실패했습니다."
         }), 500
 
 
@@ -506,7 +633,7 @@ def get_notification_settings(user_id):
     }
     """
     try:
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 설정만 조회할 수 있습니다."
@@ -538,7 +665,7 @@ def get_notification_settings(user_id):
         print(f"[ERROR] 알림 설정 조회 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "알림 설정 조회에 실패했습니다."
         }), 500
 
 
@@ -560,7 +687,7 @@ def delete_user(user_id):
     """
     try:
         # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 계정만 삭제할 수 있습니다."
@@ -584,5 +711,84 @@ def delete_user(user_id):
         print(f"[ERROR] 사용자 삭제 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "사용자 삭제에 실패했습니다."
         }), 500
+
+
+@users_bp.route('/find-email', methods=['POST'])
+def find_email():
+    """
+    아이디(이메일) 찾기
+
+    학번과 이름으로 사용자의 마스킹된 이메일을 조회합니다.
+    인증 불필요 (비로그인 상태에서 사용)
+    """
+    try:
+        data = request.get_json()
+
+        # 필수 필드 검증
+        if not data or 'student_id' not in data or 'name' not in data:
+            return jsonify({
+                "status": "error",
+                "message": "학번과 이름을 입력해주세요."
+            }), 400
+
+        student_id = data['student_id'].strip()
+        name = data['name'].strip()
+
+        if not student_id or not name:
+            return jsonify({
+                "status": "error",
+                "message": "학번과 이름을 입력해주세요."
+            }), 400
+
+        # Supabase에서 학번 + 이름으로 사용자 조회
+        supabase = SupabaseService()
+        result = supabase.client.table("users") \
+            .select("email") \
+            .eq("student_id", student_id) \
+            .eq("name", name) \
+            .execute()
+
+        if not result.data:
+            return jsonify({
+                "status": "error",
+                "message": "일치하는 사용자를 찾을 수 없습니다."
+            }), 404
+
+        # 이메일 마스킹 처리
+        email = result.data[0]['email']
+        masked_email = _mask_email(email)
+
+        print(f"[아이디 찾기] 조회 완료: {student_id} / {name} -> {masked_email}")
+
+        return jsonify({
+            "status": "success",
+            "data": {
+                "masked_email": masked_email
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] 아이디 찾기 에러: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": "아이디 찾기에 실패했습니다."
+        }), 500
+
+
+def _mask_email(email: str) -> str:
+    """
+    이메일 주소를 마스킹합니다. 실제 길이에 맞게 *를 표시합니다.
+    예시: "hong@..." -> "h***@...", "honggildong@..." -> "hon********@..."
+    """
+    try:
+        local_part, domain = email.split('@')
+        if len(local_part) <= 2:
+            masked_local = local_part[0] + '*' * (len(local_part) - 1)
+        else:
+            show = max(1, len(local_part) // 3)
+            masked_local = local_part[:show] + '*' * (len(local_part) - show)
+        return f"{masked_local}@{domain}"
+    except Exception:
+        return '***@***'

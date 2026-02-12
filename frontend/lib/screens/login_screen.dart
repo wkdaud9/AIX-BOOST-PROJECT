@@ -7,6 +7,8 @@ import '../widgets/loading_button.dart';
 import '../widgets/form_section.dart';
 import '../theme/app_theme.dart';
 import 'signup_screen.dart';
+import 'find_email_screen.dart';
+import 'forgot_password_screen.dart';
 
 /// 로그인 화면
 /// 이메일과 비밀번호를 입력받아 Supabase Auth로 인증합니다.
@@ -68,9 +70,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     } on AuthException catch (e) {
       // 5. Supabase 인증 에러 처리
+      debugPrint('[로그인 에러] AuthException: ${e.message} / statusCode: ${e.statusCode}');
       if (!mounted) return;
 
-      String errorMessage = '로그인에 실패했습니다.';
+      String errorMessage = '로그인에 실패했습니다. (${e.message})';
       if (e.message.contains('Invalid login credentials') ||
           e.message.contains('Invalid email or password')) {
         errorMessage = '이메일 또는 비밀번호가 올바르지 않습니다.';
@@ -116,8 +119,8 @@ class _LoginScreenState extends State<LoginScreen> {
       return '비밀번호를 입력해주세요.';
     }
 
-    if (value.length < 6) {
-      return '비밀번호는 6자 이상이어야 합니다.';
+    if (value.length < 8) {
+      return '비밀번호는 8자 이상이어야 합니다.';
     }
 
     return null;
@@ -125,8 +128,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final logoColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -142,7 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Icon(
                   Icons.school,
                   size: 80,
-                  color: AppTheme.primaryColor,
+                  color: logoColor,
                 ),
                 const SizedBox(height: AppSpacing.lg),
 
@@ -151,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
+                    color: logoColor,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -160,7 +166,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   '군산대학교 맞춤형 공지 큐레이션',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.textSecondary,
+                    color: colorScheme.onSurface.withOpacity(0.6),
                   ),
                 ),
 
@@ -198,7 +204,61 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: double.infinity,
                   height: 52,
                 ),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
+
+                // 아이디 찾기 | 비밀번호 찾기 링크
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const FindEmailScreen(),
+                                ),
+                              );
+                            },
+                      style: TextButton.styleFrom(
+                        foregroundColor: isDark
+                            ? Colors.white54
+                            : colorScheme.onSurface.withOpacity(0.5),
+                        textStyle: const TextStyle(fontSize: 13),
+                      ),
+                      child: const Text('아이디 찾기'),
+                    ),
+                    Text(
+                      '|',
+                      style: TextStyle(
+                        color: isDark
+                            ? Colors.white24
+                            : colorScheme.onSurface.withOpacity(0.3),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const ForgotPasswordScreen(),
+                                ),
+                              );
+                            },
+                      style: TextButton.styleFrom(
+                        foregroundColor: isDark
+                            ? Colors.white54
+                            : colorScheme.onSurface.withOpacity(0.5),
+                        textStyle: const TextStyle(fontSize: 13),
+                      ),
+                      child: const Text('비밀번호 찾기'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
 
                 // 회원가입 링크
                 TextButton(
@@ -211,6 +271,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           );
                         },
+                  style: TextButton.styleFrom(
+                    foregroundColor: isDark ? Colors.white70 : null,
+                  ),
                   child: const Text('계정이 없으신가요? 회원가입'),
                 ),
               ],

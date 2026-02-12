@@ -13,21 +13,12 @@ FCM 디바이스 토큰 등록/해제 및 알림 내역 조회 API를 제공합�
 - PUT /api/notifications/<id>/read: 개별 알림 읽음 처리
 """
 
-import os
 from flask import Blueprint, request, jsonify, g
-from supabase import create_client, Client
+from services.supabase_service import get_supabase_client
 from utils.auth_middleware import login_required
 
 # Blueprint 생성 (URL 접두사: /api/notifications)
 notifications_bp = Blueprint('notifications', __name__, url_prefix='/api/notifications')
-
-
-def _get_supabase() -> Client:
-    """Supabase 클라이언트 초기화"""
-    return create_client(
-        os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_KEY")
-    )
 
 
 @notifications_bp.route('/token', methods=['POST'])
@@ -36,19 +27,6 @@ def register_token():
     """
     FCM 디바이스 토큰을 등록합니다.
     이미 등록된 토큰이면 user_id를 업데이트합니다 (디바이스 소유자 변경 대응).
-
-    POST /api/notifications/token
-    Body (JSON):
-    {
-        "token": "fcm_device_token_string",
-        "device_type": "android"  // "android" | "web" | "ios"
-    }
-
-    응답:
-    {
-        "status": "success",
-        "data": { "message": "토큰이 등록되었습니다." }
-    }
     """
     try:
         user_id = g.user_id
@@ -71,10 +49,17 @@ def register_token():
                 "message": "device_type은 'android', 'web', 'ios' 중 하나여야 합니다."
             }), 400
 
-        supabase = _get_supabase()
+        supabase = get_supabase_client()
+
+        # 같은 사용자+디바이스 타입의 이전 토큰 삭제 (FCM 토큰 갱신 시 누적 방지)
+        supabase.table("device_tokens")\
+            .delete()\
+            .eq("user_id", user_id)\
+            .eq("device_type", device_type)\
+            .neq("token", token)\
+            .execute()
 
         # upsert: 토큰이 이미 존재하면 user_id와 device_type 업데이트
-        # (사용자가 로그아웃 후 다른 계정으로 로그인한 경우 대응)
         supabase.table("device_tokens").upsert(
             {
                 "user_id": user_id,
@@ -97,7 +82,7 @@ def register_token():
         print(f"[에러] 토큰 등록 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "토큰 등록에 실패했습니다."
         }), 500
 
 
@@ -107,18 +92,6 @@ def unregister_token():
     """
     FCM 디바이스 토큰을 해제합니다.
     로그아웃 시 또는 알림 비활성화 시 호출합니다.
-
-    DELETE /api/notifications/token
-    Body (JSON):
-    {
-        "token": "fcm_device_token_string"
-    }
-
-    응답:
-    {
-        "status": "success",
-        "data": { "message": "토큰이 해제되었습니다." }
-    }
     """
     try:
         user_id = g.user_id
@@ -131,7 +104,7 @@ def unregister_token():
             }), 400
 
         token = data["token"]
-        supabase = _get_supabase()
+        supabase = get_supabase_client()
 
         # 현재 사용자의 해당 토큰만 삭제 (보안: 다른 사용자 토큰 삭제 방지)
         supabase.table("device_tokens")\
@@ -153,7 +126,7 @@ def unregister_token():
         print(f"[에러] 토큰 해제 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "토큰 해제에 실패했습니다."
         }), 500
 
 
@@ -164,29 +137,17 @@ def get_notifications():
     사용자의 알림 내역을 조회합니다.
 
     GET /api/notifications?limit=20&offset=0&unread_only=false
-
-    쿼리 파라미터:
-    - limit: 최대 개수 (기본 20)
-    - offset: 건너뛸 개수 (기본 0)
-    - unread_only: 읽지 않은 알림만 (기본 false)
-
-    응답:
-    {
-        "status": "success",
-        "data": {
-            "notifications": [...],
-            "total": 20,
-            "unread_count": 5
-        }
-    }
     """
     try:
         user_id = g.user_id
-        limit = int(request.args.get('limit', 20))
-        offset = int(request.args.get('offset', 0))
+        try:
+            limit = max(1, min(100, int(request.args.get('limit', 20))))
+            offset = max(0, int(request.args.get('offset', 0)))
+        except (ValueError, TypeError):
+            return jsonify({"status": "error", "message": "limit과 offset은 정수여야 합니다"}), 400
         unread_only = request.args.get('unread_only', 'false').lower() == 'true'
 
-        supabase = _get_supabase()
+        supabase = get_supabase_client()
 
         # 알림 내역 조회 쿼리
         query = supabase.table("notification_logs")\
@@ -222,7 +183,7 @@ def get_notifications():
         print(f"[에러] 알림 내역 조회 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "알림 내역 조회에 실패했습니다."
         }), 500
 
 
@@ -231,18 +192,10 @@ def get_notifications():
 def mark_all_as_read():
     """
     사용자의 모든 알림을 읽음 처리합니다.
-
-    PUT /api/notifications/read-all
-
-    응답:
-    {
-        "status": "success",
-        "data": { "message": "모든 알림이 읽음 처리되었습니다.", "updated_count": 15 }
-    }
     """
     try:
         user_id = g.user_id
-        supabase = _get_supabase()
+        supabase = get_supabase_client()
 
         result = supabase.table("notification_logs")\
             .update({"is_read": True})\
@@ -265,7 +218,7 @@ def mark_all_as_read():
         print(f"[에러] 전체 읽음 처리 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "전체 읽음 처리에 실패했습니다."
         }), 500
 
 
@@ -274,18 +227,10 @@ def mark_all_as_read():
 def mark_as_read(notification_id):
     """
     특정 알림을 읽음 처리합니다.
-
-    PUT /api/notifications/<notification_id>/read
-
-    응답:
-    {
-        "status": "success",
-        "data": { "message": "알림이 읽음 처리되었습니다." }
-    }
     """
     try:
         user_id = g.user_id
-        supabase = _get_supabase()
+        supabase = get_supabase_client()
 
         # 자신의 알림만 읽음 처리 가능 (보안)
         result = supabase.table("notification_logs")\
@@ -311,5 +256,5 @@ def mark_as_read(notification_id):
         print(f"[에러] 알림 읽음 처리 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "알림 읽음 처리에 실패했습니다."
         }), 500

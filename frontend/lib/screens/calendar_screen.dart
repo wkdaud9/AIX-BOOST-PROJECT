@@ -68,33 +68,42 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
         ),
         elevation: 0,
         actions: [
-          // 보기 모드 전환 버튼 (세련된 디자인)
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isDark
-                    ? [AppTheme.primaryLight.withOpacity(0.2), AppTheme.primaryLight.withOpacity(0.1)]
-                    : [AppTheme.primaryColor.withOpacity(0.15), AppTheme.primaryColor.withOpacity(0.08)],
-              ),
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            child: IconButton(
+          // month/2weeks/week 전환 버튼
+          if (_viewMode == ViewMode.calendar)
+            IconButton(
               icon: Icon(
-                _viewMode == ViewMode.calendar ? Icons.view_list_rounded : Icons.calendar_month_rounded,
+                _calendarFormat == CalendarFormat.month
+                    ? Icons.calendar_month_rounded
+                    : Icons.view_week_rounded,
                 color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                 size: 22,
               ),
               onPressed: () {
                 setState(() {
-                  _viewMode = _viewMode == ViewMode.calendar
-                      ? ViewMode.list
-                      : ViewMode.calendar;
+                  _calendarFormat = _calendarFormat == CalendarFormat.month
+                      ? CalendarFormat.week
+                      : CalendarFormat.month;
                 });
               },
-              tooltip: _viewMode == ViewMode.calendar ? '리스트 보기' : '캘린더 보기',
+              tooltip: _calendarFormat == CalendarFormat.month ? '1주 보기' : '월 보기',
             ),
+          // 보기 모드 전환 버튼 (캘린더/리스트)
+          IconButton(
+            icon: Icon(
+              _viewMode == ViewMode.calendar ? Icons.view_list_rounded : Icons.calendar_month_rounded,
+              color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+              size: 22,
+            ),
+            onPressed: () {
+              setState(() {
+                _viewMode = _viewMode == ViewMode.calendar
+                    ? ViewMode.list
+                    : ViewMode.calendar;
+              });
+            },
+            tooltip: _viewMode == ViewMode.calendar ? '리스트 보기' : '캘린더 보기',
           ),
+          const SizedBox(width: 4),
         ],
       ),
       body: _viewMode == ViewMode.calendar
@@ -200,42 +209,89 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
     );
   }
 
-  /// 정렬 옵션 (탭 방식)
+  /// 정렬 옵션 (언더라인 탭 스타일)
   Widget _buildSortOptions() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = isDark ? AppTheme.primaryLight : AppTheme.primaryColor;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    const tabs = [
+      {'icon': Icons.alarm, 'label': '마감 임박순'},
+      {'icon': Icons.schedule, 'label': '최신 저장순'},
+    ];
 
     return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: isDark ? Colors.white12 : Colors.grey.shade300,
-            width: 1,
+      color: colorScheme.surface,
+      child: Stack(
+        children: [
+          // 하단 베이스 라인
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              height: 1,
+              color: colorScheme.onSurface.withOpacity(isDark ? 0.08 : 0.06),
+            ),
           ),
-        ),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        labelColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
-        unselectedLabelColor: isDark ? Colors.white54 : AppTheme.textSecondary,
-        labelStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.bold,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-        ),
-        indicatorColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
-        indicatorWeight: 3,
-        tabs: const [
-          Tab(
-            icon: Icon(Icons.alarm, size: 20),
-            text: '마감 임박순',
-          ),
-          Tab(
-            icon: Icon(Icons.schedule, size: 20),
-            text: '최신 저장순',
+          // 탭 아이템
+          Row(
+            children: List.generate(tabs.length, (index) {
+              final isSelected = _tabController.index == index;
+              final tab = tabs[index];
+
+              return Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    _tabController.animateTo(index);
+                  },
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              tab['icon'] as IconData,
+                              size: 14,
+                              color: isSelected
+                                  ? accentColor
+                                  : colorScheme.onSurface.withOpacity(isDark ? 0.3 : 0.25),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              tab['label'] as String,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: isSelected
+                                    ? (isDark ? Colors.white : colorScheme.onSurface)
+                                    : colorScheme.onSurface.withOpacity(isDark ? 0.35 : 0.3),
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // 인디케이터 바
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOutCubic,
+                        height: 2.5,
+                        margin: const EdgeInsets.symmetric(horizontal: 24),
+                        decoration: BoxDecoration(
+                          color: isSelected ? accentColor : Colors.transparent,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
           ),
         ],
       ),
@@ -244,6 +300,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   /// 리스트 보기용 이벤트 카드
   Widget _buildListEventCard(Notice notice) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: InkWell(
@@ -271,18 +328,18 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.getCategoryColor(notice.category)
+                      color: AppTheme.getCategoryColor(notice.category, isDark: isDark)
                           .withOpacity(0.1),
                       borderRadius: BorderRadius.circular(AppRadius.sm),
                       border: Border.all(
-                        color: AppTheme.getCategoryColor(notice.category),
+                        color: AppTheme.getCategoryColor(notice.category, isDark: isDark),
                         width: 1,
                       ),
                     ),
                     child: Text(
                       notice.category,
                       style: TextStyle(
-                        color: AppTheme.getCategoryColor(notice.category),
+                        color: AppTheme.getCategoryColor(notice.category, isDark: isDark),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -484,18 +541,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                 ),
                 outsideDaysVisible: false,
               ),
-              headerStyle: HeaderStyle(
-                formatButtonVisible: true,
+              headerStyle: const HeaderStyle(
+                formatButtonVisible: false,
                 titleCentered: true,
-                formatButtonShowsNext: false,
-                formatButtonDecoration: BoxDecoration(
-                  color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
-                formatButtonTextStyle: TextStyle(
-                  color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
-                  fontWeight: FontWeight.w600,
-                ),
               ),
               daysOfWeekStyle: const DaysOfWeekStyle(
                 weekendStyle: TextStyle(
@@ -558,6 +606,7 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
   /// 이벤트 카드 (deadlineLabel: 복수 마감일의 라벨 표시)
   Widget _buildEventCard(Notice notice, {String? deadlineLabel}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: InkWell(
@@ -585,18 +634,18 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.getCategoryColor(notice.category)
+                      color: AppTheme.getCategoryColor(notice.category, isDark: isDark)
                           .withOpacity(0.1),
                       borderRadius: BorderRadius.circular(AppRadius.sm),
                       border: Border.all(
-                        color: AppTheme.getCategoryColor(notice.category),
+                        color: AppTheme.getCategoryColor(notice.category, isDark: isDark),
                         width: 1,
                       ),
                     ),
                     child: Text(
                       notice.category,
                       style: TextStyle(
-                        color: AppTheme.getCategoryColor(notice.category),
+                        color: AppTheme.getCategoryColor(notice.category, isDark: isDark),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),

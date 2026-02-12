@@ -13,7 +13,7 @@ from typing import List, Dict, Any, Optional, Tuple
 
 import firebase_admin
 from firebase_admin import credentials, messaging
-from supabase import create_client, Client
+from services.supabase_service import get_supabase_client
 
 
 class FCMService:
@@ -31,10 +31,7 @@ class FCMService:
     def __init__(self):
         """Firebase Admin SDK 및 Supabase 클라이언트를 초기화합니다."""
         self._init_firebase()
-        self.supabase: Client = create_client(
-            os.getenv("SUPABASE_URL"),
-            os.getenv("SUPABASE_KEY")
-        )
+        self.supabase = get_supabase_client()
         print("[FCM] FCMService 초기화 완료")
 
     @classmethod
@@ -121,13 +118,17 @@ class FCMService:
                 "data": data or {}
             }
 
-            # Android 전용 설정
+            # Android 전용 설정 (헤드업 알림 + 소리 + 진동 + 잠금화면 표시)
             if device_type == "android":
                 message_kwargs["android"] = messaging.AndroidConfig(
                     priority="high",
                     notification=messaging.AndroidNotification(
                         click_action="FLUTTER_NOTIFICATION_CLICK",
-                        channel_id="aix_boost_notifications"
+                        channel_id="aix_boost_notifications",
+                        default_sound=True,
+                        default_vibrate_timings=True,
+                        visibility="public",
+
                     )
                 )
 
@@ -218,6 +219,8 @@ class FCMService:
         """
         여러 사용자에게 일괄 푸시 알림을 발송합니다.
 
+        send_each() 배치 API를 사용하여 효율적으로 발송합니다.
+
         매개변수:
         - user_ids: 사용자 UUID 리스트
         - title: 알림 제목
@@ -227,15 +230,91 @@ class FCMService:
         반환값:
         - {"total_users": 전체, "total_sent": 성공, "total_failed": 실패, "total_removed": 삭제}
         """
+        if not user_ids:
+            return {"total_users": 0, "total_sent": 0, "total_failed": 0, "total_removed": 0}
+
+        # 1. 모든 사용자의 토큰을 한 번에 조회
+        try:
+            result = self.supabase.table("device_tokens")\
+                .select("id, user_id, token, device_type")\
+                .in_("user_id", user_ids)\
+                .execute()
+            all_tokens = result.data or []
+        except Exception as e:
+            print(f"[FCM] 토큰 일괄 조회 실패: {str(e)}")
+            return {"total_users": len(user_ids), "total_sent": 0, "total_failed": 0, "total_removed": 0}
+
+        if not all_tokens:
+            return {"total_users": len(user_ids), "total_sent": 0, "total_failed": 0, "total_removed": 0}
+
+        # 2. 메시지 빌드
+        messages = []
+        token_map = {}  # index -> token_data (실패 시 토큰 정리용)
+
+        for token_data in all_tokens:
+            message_kwargs = {
+                "token": token_data["token"],
+                "notification": messaging.Notification(title=title, body=body),
+                "data": data or {}
+            }
+
+            device_type = token_data.get("device_type", "android")
+            if device_type == "android":
+                message_kwargs["android"] = messaging.AndroidConfig(
+                    priority="high",
+                    notification=messaging.AndroidNotification(
+                        click_action="FLUTTER_NOTIFICATION_CLICK",
+                        channel_id="aix_boost_notifications",
+                        default_sound=True,
+                        default_vibrate_timings=True,
+                        visibility="public",
+
+                    )
+                )
+            elif device_type == "web":
+                message_kwargs["webpush"] = messaging.WebpushConfig(
+                    notification=messaging.WebpushNotification(
+                        icon="/icons/icon-192x192.png"
+                    )
+                )
+
+            token_map[len(messages)] = token_data
+            messages.append(messaging.Message(**message_kwargs))
+
+        # 3. 배치 발송 (최대 500개씩)
         total_sent = 0
         total_failed = 0
-        total_removed = 0
+        tokens_to_remove = []
+        BATCH_SIZE = 500
 
-        for user_id in user_ids:
-            result = self.send_to_user(user_id, title, body, data)
-            total_sent += result["sent"]
-            total_failed += result["failed"]
-            total_removed += result["tokens_removed"]
+        for batch_start in range(0, len(messages), BATCH_SIZE):
+            batch = messages[batch_start:batch_start + BATCH_SIZE]
+
+            try:
+                response = messaging.send_each(batch)
+
+                for i, send_response in enumerate(response.responses):
+                    idx = batch_start + i
+                    if send_response.success:
+                        total_sent += 1
+                    else:
+                        total_failed += 1
+                        error = send_response.exception
+                        if isinstance(error, messaging.UnregisteredError):
+                            tokens_to_remove.append(token_map[idx]["id"])
+                        elif isinstance(error, ValueError) and (
+                            "token" in str(error).lower() or "invalid" in str(error).lower()
+                        ):
+                            tokens_to_remove.append(token_map[idx]["id"])
+
+            except Exception as e:
+                print(f"[FCM] 배치 발송 실패: {str(e)}")
+                total_failed += len(batch)
+
+        # 4. 무효 토큰 정리
+        total_removed = self._remove_invalid_tokens(tokens_to_remove)
+
+        print(f"[FCM] 일괄 발송 완료: {total_sent}성공, {total_failed}실패, {total_removed}토큰 삭제")
 
         return {
             "total_users": len(user_ids),
@@ -246,7 +325,7 @@ class FCMService:
 
     def _remove_invalid_tokens(self, token_ids: List[str]) -> int:
         """
-        만료/무효 토큰을 DB에서 삭제합니다.
+        만료/무효 토큰을 DB에서 일괄 삭제합니다.
 
         매개변수:
         - token_ids: 삭제할 device_tokens 행의 ID 리스트
@@ -254,15 +333,26 @@ class FCMService:
         반환값:
         - 삭제된 토큰 수
         """
-        removed = 0
-        for token_id in token_ids:
-            try:
-                self.supabase.table("device_tokens")\
-                    .delete()\
-                    .eq("id", token_id)\
-                    .execute()
-                removed += 1
-                print(f"[FCM] 무효 토큰 삭제: {token_id[:8]}...")
-            except Exception as e:
-                print(f"[FCM] 토큰 삭제 실패: {str(e)}")
-        return removed
+        if not token_ids:
+            return 0
+
+        try:
+            self.supabase.table("device_tokens")\
+                .delete()\
+                .in_("id", token_ids)\
+                .execute()
+            print(f"[FCM] 무효 토큰 {len(token_ids)}개 일괄 삭제")
+            return len(token_ids)
+        except Exception as e:
+            print(f"[FCM] 토큰 일괄 삭제 실패, 개별 삭제 시도: {str(e)}")
+            removed = 0
+            for token_id in token_ids:
+                try:
+                    self.supabase.table("device_tokens")\
+                        .delete()\
+                        .eq("id", token_id)\
+                        .execute()
+                    removed += 1
+                except Exception:
+                    pass
+            return removed

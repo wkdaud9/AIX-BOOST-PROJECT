@@ -101,7 +101,7 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF060E1F) : Colors.white,
+            color: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.white,
             borderRadius: const BorderRadius.vertical(
               top: Radius.circular(AppRadius.xl),
             ),
@@ -230,7 +230,7 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
           vertical: AppSpacing.md,
         ),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C4D8D) : AppTheme.surfaceLight,
+          color: isDark ? AppTheme.secondaryColor : AppTheme.surfaceLight,
           borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
             color: isDark
@@ -255,10 +255,6 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
                       : (isDark ? Colors.white38 : AppTheme.textHint),
                 ),
               ),
-            ),
-            Icon(
-              Icons.keyboard_arrow_down,
-              color: isDark ? Colors.white54 : AppTheme.textSecondary,
             ),
           ],
         ),
@@ -293,7 +289,7 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
               builder: (context, scrollController) {
                 return Container(
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF060E1F) : Colors.white,
+                    color: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.white,
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(AppRadius.xl),
                     ),
@@ -410,14 +406,14 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
                                             ? FontWeight.bold
                                             : FontWeight.normal,
                                         color: isSelected
-                                            ? AppTheme.primaryColor
+                                            ? (Theme.of(context).brightness == Brightness.dark ? AppTheme.primaryLight : AppTheme.primaryColor)
                                             : null,
                                       ),
                                     ),
                                     trailing: isSelected
-                                        ? const Icon(
+                                        ? Icon(
                                             Icons.check,
-                                            color: AppTheme.primaryColor,
+                                            color: Theme.of(context).brightness == Brightness.dark ? AppTheme.primaryLight : AppTheme.primaryColor,
                                           )
                                         : null,
                                     onTap: () {
@@ -446,29 +442,15 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
 
   /// 학년 드롭다운 (아래로 펼쳐지는 방식)
   Widget _buildGradeDropdown(bool isDark) {
-    return PopupMenuButton<String>(
-      initialValue: _selectedGrade,
-      position: PopupMenuPosition.under,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-      ),
-      color: isDark ? const Color(0xFF1C4D8D) : Colors.white,
-      onSelected: (value) {
-        setState(() => _selectedGrade = value);
-      },
-      itemBuilder: (context) => AppData.grades.map((grade) {
-        return PopupMenuItem(
-          value: grade,
-          child: Text(grade),
-        );
-      }).toList(),
+    return GestureDetector(
+      onTap: () => _showGradeSheet(isDark),
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: 14,
         ),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C4D8D) : AppTheme.surfaceLight,
+          color: isDark ? AppTheme.secondaryColor : AppTheme.surfaceLight,
           borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
             color: isDark
@@ -478,19 +460,89 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
         ),
         child: Row(
           children: [
+            Icon(
+              Icons.grade_outlined,
+              color: isDark ? Colors.white54 : AppTheme.textSecondary,
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 _selectedGrade,
                 style: TextStyle(
+                  fontSize: 16,
                   color: isDark ? Colors.white : AppTheme.textPrimary,
                 ),
               ),
             ),
-            Icon(
-              Icons.keyboard_arrow_down,
-              color: isDark ? Colors.white54 : AppTheme.textSecondary,
-            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// 학년 선택 Bottom Sheet
+  void _showGradeSheet(bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? Theme.of(context).scaffoldBackgroundColor : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 드래그 핸들
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // 제목
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Text(
+                  '학년 선택',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+              Divider(height: 1, color: isDark ? Colors.white12 : Colors.grey.shade200),
+              // 옵션 리스트
+              ...AppData.grades.map((grade) {
+                final isSelected = _selectedGrade == grade;
+                return ListTile(
+                  title: Text(
+                    grade,
+                    style: TextStyle(
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: isSelected
+                          ? (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                          : (isDark ? Colors.white : AppTheme.textPrimary),
+                    ),
+                  ),
+                  trailing: isSelected
+                      ? Icon(Icons.check, color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                      : null,
+                  onTap: () {
+                    setState(() => _selectedGrade = grade);
+                    Navigator.pop(context);
+                  },
+                );
+              }),
+              const SizedBox(height: AppSpacing.md),
+            ],
+          ),
         ),
       ),
     );
@@ -503,7 +555,7 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
       runSpacing: AppSpacing.sm,
       children: AppData.categories.map((category) {
         final isSelected = _selectedCategories.contains(category);
-        final categoryColor = AppTheme.getCategoryColor(category);
+        final categoryColor = AppTheme.getCategoryColor(category, isDark: isDark);
 
         return GestureDetector(
           onTap: () {
@@ -634,7 +686,23 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
       final userId = authService.currentUser?.id;
 
       if (userId != null) {
-        // 카테고리 업데이트
+        // 학년 문자열 → 정수 변환 ('1학년' → 1, '대학원' → 5)
+        int gradeInt;
+        if (_selectedGrade == '대학원') {
+          gradeInt = 5;
+        } else {
+          gradeInt = int.tryParse(_selectedGrade.replaceAll('학년', '')) ?? 1;
+        }
+
+        // 1. 사용자 프로필 업데이트 (이름, 학과, 학년 → users 테이블)
+        await apiService.updateUserProfile(
+          userId: userId,
+          name: _nameController.text.trim(),
+          department: _selectedDepartment,
+          grade: gradeInt,
+        );
+
+        // 2. 카테고리 업데이트 (→ user_preferences 테이블)
         await apiService.updateUserPreferences(
           userId: userId,
           categories: _selectedCategories.toList(),

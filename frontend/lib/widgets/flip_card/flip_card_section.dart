@@ -5,8 +5,8 @@ import 'modern_flip_card.dart';
 
 /// 카테고리 내 수직 카드 플립 섹션
 ///
-/// 수직 스와이프로 공지사항 카드를 넘기는 위젯.
-/// 카드는 정사각형으로 화면 중앙에 배치.
+/// 수직 스와이프로 공지사항 카드를 넘기는 위젯 (쇼츠/릴스 스타일).
+/// 무한 환형 스크롤: 마지막 카드 이후 첫 카드로 자연스럽게 순환.
 /// [showHeader]가 false이면 헤더 없이 카드 영역만 렌더링.
 class FlipCardSection extends StatefulWidget {
   final String title;
@@ -99,28 +99,31 @@ class _FlipCardSectionState extends State<FlipCardSection> {
     );
   }
 
-  /// 수직 PageView - 쇼츠 스타일 세로 카드 중앙 배치
+  /// 수직 PageView - 쇼츠/릴스 스타일 무한 환형 스크롤
   Widget _buildVerticalCards(ColorScheme colorScheme) {
-    final items = widget.notices.take(10).toList();
+    final items = widget.notices;
+    final itemCount = items.length;
     final screenWidth = MediaQuery.of(context).size.width;
     final cardWidth = screenWidth - 32; // 좌우 여백 16씩
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 사용 가능한 높이의 88%를 카드 높이로 사용 (쇼츠 느낌)
         final cardHeight = constraints.maxHeight * 0.88;
+
+        // 무한 환형 스크롤: 큰 itemCount + modulo 인덱싱
+        final virtualCount = itemCount * 10000;
 
         return Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.center,
           children: [
-            // 수직 PageView
             PageView.builder(
               controller: _pageController,
               scrollDirection: Axis.vertical,
-              itemCount: items.length,
+              itemCount: virtualCount,
               physics: const BouncingScrollPhysics(),
               itemBuilder: (context, index) {
+                final realIndex = index % itemCount;
                 return AnimatedBuilder(
                   animation: _pageController,
                   builder: (context, child) {
@@ -154,7 +157,7 @@ class _FlipCardSectionState extends State<FlipCardSection> {
                               width: cardWidth,
                               height: cardHeight,
                               child: ModernFlipCard(
-                                notice: items[index],
+                                notice: items[realIndex],
                               ),
                             ),
                           ),
@@ -165,12 +168,12 @@ class _FlipCardSectionState extends State<FlipCardSection> {
                 );
               },
             ),
-            // 페이지 인디케이터 (우측 하단)
-            if (items.length > 1)
+            // 페이지 인디케이터 (우측 하단, 환형 위치 표시)
+            if (itemCount > 1)
               Positioned(
                 right: 24,
                 bottom: constraints.maxHeight * 0.04,
-                child: _buildIndicator(colorScheme, items.length),
+                child: _buildIndicator(colorScheme, itemCount),
               ),
           ],
         );
@@ -178,9 +181,9 @@ class _FlipCardSectionState extends State<FlipCardSection> {
     );
   }
 
-  /// 페이지 인디케이터 (1/5 형태)
+  /// 페이지 인디케이터 (환형 위치: 1/N 형태)
   Widget _buildIndicator(ColorScheme colorScheme, int count) {
-    final currentIdx = _currentPage.round();
+    final currentIdx = _currentPage.round() % count;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

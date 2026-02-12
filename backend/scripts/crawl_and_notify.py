@@ -19,9 +19,12 @@
 python backend/scripts/crawl_and_notify.py
 """
 
+import gc
 import os
+import re
 import sys
-from datetime import datetime
+import threading
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 
 # 프로젝트 루트를 Python 경로에 추가
@@ -39,7 +42,10 @@ from services.notice_service import NoticeService
 from services.hybrid_search_service import HybridSearchService
 from services.reranking_service import RerankingService
 from services.fcm_service import FCMService
-from supabase import create_client
+from services.supabase_service import get_supabase_client
+
+# 파이프라인 동시 실행 방지용 락 (스케줄러 + API 동시 호출 방지)
+_pipeline_lock = threading.Lock()
 
 
 class CrawlAndNotifyPipeline:
@@ -66,9 +72,7 @@ class CrawlAndNotifyPipeline:
         self.reranking_service = RerankingService()
 
         # Supabase 클라이언트 (알림 로그용)
-        self.supabase_url = os.getenv("SUPABASE_URL")
-        self.supabase_key = os.getenv("SUPABASE_KEY")
-        self.supabase = create_client(self.supabase_url, self.supabase_key)
+        self.supabase = get_supabase_client()
 
         # 새 아키텍처 사용 여부 (환경변수로 제어)
         self.use_vector_search = os.getenv("USE_VECTOR_SEARCH", "true").lower() == "true"
@@ -94,7 +98,12 @@ class CrawlAndNotifyPipeline:
 
     def run(self):
         """전체 파이프라인을 실행합니다."""
-        start_time = datetime.now()
+        # 동시 실행 방지: 이미 실행 중이면 스킵
+        if not _pipeline_lock.acquire(blocking=False):
+            print("\n[스킵] 다른 파이프라인이 이미 실행 중입니다. 건너뜁니다.")
+            return
+
+        start_time = datetime.now(timezone.utc)
 
         try:
             # 1단계: 크롤링
@@ -104,25 +113,38 @@ class CrawlAndNotifyPipeline:
                 print("\n[완료] 새로운 공지사항이 없습니다. 종료합니다.")
                 return
 
-            # 2단계: AI 분석
-            analyzed_notices = self._step2_analyze(new_notices)
+            new_count = len(new_notices)
 
-            # 3단계: DB 저장
+            # 2단계: AI 분석 (크롤링 원본은 더 이상 불필요)
+            analyzed_notices = self._step2_analyze(new_notices)
+            del new_notices
+            gc.collect()
+
+            # 3단계: DB 저장 (분석 결과에서 저장할 데이터만 추출)
+            analyzed_count = len(analyzed_notices)
             saved_ids = self._step3_save_to_db(analyzed_notices)
+            saved_count = len(saved_ids)
+            del analyzed_notices
+            gc.collect()
 
             # 4단계: 사용자별 관련도 계산
             relevance_results = self._step4_calculate_relevance(saved_ids)
+            del saved_ids
+            gc.collect()
 
             # 5단계: 푸시 알림 발송
+            relevance_count = sum(len(users) for users in relevance_results.values())
             notification_count = self._step5_send_notifications(relevance_results)
+            del relevance_results
+            gc.collect()
 
             # 최종 통계
             self._print_final_stats(
                 start_time=start_time,
-                new_count=len(new_notices),
-                analyzed_count=len(analyzed_notices),
-                saved_count=len(saved_ids),
-                relevance_count=sum(len(users) for users in relevance_results.values()),
+                new_count=new_count,
+                analyzed_count=analyzed_count,
+                saved_count=saved_count,
+                relevance_count=relevance_count,
                 notification_count=notification_count
             )
 
@@ -130,6 +152,9 @@ class CrawlAndNotifyPipeline:
             print(f"\n[오류] 파이프라인 실행 실패: {str(e)}")
             import traceback
             traceback.print_exc()
+
+        finally:
+            _pipeline_lock.release()
 
     def _step1_crawl(self) -> List[Dict[str, Any]]:
         """
@@ -230,6 +255,7 @@ class CrawlAndNotifyPipeline:
                         )
                         embedding = self.embedding_service.create_embedding(embedding_text)
                         analysis["content_embedding"] = embedding
+                        del embedding_text  # 임베딩 텍스트 즉시 해제
 
                         print(f"  [완료] 분석+임베딩 완료 - {analysis.get('category', '학사')}")
                     except Exception as embed_err:
@@ -246,6 +272,11 @@ class CrawlAndNotifyPipeline:
                 # AI 분석 자체가 실패한 경우 원본 데이터 유지
                 notice['analyzed'] = False
                 analyzed_notices.append(notice)
+
+            finally:
+                # 매 공지 처리 후 메모리 정리 (이미지/OCR 텍스트 등 임시 데이터 해제)
+                notice.pop('_ocr_text', None)
+                gc.collect()
 
         print(f"\n[통계] AI 분석 완료: {len(analyzed_notices)}개")
         return analyzed_notices
@@ -408,9 +439,9 @@ class CrawlAndNotifyPipeline:
         self,
         relevance_results: Dict[str, List[Dict[str, Any]]]
     ) -> int:
-        """6단계: 푸시 알림 발송 (사용자 알림 설정 반영)"""
+        """5단계: 푸시 알림 발송 (사용자 알림 설정 반영)"""
         print("\n" + "-"*60)
-        print("[6단계] 푸시 알림 발송 (알림 설정 반영)")
+        print("[5단계] 푸시 알림 발송 (알림 설정 반영)")
         print("-"*60)
 
         notification_count = 0
@@ -451,6 +482,20 @@ class CrawlAndNotifyPipeline:
                         skipped_count += 1
                         continue
 
+                    # 중복 발송 체크
+                    try:
+                        existing = self.supabase.table("notification_logs")\
+                            .select("id")\
+                            .eq("user_id", user_id)\
+                            .eq("notice_id", notice_id)\
+                            .eq("notification_type", "new_notice")\
+                            .execute()
+                        if existing.data and len(existing.data) > 0:
+                            skipped_count += 1
+                            continue
+                    except Exception:
+                        pass
+
                     # 알림 로그 저장 (notification_logs 테이블) - FCM 발송 전에 저장
                     try:
                         self.supabase.table("notification_logs").insert({
@@ -458,7 +503,7 @@ class CrawlAndNotifyPipeline:
                             "notice_id": notice_id,
                             "title": notice_title,
                             "body": notice_body,
-                            "sent_at": datetime.now().isoformat(),
+                            "sent_at": datetime.now(timezone.utc).isoformat(),
                             "is_read": False,
                             "notification_type": "new_notice"
                         }).execute()
@@ -518,7 +563,7 @@ class CrawlAndNotifyPipeline:
         notification_count: int
     ):
         """최종 통계 출력"""
-        end_time = datetime.now()
+        end_time = datetime.now(timezone.utc)
         elapsed = (end_time - start_time).total_seconds()
 
         print("\n" + "="*60)

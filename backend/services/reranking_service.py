@@ -21,12 +21,9 @@
 import os
 import json
 from typing import List, Dict, Any, Optional
-from supabase import create_client, Client
 from dotenv import load_dotenv
 
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+from services.supabase_service import get_supabase_client
 from ai.gemini_client import GeminiClient
 
 load_dotenv()
@@ -45,14 +42,11 @@ class RerankingService:
     # 리랭킹 설정
     RERANK_THRESHOLD = 10   # 결과가 이 수 초과 시 리랭킹 고려
     RERANK_TOP_N = 3        # 상위 N개만 리랭킹 (5→3: Gemini 호출 비용/시간 절감)
-    SCORE_VARIANCE_THRESHOLD = 0.05  # 점수 편차가 이보다 작으면 리랭킹 (0.1→0.05: 정말 변별력 없을 때만)
+    SCORE_VARIANCE_THRESHOLD = 0.02  # 점수 편차가 이보다 작으면 리랭킹 (0.05→0.02: 극히 변별력 없을 때만)
 
     def __init__(self):
         """리랭킹 서비스 초기화"""
-        self.supabase: Client = create_client(
-            os.getenv("SUPABASE_URL"),
-            os.getenv("SUPABASE_KEY")
-        )
+        self.supabase = get_supabase_client()
         self.gemini = GeminiClient()
 
         print("RerankingService 초기화 완료")
@@ -234,7 +228,7 @@ class RerankingService:
             return None
 
     def _get_user_profiles(self, user_ids: List[str]) -> List[Dict[str, Any]]:
-        """여러 사용자의 프로필 조회"""
+        """여러 사용자의 프로필 조회 (단일 IN 쿼리로 N+1 문제 해결)"""
         try:
             result = self.supabase.table("users")\
                 .select("id, department, grade")\
@@ -243,17 +237,21 @@ class RerankingService:
 
             users = result.data or []
 
-            # user_preferences 추가
-            for user in users:
-                pref_result = self.supabase.table("user_preferences")\
-                    .select("categories, keywords")\
-                    .eq("user_id", user["id"])\
-                    .single()\
-                    .execute()
+            # user_preferences를 한 번에 조회 (N+1 → 1+1 쿼리)
+            pref_result = self.supabase.table("user_preferences")\
+                .select("user_id, categories, keywords")\
+                .in_("user_id", user_ids)\
+                .execute()
 
-                if pref_result.data:
-                    user["interests"] = pref_result.data.get("keywords", [])
-                    user["categories"] = pref_result.data.get("categories", [])
+            pref_map = {}
+            for pref in (pref_result.data or []):
+                pref_map[pref["user_id"]] = pref
+
+            for user in users:
+                pref = pref_map.get(user["id"])
+                if pref:
+                    user["interests"] = pref.get("keywords", [])
+                    user["categories"] = pref.get("categories", [])
 
             return users
 
