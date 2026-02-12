@@ -136,7 +136,7 @@ class FullListModal extends StatelessWidget {
       builder: (context) => FullListModal(
         title: '오늘 꼭 봐야 할 공지',
         subtitle: '긴급/마감임박/최신 종합',
-        notices: provider.todayMustSeeNotices,
+        notices: provider.essentialNotices,
         themeColor: AppTheme.errorColor,
         icon: Icons.push_pin_rounded,
         listType: FullListType.todayMustSee,
@@ -178,19 +178,17 @@ class FullListModal extends StatelessWidget {
   /// 이번 주 일정 전체보기 모달
   static void showWeeklySchedule(BuildContext context) {
     final provider = context.read<NoticeProvider>();
-    final now = DateTime.now();
-    final weekStart = now.subtract(Duration(days: now.weekday - 1));
-    final weekEnd = weekStart.add(const Duration(days: 6, hours: 23, minutes: 59));
 
-    final weeklyNotices = provider.notices
-        .where((n) =>
-            n.deadline != null &&
-            n.deadline!.isAfter(weekStart.subtract(const Duration(days: 1))) &&
-            n.deadline!.isBefore(weekEnd))
-        .toList();
+    // 홈에서 별도 API로 가져온 이번 주 마감 공지 사용
+    final weeklyNotices = List<Notice>.from(provider.weeklyDeadlineNotices);
 
     // 마감일 순 정렬
-    weeklyNotices.sort((a, b) => a.deadline!.compareTo(b.deadline!));
+    weeklyNotices.sort((a, b) {
+      if (a.deadline == null && b.deadline == null) return 0;
+      if (a.deadline == null) return 1;
+      if (b.deadline == null) return -1;
+      return a.deadline!.compareTo(b.deadline!);
+    });
 
     showModalBottomSheet(
       context: context,
@@ -275,8 +273,6 @@ class FullListModal extends StatelessWidget {
                   ],
                 ),
               ),
-
-              const Divider(height: 1),
 
               // 목록 영역 (배경 tint + 카드 화이트)
               Expanded(
@@ -682,26 +678,12 @@ class FullListModal extends StatelessWidget {
   }
 
   /// 우측 위젯 (북마크 버튼 - 애니메이션)
-  /// Provider가 copyWith()로 새 객체를 생성하므로, 정적 리스트의 옛 참조 대신
-  /// Provider의 모든 리스트에서 실시간 상태를 조회
+  /// Provider의 모든 리스트에서 실시간 북마크 상태를 조회
   Widget _buildTrailingWidget(BuildContext context, Notice notice, bool isDark) {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
-        // notices, recommendedNotices, categoryNotices 모두에서 검색
-        bool isBookmarked = false;
-        for (final n in provider.notices) {
-          if (n.id == notice.id) { isBookmarked = n.isBookmarked; break; }
-        }
-        if (!isBookmarked) {
-          for (final n in provider.recommendedNotices) {
-            if (n.id == notice.id) { isBookmarked = n.isBookmarked; break; }
-          }
-        }
-        if (!isBookmarked) {
-          for (final n in provider.categoryNotices) {
-            if (n.id == notice.id) { isBookmarked = n.isBookmarked; break; }
-          }
-        }
+        // bookmarkedNotices를 먼저 확인 (가장 확실한 소스)
+        final isBookmarked = provider.bookmarkedNotices.any((n) => n.id == notice.id);
         return AnimatedBookmarkButton(
           isBookmarked: isBookmarked,
           onTap: () => provider.toggleBookmark(notice.id),

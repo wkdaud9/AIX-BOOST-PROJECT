@@ -180,24 +180,73 @@
 ### 🔔 그룹 C: 알림 시스템 (항목 8, 9, 10)
 
 8. **알림 수신 시 핸드폰 화면 안 켜지는 문제 수정**
-   - 푸시 알림 도착 시 화면이 깨어나지 않는 문제 해결
+   - 푸시 알림 도착 시 화면이 깨어나지 않고, 헤드업(팝업) 알림이 표시되지 않는 문제 해결
    - 📌 **상세 구현 계획**
      - **수정 파일**: `frontend/android/app/src/main/AndroidManifest.xml`, `frontend/lib/services/fcm_service.dart`, `backend/services/fcm_service.py`
-     - AndroidManifest.xml에 `WAKE_LOCK`, `USE_FULL_SCREEN_INTENT` 퍼미션 추가
-     - `fcm_service.dart`의 `initialize()`에서 알림 채널 생성: `AndroidNotificationChannel('aix_boost_notifications', importance: Importance.high, enableVibration: true, playSound: true)`
-     - 백엔드 `fcm_service.py`의 AndroidNotification에 `default_sound=True`, `default_vibrate_timings=True`, `visibility="public"` 추가
-     - **주의**: `flutter_local_notifications` 패키지 필요 여부 확인 (`pubspec.lock` 체크), 제조사별 배터리 최적화 설정은 앱에서 해결 불가 → 사용자 안내 필요
+     - **현재 상태**:
+       - AndroidManifest.xml: `INTERNET`, `POST_NOTIFICATIONS` 퍼미션만 있음 → WAKE_LOCK 없음
+       - `fcm_service.dart`: Firebase Messaging만 사용, 로컬 알림 채널 미생성 → Android 8+ 에서 채널 importance가 기본(DEFAULT)으로 동작
+       - `fcm_service.py`: `priority="high"`, `channel_id="aix_boost_notifications"` 설정 있음 → 소리/진동/가시성 미설정
+     - **Step 1**: AndroidManifest.xml에 퍼미션 추가
+       - `<uses-permission android:name="android.permission.WAKE_LOCK"/>` 추가
+       - `<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>` 추가 (Android 10+ 전체화면 인텐트용)
+     - **Step 2**: `flutter_local_notifications` 패키지로 알림 채널 생성 (이미 `pubspec.lock`에 있는지 확인, 없으면 추가)
+       - `fcm_service.dart`의 `initialize()`에서 Android 알림 채널 생성:
+         ```
+         AndroidNotificationChannel('aix_boost_notifications', 'AIX Boost 알림',
+           importance: Importance.high,  // 헤드업(팝업) 알림 활성화
+           enableVibration: true,
+           playSound: true,
+           showBadge: true)
+         ```
+       - `FlutterLocalNotificationsPlugin().resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.createNotificationChannel(channel)` 호출
+     - **Step 3**: 백엔드 `fcm_service.py`의 `_build_android_config()`에 추가:
+       - `AndroidNotification` 객체에 `default_sound=True`, `default_vibrate_timings=True`, `visibility="public"`, `notification_priority="PRIORITY_HIGH"` 설정
+     - **주의**:
+       - `flutter_local_notifications` 패키지 추가 시 `pubspec.yaml` 팀 공지 필요
+       - 제조사별 배터리 최적화(삼성: 앱 절전 제외, 샤오미: 자동 시작 허용 등)는 앱에서 해결 불가 → 설정 화면에 "알림이 안 오나요?" 가이드 링크 추가 고려
+       - 앱이 포그라운드일 때는 Firebase Messaging이 알림을 표시하지 않음 → `onMessage` 콜백에서 `flutter_local_notifications`로 직접 표시해야 함
 
 9. **알림 클릭 시 앱으로 이동하지 않는 문제 수정**
-   - 알림 탭 시 앱이 열리지 않거나 해당 화면으로 이동하지 않는 문제 해결
+   - 알림 탭 시 앱이 열리지 않거나 해당 공지 상세 화면으로 이동하지 않는 문제 해결
    - 📌 **상세 구현 계획**
-     - **수정 파일**: `frontend/lib/main.dart`, `frontend/lib/services/fcm_service.dart`, `frontend/android/app/src/main/AndroidManifest.xml`, `frontend/lib/screens/auth_wrapper.dart`
-     - `main.dart`에 `GlobalKey<NavigatorState> navigatorKey` 생성 → `MaterialApp`에 전달
-     - `fcm_service.dart`에 navigatorKey 프로퍼티 추가, initialize 시 주입
-     - `_handleMessageOpenedApp()` 구현: `message.data['notice_id']`로 `NoticeDetailScreen` 네비게이션
-     - 앱 종료 상태: `getInitialMessage()` 결과를 1.5초 딜레이 후 네비게이션 (위젯 트리 빌드 대기)
-     - AndroidManifest.xml `<activity>`에 `FLUTTER_NOTIFICATION_CLICK` intent-filter 추가
-     - **주의**: 로그인 전 알림 클릭 시 인증 상태 확인 필요, 종료 상태에서의 네비게이션은 스플래시→인증→상세 순서 보장 필요
+     - **수정 파일**: `frontend/lib/main.dart`, `frontend/lib/services/fcm_service.dart`, `frontend/android/app/src/main/AndroidManifest.xml`
+     - **현재 상태**:
+       - `fcm_service.dart`: `onMessageOpenedApp.listen()` + `getInitialMessage()` 모두 구현되어 있으나, `_handleMessageOpenedApp()`이 로그만 찍고 네비게이션 없음 (TODO 주석 상태)
+       - `main.dart`: `MaterialApp`에 `navigatorKey` 미설정 → FCM 서비스에서 화면 전환 불가
+       - AndroidManifest.xml: `FLUTTER_NOTIFICATION_CLICK` intent-filter 없음
+       - `fcm_service.py`(백엔드): `click_action="FLUTTER_NOTIFICATION_CLICK"` 이미 설정됨
+     - **Step 1**: `main.dart`에 글로벌 네비게이터 키 추가
+       - `final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();` 최상위 선언
+       - `MaterialApp`에 `navigatorKey: navigatorKey` 전달
+     - **Step 2**: `fcm_service.dart`에 네비게이터 키 주입 + 네비게이션 구현
+       - `GlobalKey<NavigatorState>? _navigatorKey` 프로퍼티 추가
+       - `initialize()`에 `navigatorKey` 파라미터 추가, `auth_wrapper.dart`에서 초기화 시 전달
+       - `_handleMessageOpenedApp()` 구현:
+         ```
+         final noticeId = message.data['notice_id'];
+         if (noticeId != null && _navigatorKey?.currentState != null) {
+           _navigatorKey!.currentState!.push(
+             MaterialPageRoute(builder: (_) => NoticeDetailScreen(noticeId: noticeId))
+           );
+         }
+         ```
+     - **Step 3**: 앱 종료(terminated) 상태 처리
+       - `getInitialMessage()` 결과가 있으면 `_pendingMessage`에 저장
+       - `navigatorKey` 세팅 후 `WidgetsBinding.instance.addPostFrameCallback()`으로 1회 딜레이 네비게이션
+       - 이렇게 해야 위젯 트리 빌드 + 인증 완료 후 네비게이션 실행됨
+     - **Step 4**: AndroidManifest.xml에 intent-filter 추가
+       - `<activity>` 내부에 추가:
+         ```
+         <intent-filter>
+           <action android:name="FLUTTER_NOTIFICATION_CLICK"/>
+           <category android:name="android.intent.category.DEFAULT"/>
+         </intent-filter>
+         ```
+     - **주의**:
+       - 로그인 전 알림 클릭 시: `_navigatorKey?.currentState`가 null → `_pendingMessage`에 저장 후 로그인 완료 시 처리
+       - 종료 상태 → 스플래시 → 인증 → 상세 순서 보장: `auth_wrapper.dart`의 `_startInitialization()` 완료 후 pending 메시지 처리
+       - `notice_id`가 없는 알림(구버전 등)은 알림 목록 화면으로 폴백
 
 10. **D-day 알림 기능 수정 (북마크 기반으로 변경)**
     - 현재: 마감 임박 공지 전체에 대해 D-day 알림을 보내는 방식

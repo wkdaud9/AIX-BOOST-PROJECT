@@ -11,22 +11,13 @@ user_bookmarks + notices 테이블을 조인하여 마감일 기반 이벤트를
 """
 
 from flask import Blueprint, request, jsonify, g
-import os
 import json
 
-from supabase import create_client, Client
+from services.supabase_service import get_supabase_client
 from utils.auth_middleware import login_required
 
 # Blueprint 생성 (URL 접두사: /api/calendar)
 calendar_bp = Blueprint('calendar', __name__, url_prefix='/api/calendar')
-
-
-def _get_supabase() -> Client:
-    """Supabase 클라이언트 초기화"""
-    return create_client(
-        os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_KEY")
-    )
 
 
 @calendar_bp.route('/events', methods=['GET'])
@@ -69,7 +60,7 @@ def get_calendar_events():
         if month:
             print(f"   - 월: {month}")
 
-        supabase = _get_supabase()
+        supabase = get_supabase_client()
 
         # 1. 사용자의 북마크된 공지사항 ID 목록 조회
         bookmark_result = supabase.table("user_bookmarks")\
@@ -153,5 +144,5 @@ def get_calendar_events():
         print(f"[에러] 캘린더 이벤트 조회 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "캘린더 이벤트 조회에 실패했습니다."
         }), 500

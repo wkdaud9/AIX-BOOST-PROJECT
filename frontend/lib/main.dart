@@ -12,6 +12,9 @@ import 'services/api_service.dart';
 import 'services/fcm_service.dart';
 import 'env_config.dart';
 
+/// 글로벌 네비게이터 키 (FCM 알림 탭 시 화면 전환용)
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -46,9 +49,15 @@ class AIXBoostApp extends StatelessWidget {
           update: (_, apiService, previous) =>
               previous ?? NoticeProvider(apiService: apiService),
         ),
-        // 4. SettingsProvider 생성 (테마, 알림 설정 관리)
-        ChangeNotifierProvider<SettingsProvider>(
+        // 4. SettingsProvider 생성 (테마, 알림 설정 관리, ApiService 의존)
+        ChangeNotifierProxyProvider<ApiService, SettingsProvider>(
           create: (_) => SettingsProvider()..initialize(),
+          update: (_, apiService, previous) {
+            previous?.updateApiService(apiService);
+            return previous ?? (SettingsProvider()
+              ..updateApiService(apiService)
+              ..initialize());
+          },
         ),
         // 5. NotificationProvider 생성 (ApiService 의존, 알림 목록 관리)
         ChangeNotifierProxyProvider<ApiService, NotificationProvider>(
@@ -71,6 +80,7 @@ class AIXBoostApp extends StatelessWidget {
         builder: (context, settings, child) {
           return MaterialApp(
             title: 'Hey bro',
+            navigatorKey: navigatorKey,
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,

@@ -17,13 +17,19 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final ApiService _apiService = ApiService();
+  late final ApiService _apiService;
 
   List<Notice> _searchResults = [];
   bool _isLoading = false;
   bool _hasSearched = false;
   String? _errorMessage;
   Timer? _debounceTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _apiService = context.read<ApiService>();
+  }
 
   @override
   void dispose() {

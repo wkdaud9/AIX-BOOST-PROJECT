@@ -228,15 +228,9 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
-  /// 이모지를 흰색 실루엣으로 변환하는 헬퍼
-  Widget _whiteEmoji(String emoji, double size) {
-    return ColorFiltered(
-      colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-      child: Text(
-        emoji,
-        style: TextStyle(fontSize: size),
-      ),
-    );
+  /// 흰색 아이콘 헬퍼 (이모지 → Material Icons 교체, 크롬 렌더링 깨짐 방지)
+  Widget _whiteIcon(IconData icon, double size) {
+    return Icon(icon, size: size, color: Colors.white);
   }
 
   @override
@@ -328,7 +322,7 @@ class _SplashScreenState extends State<SplashScreen>
               // 흔들리는 손 (흰색)
               Transform.rotate(
                 angle: _waveRotation.value * pi,
-                child: _whiteEmoji('👋', 80),
+                child: _whiteIcon(Icons.waving_hand_rounded, 80),
               ),
 
               const SizedBox(height: 24),
@@ -371,11 +365,21 @@ class _SplashScreenState extends State<SplashScreen>
                   children: [
                     Transform.translate(
                       offset: Offset(_leftFistSlide.value, 0),
-                      child: _whiteEmoji('🤜', 64),
+                      child: const ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                            Colors.white, BlendMode.srcIn),
+                        child: Text('🤜',
+                            style: TextStyle(fontSize: 56)),
+                      ),
                     ),
                     Transform.translate(
                       offset: Offset(_rightFistSlide.value, 0),
-                      child: _whiteEmoji('🤛', 64),
+                      child: const ColorFiltered(
+                        colorFilter: ColorFilter.mode(
+                            Colors.white, BlendMode.srcIn),
+                        child: Text('🤛',
+                            style: TextStyle(fontSize: 56)),
+                      ),
                     ),
                   ],
                 ),

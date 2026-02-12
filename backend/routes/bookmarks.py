@@ -11,23 +11,11 @@
 """
 
 from flask import Blueprint, request, jsonify, g
-import os
-import sys
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from supabase import create_client, Client
+from services.supabase_service import get_supabase_client
 from utils.auth_middleware import login_required
 
 # Blueprint 생성 (URL 접두사: /api/bookmarks)
 bookmarks_bp = Blueprint('bookmarks', __name__, url_prefix='/api/bookmarks')
-
-# Supabase 클라이언트 초기화
-def _get_supabase() -> Client:
-    return create_client(
-        os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_KEY")
-    )
 
 
 @bookmarks_bp.route('/<notice_id>', methods=['POST'])
@@ -36,29 +24,11 @@ def toggle_bookmark(notice_id):
     """
     공지사항 북마크를 토글합니다 (추가/제거).
 
-    POST /api/bookmarks/<notice_id>
-
-    응답 (추가 시):
-    {
-        "status": "success",
-        "data": {
-            "bookmarked": true,
-            "notice_id": "uuid"
-        }
-    }
-
-    응답 (제거 시):
-    {
-        "status": "success",
-        "data": {
-            "bookmarked": false,
-            "notice_id": "uuid"
-        }
-    }
+    UPSERT + ON CONFLICT로 race condition 방지.
     """
     try:
         user_id = g.user_id
-        supabase = _get_supabase()
+        supabase = get_supabase_client()
 
         # 기존 북마크 확인
         existing = supabase.table("user_bookmarks")\
@@ -97,12 +67,12 @@ def toggle_bookmark(notice_id):
                 }
             }), 200
         else:
-            # 북마크 추가
+            # 북마크 추가 (UPSERT으로 중복 삽입 방지)
             supabase.table("user_bookmarks")\
-                .insert({
+                .upsert({
                     "user_id": user_id,
                     "notice_id": notice_id,
-                })\
+                }, on_conflict="user_id,notice_id")\
                 .execute()
 
             # notices 테이블의 bookmark_count 증가
@@ -131,7 +101,7 @@ def toggle_bookmark(notice_id):
         print(f"[에러] 북마크 토글 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "북마크 처리에 실패했습니다."
         }), 500
 
 
@@ -142,36 +112,18 @@ def get_bookmarks():
     사용자의 북마크 목록을 조회합니다.
 
     GET /api/bookmarks?limit=50&offset=0
-
-    쿼리 파라미터:
-    - limit: 최대 개수 (기본 50)
-    - offset: 건너뛸 개수 (기본 0)
-
-    응답:
-    {
-        "status": "success",
-        "data": {
-            "bookmarks": [
-                {
-                    "id": "uuid",
-                    "title": "공지사항 제목",
-                    "content": "내용",
-                    "category": "학사",
-                    ...
-                }
-            ],
-            "total": 10
-        }
-    }
     """
     try:
         user_id = g.user_id
-        limit = int(request.args.get('limit', 50))
-        offset = int(request.args.get('offset', 0))
+        try:
+            limit = max(1, min(100, int(request.args.get('limit', 50))))
+            offset = max(0, int(request.args.get('offset', 0)))
+        except (ValueError, TypeError):
+            return jsonify({"status": "error", "message": "limit과 offset은 정수여야 합니다"}), 400
 
-        supabase = _get_supabase()
+        supabase = get_supabase_client()
 
-        # 사용자의 북마크 notice_id 목록 조회
+        # 사용자의 북마크 notice_id 목록 조회 (정렬 순서 보존)
         bookmark_result = supabase.table("user_bookmarks")\
             .select("notice_id")\
             .eq("user_id", user_id)\
@@ -196,10 +148,14 @@ def get_bookmarks():
             .in_("id", notice_ids)\
             .execute()
 
-        # 북마크 표시 추가
-        notices = notices_result.data or []
-        for notice in notices:
-            notice["is_bookmarked"] = True
+        # 북마크 순서대로 정렬 (IN 쿼리는 순서를 보장하지 않으므로)
+        notices_map = {n["id"]: n for n in (notices_result.data or [])}
+        notices = []
+        for nid in notice_ids:
+            if nid in notices_map:
+                notice = notices_map[nid]
+                notice["is_bookmarked"] = True
+                notices.append(notice)
 
         print(f"[북마크] 조회: user={user_id[:8]}..., {len(notices)}개")
 
@@ -215,5 +171,5 @@ def get_bookmarks():
         print(f"[에러] 북마크 목록 조회 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "북마크 목록 조회에 실패했습니다."
         }), 500

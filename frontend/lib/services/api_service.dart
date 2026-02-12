@@ -111,6 +111,26 @@ class ApiService {
     }
   }
 
+  /// 오늘 필수 공지사항 조회 (MyBro 탭용, 백엔드 점수 기반 정렬)
+  Future<List<Map<String, dynamic>>> getEssentialNotices({int limit = 10}) async {
+    try {
+      final response = await _dio.get('/api/notices/essential', queryParameters: {'limit': limit});
+      return _handleListResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  /// 마감 임박 공지사항 조회 (MyBro 탭용, 오늘~D+7 마감일순)
+  Future<List<Map<String, dynamic>>> getDeadlineSoonNotices({int limit = 10}) async {
+    try {
+      final response = await _dio.get('/api/notices/deadline-soon', queryParameters: {'limit': limit});
+      return _handleListResponse(response);
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   /// 특정 공지사항 상세 조회
   Future<Map<String, dynamic>> getNoticeById(String noticeId) async {
     try {

@@ -106,7 +106,8 @@ class _BookmarkScreenState extends State<BookmarkScreen> {
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () async {
-                  await provider.fetchNotices();
+                  // DB에서 북마크 목록을 직접 가져옴 (fetchNotices 사용 시 상위 100개에 없는 북마크 누락됨)
+                  await provider.fetchBookmarkedNotices(limit: 50);
                 },
                 child: ListView.builder(
                   padding: const EdgeInsets.all(AppSpacing.md),

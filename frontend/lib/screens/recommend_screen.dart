@@ -34,8 +34,25 @@ class _RecommendScreenState extends State<RecommendScreen> {
   void initState() {
     super.initState();
     _categoryPageController = PageController();
-    // MyBro 데이터는 탭 클릭 시 HomeScreen._onItemTapped(2)에서 로드
-    // IndexedStack으로 인한 불필요한 초기 API 호출 방지
+  }
+
+  /// 탭 전환 시 해당 탭 데이터를 개별 로드 (캐시 유효하면 스킵)
+  void _fetchForTab(int index) {
+    final provider = context.read<NoticeProvider>();
+    switch (index) {
+      case 0:
+        provider.fetchRecommendedNotices();
+        break;
+      case 1:
+        provider.fetchEssentialNotices();
+        break;
+      case 2:
+        provider.fetchDepartmentPopularNotices();
+        break;
+      case 3:
+        provider.fetchDeadlineSoonNotices();
+        break;
+    }
   }
 
   @override
@@ -59,12 +76,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
                 authService.department, authService.grade);
           }
 
-          // 카테고리별 데이터 매핑 (전체 리스트 → 무한 환형 스크롤)
+          // 카테고리별 데이터 매핑 (탭별 독립 API 결과)
           final categoryData = <int, _CategoryData>{
             0: _CategoryData(provider.recommendedNotices, provider.isRecommendedLoading, '추천 공지가 없습니다'),
-            1: _CategoryData(provider.todayMustSeeNotices, false, '오늘 필수 공지가 없습니다'),
+            1: _CategoryData(provider.essentialNotices, provider.isEssentialLoading, '오늘 필수 공지가 없습니다'),
             2: _CategoryData(deptPopular, provider.isDepartmentPopularLoading, '학과 인기 공지가 없습니다'),
-            3: _CategoryData(provider.deadlineSoonNotices, provider.isUpcomingDeadlineLoading, '마감 임박 공지가 없습니다'),
+            3: _CategoryData(provider.deadlineSoonNotices, provider.isDeadlineSoonLoading, '마감 임박 공지가 없습니다'),
           };
 
           return Column(
@@ -79,6 +96,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
                   itemCount: _categories.length,
                   onPageChanged: (index) {
                     setState(() => _currentCategoryIndex = index);
+                    _fetchForTab(index);
                   },
                   itemBuilder: (context, index) {
                     final cat = _categories[index];

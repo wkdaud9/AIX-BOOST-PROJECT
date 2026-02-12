@@ -82,6 +82,7 @@ def get_departments():
 
 
 @users_bp.route('/profile', methods=['POST'])
+@login_required
 def create_user_profile():
     """
     회원가입 후 사용자 프로필 및 선호도를 생성합니다.
@@ -121,6 +122,14 @@ def create_user_profile():
                 }), 400
 
         user_id = data['user_id']
+
+        # 토큰의 사용자 ID와 요청 body의 user_id 일치 확인 (위변조 방지)
+        if g.user_id != user_id:
+            return jsonify({
+                "status": "error",
+                "message": "인증된 사용자와 요청 user_id가 일치하지 않습니다."
+            }), 403
+
         email = data['email']
         name = data['name']
         student_id = data['student_id']
@@ -209,7 +218,7 @@ def create_user_profile():
 
         return jsonify({
             "status": "error",
-            "message": error_msg
+            "message": "프로필 생성에 실패했습니다."
         }), 500
 
 
@@ -232,7 +241,7 @@ def get_user_profile(user_id):
     """
     try:
         # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 프로필만 조회할 수 있습니다."
@@ -272,7 +281,7 @@ def get_user_profile(user_id):
         print(f"[ERROR] 프로필 조회 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "프로필 조회에 실패했습니다."
         }), 500
 
 
@@ -301,7 +310,7 @@ def update_user_profile(user_id):
     """
     try:
         # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 프로필만 변경할 수 있습니다."
@@ -384,7 +393,7 @@ def update_user_profile(user_id):
         print(f"[ERROR] 프로필 업데이트 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "프로필 업데이트에 실패했습니다."
         }), 500
 
 
@@ -411,7 +420,7 @@ def update_user_preferences(user_id):
     """
     try:
         # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 선호도만 변경할 수 있습니다."
@@ -495,7 +504,7 @@ def update_user_preferences(user_id):
         print(f"[ERROR] 선호도 업데이트 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "선호도 업데이트에 실패했습니다."
         }), 500
 
 
@@ -533,7 +542,7 @@ def update_notification_settings(user_id):
     }
     """
     try:
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 설정만 변경할 수 있습니다."
@@ -555,7 +564,13 @@ def update_notification_settings(user_id):
             update_data['notification_mode'] = mode
 
         if 'deadline_reminder_days' in data:
-            days = int(data['deadline_reminder_days'])
+            try:
+                days = int(data['deadline_reminder_days'])
+            except (ValueError, TypeError):
+                return jsonify({
+                    "status": "error",
+                    "message": "deadline_reminder_days는 정수여야 합니다."
+                }), 400
             if days < 1 or days > 7:
                 return jsonify({
                     "status": "error",
@@ -596,7 +611,7 @@ def update_notification_settings(user_id):
         print(f"[ERROR] 알림 설정 업데이트 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "알림 설정 업데이트에 실패했습니다."
         }), 500
 
 
@@ -618,7 +633,7 @@ def get_notification_settings(user_id):
     }
     """
     try:
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 설정만 조회할 수 있습니다."
@@ -650,7 +665,7 @@ def get_notification_settings(user_id):
         print(f"[ERROR] 알림 설정 조회 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "알림 설정 조회에 실패했습니다."
         }), 500
 
 
@@ -672,7 +687,7 @@ def delete_user(user_id):
     """
     try:
         # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 계정만 삭제할 수 있습니다."
@@ -696,7 +711,7 @@ def delete_user(user_id):
         print(f"[ERROR] 사용자 삭제 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "사용자 삭제에 실패했습니다."
         }), 500
 
 

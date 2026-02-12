@@ -20,8 +20,13 @@ class SettingsProvider with ChangeNotifier {
   static const String _notificationModeKey = 'notification_mode';
 
   SharedPreferences? _prefs;
-  final ApiService _apiService = ApiService();
+  ApiService? _apiService;
   String? _userId;
+
+  /// ApiService 설정 (ProxyProvider에서 호출)
+  void updateApiService(ApiService apiService) {
+    _apiService = apiService;
+  }
 
   // 테마 설정
   ThemeMode _themeMode = ThemeMode.system;
@@ -158,9 +163,9 @@ class SettingsProvider with ChangeNotifier {
 
   /// 백엔드에서 알림 설정 동기화 (앱 시작 시)
   Future<void> _syncFromBackend() async {
-    if (_userId == null) return;
+    if (_userId == null || _apiService == null) return;
     try {
-      final response = await _apiService.getNotificationSettings(_userId!);
+      final response = await _apiService!.getNotificationSettings(_userId!);
       final mode = response['notification_mode'] as String? ?? 'all_on';
       final days = response['deadline_reminder_days'] as int? ?? 3;
 
@@ -176,9 +181,9 @@ class SettingsProvider with ChangeNotifier {
 
   /// 백엔드에 알림 설정 저장 (설정 변경 시)
   Future<void> _syncToBackend() async {
-    if (_userId == null) return;
+    if (_userId == null || _apiService == null) return;
     try {
-      await _apiService.updateNotificationSettings(
+      await _apiService!.updateNotificationSettings(
         userId: _userId!,
         notificationMode: _modeToString(_notificationMode),
         deadlineReminderDays: _deadlineReminderDays,

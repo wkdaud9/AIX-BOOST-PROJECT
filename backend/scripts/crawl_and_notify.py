@@ -24,7 +24,7 @@ import os
 import re
 import sys
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any
 
 # 프로젝트 루트를 Python 경로에 추가
@@ -42,7 +42,7 @@ from services.notice_service import NoticeService
 from services.hybrid_search_service import HybridSearchService
 from services.reranking_service import RerankingService
 from services.fcm_service import FCMService
-from supabase import create_client
+from services.supabase_service import get_supabase_client
 
 # 파이프라인 동시 실행 방지용 락 (스케줄러 + API 동시 호출 방지)
 _pipeline_lock = threading.Lock()
@@ -72,9 +72,7 @@ class CrawlAndNotifyPipeline:
         self.reranking_service = RerankingService()
 
         # Supabase 클라이언트 (알림 로그용)
-        self.supabase_url = os.getenv("SUPABASE_URL")
-        self.supabase_key = os.getenv("SUPABASE_KEY")
-        self.supabase = create_client(self.supabase_url, self.supabase_key)
+        self.supabase = get_supabase_client()
 
         # 새 아키텍처 사용 여부 (환경변수로 제어)
         self.use_vector_search = os.getenv("USE_VECTOR_SEARCH", "true").lower() == "true"
@@ -105,12 +103,9 @@ class CrawlAndNotifyPipeline:
             print("\n[스킵] 다른 파이프라인이 이미 실행 중입니다. 건너뜁니다.")
             return
 
-        start_time = datetime.now()
+        start_time = datetime.now(timezone.utc)
 
         try:
-            # 0단계: 최근 공지 조회수 업데이트 (7일 이내)
-            self._step0_update_view_counts()
-
             # 1단계: 크롤링
             new_notices = self._step1_crawl()
 
@@ -118,25 +113,38 @@ class CrawlAndNotifyPipeline:
                 print("\n[완료] 새로운 공지사항이 없습니다. 종료합니다.")
                 return
 
-            # 2단계: AI 분석
-            analyzed_notices = self._step2_analyze(new_notices)
+            new_count = len(new_notices)
 
-            # 3단계: DB 저장
+            # 2단계: AI 분석 (크롤링 원본은 더 이상 불필요)
+            analyzed_notices = self._step2_analyze(new_notices)
+            del new_notices
+            gc.collect()
+
+            # 3단계: DB 저장 (분석 결과에서 저장할 데이터만 추출)
+            analyzed_count = len(analyzed_notices)
             saved_ids = self._step3_save_to_db(analyzed_notices)
+            saved_count = len(saved_ids)
+            del analyzed_notices
+            gc.collect()
 
             # 4단계: 사용자별 관련도 계산
             relevance_results = self._step4_calculate_relevance(saved_ids)
+            del saved_ids
+            gc.collect()
 
             # 5단계: 푸시 알림 발송
+            relevance_count = sum(len(users) for users in relevance_results.values())
             notification_count = self._step5_send_notifications(relevance_results)
+            del relevance_results
+            gc.collect()
 
             # 최종 통계
             self._print_final_stats(
                 start_time=start_time,
-                new_count=len(new_notices),
-                analyzed_count=len(analyzed_notices),
-                saved_count=len(saved_ids),
-                relevance_count=sum(len(users) for users in relevance_results.values()),
+                new_count=new_count,
+                analyzed_count=analyzed_count,
+                saved_count=saved_count,
+                relevance_count=relevance_count,
                 notification_count=notification_count
             )
 
@@ -147,87 +155,6 @@ class CrawlAndNotifyPipeline:
 
         finally:
             _pipeline_lock.release()
-
-    def _step0_update_view_counts(self):
-        """
-        0단계: 최근 7일 공지의 조회수를 원본 사이트에서 갱신합니다.
-
-        크롤링 시점의 조회수 스냅샷만 저장되므로,
-        최근 공지는 원본 사이트 조회수가 계속 올라갑니다.
-        이 단계에서 최근 공지의 source_url을 방문하여 최신 조회수를 업데이트합니다.
-        """
-        print("\n" + "-"*60)
-        print("[0단계] 최근 공지 조회수 업데이트")
-        print("-"*60)
-
-        try:
-            # 7일 이내 공지 조회 (최대 30개)
-            since = (datetime.now() - timedelta(days=7)).isoformat()
-            result = self.supabase.table("notices")\
-                .select("id, source_url, view_count")\
-                .gte("published_at", since)\
-                .not_.is_("source_url", "null")\
-                .order("published_at", desc=True)\
-                .limit(30)\
-                .execute()
-
-            notices = result.data or []
-            if not notices:
-                print("  [정보] 업데이트할 최근 공지 없음")
-                return
-
-            print(f"  [정보] {len(notices)}개 공지 조회수 확인 중...")
-
-            # 아무 크롤러나 하나 사용 (fetch_page용)
-            crawler = list(self.crawlers.values())[0]
-            updated = 0
-
-            for notice in notices:
-                source_url = notice.get("source_url")
-                if not source_url:
-                    continue
-
-                try:
-                    # 상세 페이지에서 조회수 추출
-                    soup = crawler.fetch_page(source_url, delay_range=(0.5, 1.0))
-                    if not soup:
-                        continue
-
-                    bv_txt01 = soup.select_one('div.bv_txt01')
-                    if not bv_txt01:
-                        del soup  # BeautifulSoup 객체 즉시 해제
-                        continue
-
-                    new_views = None
-                    for span in bv_txt01.find_all('span'):
-                        if '조회수' in span.get_text():
-                            match = re.search(r'(\d+)', span.get_text())
-                            if match:
-                                new_views = int(match.group(1))
-                                break
-
-                    del soup  # BeautifulSoup 객체 즉시 해제
-
-                    if new_views is None:
-                        continue
-
-                    old_views = notice.get("view_count") or 0
-                    if new_views > old_views:
-                        self.supabase.table("notices")\
-                            .update({"view_count": new_views})\
-                            .eq("id", notice["id"])\
-                            .execute()
-                        updated += 1
-
-                except Exception as e:
-                    # 개별 공지 실패는 무시하고 계속 진행
-                    continue
-
-            print(f"  [완료] {updated}건 조회수 업데이트 완료")
-
-        except Exception as e:
-            # 조회수 업데이트 실패해도 크롤링은 계속 진행
-            print(f"  [경고] 조회수 업데이트 중 오류 (무시하고 진행): {str(e)}")
 
     def _step1_crawl(self) -> List[Dict[str, Any]]:
         """
@@ -512,9 +439,9 @@ class CrawlAndNotifyPipeline:
         self,
         relevance_results: Dict[str, List[Dict[str, Any]]]
     ) -> int:
-        """6단계: 푸시 알림 발송 (사용자 알림 설정 반영)"""
+        """5단계: 푸시 알림 발송 (사용자 알림 설정 반영)"""
         print("\n" + "-"*60)
-        print("[6단계] 푸시 알림 발송 (알림 설정 반영)")
+        print("[5단계] 푸시 알림 발송 (알림 설정 반영)")
         print("-"*60)
 
         notification_count = 0
@@ -576,7 +503,7 @@ class CrawlAndNotifyPipeline:
                             "notice_id": notice_id,
                             "title": notice_title,
                             "body": notice_body,
-                            "sent_at": datetime.now().isoformat(),
+                            "sent_at": datetime.now(timezone.utc).isoformat(),
                             "is_read": False,
                             "notification_type": "new_notice"
                         }).execute()
@@ -636,7 +563,7 @@ class CrawlAndNotifyPipeline:
         notification_count: int
     ):
         """최종 통계 출력"""
-        end_time = datetime.now()
+        end_time = datetime.now(timezone.utc)
         elapsed = (end_time - start_time).total_seconds()
 
         print("\n" + "="*60)

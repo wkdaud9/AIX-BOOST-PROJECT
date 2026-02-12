@@ -11,11 +11,6 @@
 """
 
 from flask import Blueprint, request, jsonify, g
-from typing import Dict, Any
-import sys
-import os
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services.hybrid_search_service import HybridSearchService
 from services.reranking_service import RerankingService
@@ -87,9 +82,12 @@ def search_personalized_notices():
         user_id = g.user_id
 
         # 쿼리 파라미터
-        limit = int(request.args.get('limit', 20))
-        offset = int(request.args.get('offset', 0))
-        min_score = float(request.args.get('min_score', 0.3))
+        try:
+            limit = int(request.args.get('limit', 20))
+            offset = int(request.args.get('offset', 0))
+            min_score = float(request.args.get('min_score', 0.3))
+        except (ValueError, TypeError):
+            return jsonify({"status": "error", "message": "limit, offset, min_score 값이 올바르지 않습니다"}), 400
         rerank = request.args.get('rerank', 'false').lower() == 'true'
 
         print(f"\n[검색] 사용자 맞춤 공지 검색")
@@ -129,7 +127,7 @@ def search_personalized_notices():
         print(f"[에러] 검색 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "검색에 실패했습니다."
         }), 500
 
 
@@ -166,8 +164,11 @@ def search_by_keyword():
     try:
         # 쿼리 파라미터
         query = request.args.get('q', '').strip()
-        limit = int(request.args.get('limit', 10))
-        min_score = float(request.args.get('min_score', 0.3))
+        try:
+            limit = int(request.args.get('limit', 10))
+            min_score = float(request.args.get('min_score', 0.3))
+        except (ValueError, TypeError):
+            return jsonify({"status": "error", "message": "limit, min_score 값이 올바르지 않습니다"}), 400
 
         # 검색어 검증
         if not query or len(query) < 2:
@@ -201,7 +202,7 @@ def search_by_keyword():
         print(f"[에러] 키워드 검색 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "키워드 검색에 실패했습니다."
         }), 500
 
 
@@ -241,8 +242,11 @@ def find_relevant_users():
     try:
         # 쿼리 파라미터
         notice_id = request.args.get('notice_id', '').strip()
-        min_score = float(request.args.get('min_score', 0.5))
-        max_users = int(request.args.get('max_users', 50))
+        try:
+            min_score = float(request.args.get('min_score', 0.5))
+            max_users = int(request.args.get('max_users', 50))
+        except (ValueError, TypeError):
+            return jsonify({"status": "error", "message": "min_score, max_users 값이 올바르지 않습니다"}), 400
         rerank = request.args.get('rerank', 'false').lower() == 'true'
 
         # notice_id 검증
@@ -287,7 +291,7 @@ def find_relevant_users():
         print(f"[에러] 관련 사용자 검색 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "관련 사용자 검색에 실패했습니다."
         }), 500
 
 
@@ -409,7 +413,7 @@ def search_all_notices():
         print(f"[에러] 전체 검색 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "전체 검색에 실패했습니다."
         }), 500
 
 
@@ -444,10 +448,8 @@ def health_check():
         }), 200
 
     except Exception as e:
+        print(f"[ERROR] 검색 헬스체크 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "data": {
-                "service": "search",
-                "error": str(e)
-            }
+            "message": "검색 서비스 상태 확인에 실패했습니다."
         }), 500

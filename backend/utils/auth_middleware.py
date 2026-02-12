@@ -6,7 +6,7 @@ API 요청 시 Authorization 헤더의 JWT 토큰을 검증합니다.
 
 from functools import wraps
 from flask import request, jsonify, g
-from services.supabase_service import SupabaseService
+from services.supabase_service import get_supabase_client
 
 def optional_login(f):
     """
@@ -23,13 +23,13 @@ def optional_login(f):
                 parts = auth_header.split()
                 if parts[0].lower() == "bearer" and len(parts) == 2:
                     token = parts[1]
-                    supabase = SupabaseService()
-                    user_response = supabase.client.auth.get_user(token)
+                    client = get_supabase_client()
+                    user_response = client.auth.get_user(token)
                     if user_response and user_response.user:
                         g.user = user_response.user
                         g.user_id = user_response.user.id
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[Auth] optional_login 토큰 검증 실패 (무시): {str(e)}")
         return f(*args, **kwargs)
     return decorated_function
 
@@ -68,8 +68,8 @@ def login_required(f):
             
             # Supabase를 통해 토큰 검증 및 사용자 정보 조회
             # get_user 함수는 토큰이 유효하지 않으면 에러를 발생시킴
-            supabase = SupabaseService()
-            user_response = supabase.client.auth.get_user(token)
+            client = get_supabase_client()
+            user_response = client.auth.get_user(token)
             
             if not user_response or not user_response.user:
                 raise Exception("User info validation failed")

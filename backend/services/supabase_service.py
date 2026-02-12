@@ -8,13 +8,30 @@ Supabase PostgreSQL 데이터베이스와 연결하여 CRUD 작업을 수행합�
 
 import os
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from supabase import create_client, Client
+
+
+# 모듈 레벨 싱글턴 클라이언트 (모든 곳에서 공유)
+_shared_client: Optional[Client] = None
+
+
+def get_supabase_client() -> Client:
+    """싱글턴 Supabase 클라이언트를 반환합니다. 모든 모듈에서 공유합니다."""
+    global _shared_client
+    if _shared_client is None:
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_KEY")
+        if not url or not key:
+            raise ValueError("SUPABASE_URL과 SUPABASE_KEY 환경 변수가 필요합니다")
+        _shared_client = create_client(url, key)
+        print(f"[DB] Supabase 클라이언트 초기화 완료")
+    return _shared_client
 
 
 class SupabaseService:
     """
-    Supabase 데이터베이스 서비스
+    Supabase 데이터베이스 서비스 (싱글턴)
 
     목적:
     - Supabase DB 연결 관리
@@ -22,16 +39,22 @@ class SupabaseService:
     - 데이터 변환 및 검증
     """
 
+    _instance = None
+    _initialized = False
+
+    def __new__(cls):
+        """싱글턴 패턴: 항상 같은 인스턴스를 반환합니다."""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self):
-        """Supabase 클라이언트 초기화"""
-        self.url: str = os.getenv("SUPABASE_URL")
-        self.key: str = os.getenv("SUPABASE_KEY")
+        """Supabase 클라이언트 초기화 (최초 1회만 실행)"""
+        if SupabaseService._initialized:
+            return
 
-        if not self.url or not self.key:
-            raise ValueError("SUPABASE_URL과 SUPABASE_KEY 환경 변수가 필요합니다")
-
-        self.client: Client = create_client(self.url, self.key)
-        print(f"[DB] Supabase 연결 성공: {self.url}")
+        self.client: Client = get_supabase_client()
+        SupabaseService._initialized = True
 
     def insert_notices(self, notices: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -349,6 +372,142 @@ class SupabaseService:
             print(f"[ERROR] 인기 공지 조회 에러: {str(e)}")
             return []
 
+    def get_essential_notices(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        오늘 필수 공지사항을 조회합니다 (점수 기반 정렬)
+
+        최근 7일 공지를 조회한 뒤 중요도 점수를 계산합니다:
+        - 마감 3일 이내: +8점
+        - 신규 3일 이내: +5점
+        - 조회수 상위 20%: +3점
+        - 북마크 3개 이상: +2점
+
+        매개변수:
+        - limit: 반환할 최대 개수 (기본 10)
+
+        반환값:
+        - 점수 기준 내림차순 정렬된 공지사항 리스트
+        """
+        try:
+            from datetime import timedelta
+            now = datetime.now(timezone.utc)
+            seven_days_ago = (now - timedelta(days=7)).strftime('%Y-%m-%dT00:00:00')
+
+            result = self.client.table("notices")\
+                .select(
+                    "id, title, content, category, published_at, source_url, "
+                    "view_count, ai_summary, author, deadline, deadlines, "
+                    "bookmark_count, display_mode"
+                )\
+                .gte("published_at", seven_days_ago)\
+                .order("published_at", desc=True)\
+                .execute()
+
+            notices = result.data if result.data else []
+            if not notices:
+                return []
+
+            # 조회수 상위 20% 기준값 계산
+            view_counts = sorted(
+                [(n.get('view_count') or 0) for n in notices],
+                reverse=True
+            )
+            top20_idx = max(1, int(len(view_counts) * 0.2))
+            views_threshold = view_counts[min(top20_idx - 1, len(view_counts) - 1)]
+
+            scored = []
+            for notice in notices:
+                score = 0
+
+                # 마감 3일 이내: +8점
+                deadline = notice.get('deadline')
+                if deadline:
+                    try:
+                        dl = datetime.fromisoformat(
+                            deadline.split('+')[0].replace('Z', '')
+                        )
+                        days_until = (dl - now).days
+                        if 0 <= days_until <= 3:
+                            score += 8
+                    except Exception:
+                        pass
+
+                # 신규 3일 이내: +5점
+                published_at = notice.get('published_at')
+                if published_at:
+                    try:
+                        pub = datetime.fromisoformat(
+                            published_at.split('+')[0].replace('Z', '')
+                        )
+                        days_since = (now - pub).days
+                        if days_since <= 3:
+                            score += 5
+                    except Exception:
+                        pass
+
+                # 조회수 상위 20%: +3점
+                view_count = notice.get('view_count') or 0
+                if view_count >= views_threshold and views_threshold > 0:
+                    score += 3
+
+                # 북마크 3개 이상: +2점
+                bookmark_count = notice.get('bookmark_count') or 0
+                if bookmark_count >= 3:
+                    score += 2
+
+                if score > 0:
+                    notice['_score'] = score
+                    scored.append(notice)
+
+            # 점수 순 정렬 → 상위 limit개 반환
+            scored.sort(key=lambda n: n['_score'], reverse=True)
+            result_notices = scored[:limit]
+
+            # 내부 점수 필드 제거
+            for n in result_notices:
+                n.pop('_score', None)
+
+            return result_notices
+
+        except Exception as e:
+            print(f"[ERROR] 오늘 필수 공지 조회 에러: {str(e)}")
+            return []
+
+    def get_deadline_soon_notices(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        마감 임박 공지사항을 조회합니다 (오늘~D+7)
+
+        매개변수:
+        - limit: 가져올 개수 (기본 10)
+
+        반환값:
+        - 마감일 오름차순 정렬된 공지사항 리스트
+        """
+        try:
+            from datetime import timedelta
+            now = datetime.now(timezone.utc)
+            today = now.strftime('%Y-%m-%d')
+            week_later = (now + timedelta(days=7)).strftime('%Y-%m-%d') + "T23:59:59"
+
+            result = self.client.table("notices")\
+                .select(
+                    "id, title, content, category, published_at, source_url, "
+                    "view_count, ai_summary, author, deadline, deadlines, "
+                    "bookmark_count, display_mode"
+                )\
+                .not_.is_("deadline", "null")\
+                .gte("deadline", today)\
+                .lte("deadline", week_later)\
+                .order("deadline", desc=False)\
+                .limit(limit)\
+                .execute()
+
+            return result.data if result.data else []
+
+        except Exception as e:
+            print(f"[ERROR] 마감 임박 공지 조회 에러: {str(e)}")
+            return []
+
     def get_statistics(self) -> Dict[str, Any]:
         """
         공지사항 통계를 조회합니다
@@ -386,7 +545,7 @@ class SupabaseService:
             return {
                 "total": total,
                 "by_category": by_category,
-                "last_updated": datetime.now().isoformat()
+                "last_updated": datetime.now(timezone.utc).isoformat()
             }
 
         except Exception as e:
