@@ -20,13 +20,33 @@ def get_supabase_client() -> Client:
     """싱글턴 Supabase 클라이언트를 반환합니다. 모든 모듈에서 공유합니다."""
     global _shared_client
     if _shared_client is None:
-        url = os.getenv("SUPABASE_URL")
-        key = os.getenv("SUPABASE_KEY")
-        if not url or not key:
-            raise ValueError("SUPABASE_URL과 SUPABASE_KEY 환경 변수가 필요합니다")
-        _shared_client = create_client(url, key)
-        print(f"[DB] Supabase 클라이언트 초기화 완료")
+        _shared_client = _create_supabase_client()
     return _shared_client
+
+
+def reset_supabase_client() -> Client:
+    """Supabase 클라이언트를 재생성합니다. 연결 오류(stale WebSocket 등) 발생 시 사용합니다."""
+    global _shared_client
+    _shared_client = _create_supabase_client()
+    # 이 클라이언트를 캐시하고 있는 서비스들의 싱글턴도 초기화
+    try:
+        from routes.search import reset_search_services
+        reset_search_services()
+    except ImportError:
+        pass
+    print("[DB] Supabase 클라이언트 및 관련 서비스 재생성 완료")
+    return _shared_client
+
+
+def _create_supabase_client() -> Client:
+    """Supabase 클라이언트를 생성합니다."""
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_KEY")
+    if not url or not key:
+        raise ValueError("SUPABASE_URL과 SUPABASE_KEY 환경 변수가 필요합니다")
+    client = create_client(url, key)
+    print(f"[DB] Supabase 클라이언트 초기화 완료")
+    return client
 
 
 class SupabaseService:
@@ -40,7 +60,6 @@ class SupabaseService:
     """
 
     _instance = None
-    _initialized = False
 
     def __new__(cls):
         """싱글턴 패턴: 항상 같은 인스턴스를 반환합니다."""
@@ -49,12 +68,8 @@ class SupabaseService:
         return cls._instance
 
     def __init__(self):
-        """Supabase 클라이언트 초기화 (최초 1회만 실행)"""
-        if SupabaseService._initialized:
-            return
-
+        """Supabase 클라이언트 초기화 (항상 최신 싱글턴 클라이언트 참조)"""
         self.client: Client = get_supabase_client()
-        SupabaseService._initialized = True
 
     def insert_notices(self, notices: List[Dict[str, Any]]) -> Dict[str, Any]:
         """

@@ -8,7 +8,7 @@
 
 from flask import Blueprint, request, jsonify, g
 from typing import Dict, Any, List, Optional, Tuple
-from services.supabase_service import SupabaseService
+from services.supabase_service import SupabaseService, reset_supabase_client
 from utils.auth_middleware import login_required
 from ai.embedding_service import EmbeddingService
 from ai.enrichment_service import EnrichmentService
@@ -202,6 +202,44 @@ def create_user_profile():
         error_msg = str(e)
         print(f"[ERROR] 프로필 생성 에러: {error_msg}")
 
+        # Supabase 연결 오류 시 클라이언트 재생성 후 1회 재시도
+        if "StreamInputs" in error_msg or "SEND_DATA" in error_msg or "state 5" in error_msg:
+            try:
+                print("[DB] 연결 오류 감지 — 클라이언트 재생성 후 재시도")
+                new_client = reset_supabase_client()
+
+                # users 테이블 재시도
+                user_data = {
+                    "id": data['user_id'],
+                    "email": data['email'],
+                    "name": data['name'],
+                    "student_id": data['student_id'],
+                    "department": data['department'],
+                    "grade": data['grade']
+                }
+                new_client.table("users").upsert(user_data, on_conflict="id").execute()
+
+                # user_preferences 테이블 재시도
+                preferences_data = {
+                    "user_id": data['user_id'],
+                    "categories": data['categories'],
+                    "keywords": [],
+                    "notification_enabled": True
+                }
+                new_client.table("user_preferences").upsert(preferences_data, on_conflict="user_id").execute()
+
+                print(f"[사용자 프로필] 재시도 성공: {data['email']}")
+                return jsonify({
+                    "status": "success",
+                    "data": {
+                        "user_id": data['user_id'],
+                        "message": "프로필이 생성되었습니다."
+                    }
+                }), 200
+            except Exception as retry_err:
+                print(f"[ERROR] 프로필 생성 재시도도 실패: {str(retry_err)}")
+                error_msg = str(retry_err)
+
         # 학번 중복 에러 체크
         if "duplicate key value violates unique constraint" in error_msg.lower() and "student_id" in error_msg.lower():
             return jsonify({
@@ -278,7 +316,30 @@ def get_user_profile(user_id):
         }), 200
 
     except Exception as e:
-        print(f"[ERROR] 프로필 조회 에러: {str(e)}")
+        error_msg = str(e)
+        print(f"[ERROR] 프로필 조회 에러: {error_msg}")
+
+        # Supabase 연결 오류 시 클라이언트 재생성 후 1회 재시도
+        if "StreamInputs" in error_msg or "SEND_DATA" in error_msg:
+            try:
+                print("[DB] 연결 오류 감지 — 클라이언트 재생성 후 재시도")
+                new_client = reset_supabase_client()
+
+                user_result = new_client.table("users")\
+                    .select("*").eq("id", user_id).single().execute()
+                preferences_result = new_client.table("user_preferences")\
+                    .select("*").eq("user_id", user_id).single().execute()
+
+                return jsonify({
+                    "status": "success",
+                    "data": {
+                        "user": user_result.data,
+                        "preferences": preferences_result.data if preferences_result.data else None
+                    }
+                }), 200
+            except Exception as retry_err:
+                print(f"[ERROR] 프로필 조회 재시도도 실패: {str(retry_err)}")
+
         return jsonify({
             "status": "error",
             "message": "프로필 조회에 실패했습니다."

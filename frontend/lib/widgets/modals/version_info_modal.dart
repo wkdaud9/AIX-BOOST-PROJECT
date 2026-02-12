@@ -86,10 +86,13 @@ class VersionInfoModal extends StatelessWidget {
                                 color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor).withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(AppRadius.xl),
                               ),
-                              child: Icon(
-                                Icons.school,
-                                size: 48,
-                                color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(AppRadius.md),
+                                child: Image.asset(
+                                  'assets/images/icon_main.png',
+                                  width: 48,
+                                  height: 48,
+                                ),
                               ),
                             ),
                             const SizedBox(height: AppSpacing.md),

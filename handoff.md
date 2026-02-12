@@ -1,6 +1,6 @@
 # AIX-Boost 프로젝트 Handoff 문서
 
-> 작성일: 2026-02-08 (최종 업데이트: 2026-02-10)
+> 작성일: 2026-02-08 (최종 업데이트: 2026-02-12)
 > 목적: 새로운 AI 세션이 프로젝트 컨텍스트를 이해할 수 있도록 진행 상황 정리
 
 ---
@@ -30,7 +30,265 @@
 
 ---
 
-## 2. 세션 4~5 (2026-02-10) 완료 작업
+## 2. 세션 6~8 (2026-02-12) 완료 작업
+
+### 2.1 FCM 푸시 알림 버그 수정
+
+| 변경 | 내용 |
+|------|------|
+| `notification_priority` 제거 | `AndroidNotification`의 `notification_priority="PRIORITY_HIGH"` 파라미터가 설치된 `firebase-admin` 버전에서 미지원하여 제거. `AndroidConfig(priority="high")`로 이미 충분 |
+| 적용 위치 | `send_to_token()`, `send_to_multiple_users()` 양쪽 모두 수정 |
+
+### 2.2 알림 화면 자동 새로고침
+
+| 변경 | 내용 |
+|------|------|
+| StatefulWidget 전환 | `NotificationScreen`을 `StatelessWidget` → `StatefulWidget`으로 변경 |
+| 자동 fetch | `initState`에서 `addPostFrameCallback`으로 `fetchFromBackend()` 호출하여 화면 진입 시 최신 알림 자동 조회 |
+
+### 2.3 보안 취약점 전체 스캔 및 패치
+
+전체 백엔드/프론트엔드 코드 보안 스캔을 수행하여 치명적 취약점을 식별하고 즉시 수정 가능한 항목을 패치했습니다.
+
+**수정 완료:**
+
+| # | 취약점 | 수정 내용 |
+|---|--------|-----------|
+| 1 | SSRF 이미지 프록시 | `startswith` → `urlparse` 호스트명 정확 검증으로 도메인 우회 차단 (`kunsan.ac.kr@attacker.com` 등), `@login_required` 추가로 비인증 접근 차단 |
+| 2 | search.py 구문 오류 | 닫는 `}` 중복 제거 (서버 시작 불가 버그) |
+| 3 | ApiService 인증 누락 | `SettingsProvider`, `SearchScreen`에서 `ApiService()` 직접 생성 → Provider 공유 인스턴스 주입으로 변경하여 인증 토큰 정상 포함 |
+
+**식별되었으나 미수정 (의도적 보류):**
+
+| # | 취약점 | 보류 사유 |
+|---|--------|-----------|
+| 1 | 공지 삭제/크롤링 트리거 권한 미체크 | 앱 내 해당 기능 UI 없음, DB 직접 관리로 대응 |
+| 2 | Supabase service_role 키 분리 | 백엔드는 이미 anon 키 사용 중 |
+| 3 | SECRET_KEY 하드코딩 폴백 | 현재 프로덕션 환경변수 설정 완료 상태 |
+
+### 2.4 Render 메모리 최적화 (512MB OOM 해결)
+
+Render 무료 플랜(512MB)에서 파이프라인 실행 시 메모리 초과로 인스턴스가 죽는 문제를 해결했습니다.
+
+| 파일 | 변경 내용 | 절약 효과 |
+|------|-----------|-----------|
+| `analyzer.py` | 이미지 5MB 크기 제한, 2048px 리사이즈, 스트리밍 다운로드, `finally`에서 이미지 객체 해제 | ~20MB |
+| `crawl_and_notify.py` | 파이프라인 단계별 `del` + `gc.collect()`, OCR 임시 데이터 즉시 삭제, soup 즉시 해제 | ~15MB |
+| `notice_crawler.py` | 상세 페이지 파싱 후 `finally`에서 soup 객체 삭제 | ~10MB |
+| `base_crawler.py` | HTML 파싱 후 response/html_text 즉시 해제 (이중 보관 방지) | ~15MB |
+
+**메모리 사용량 (최적화 전→후):**
+- 파이프라인 피크: ~52MB → ~22MB
+- 5명 동시 접속 + 파이프라인 최악 시나리오: ~240MB (512MB 내 안전)
+
+### 2.5 파이프라인 정리
+
+| 변경 | 내용 |
+|------|------|
+| step0 제거 | `_step0_update_view_counts()` 호출을 `run()`에서 제거 |
+| Supabase 싱글턴 | `create_client()` 직접 호출 → `get_supabase_client()` 싱글턴으로 변경 |
+| timezone-aware | `datetime.now()` → `datetime.now(timezone.utc)` 적용 |
+| 단계 번호 정리 | 6단계→5단계 라벨 통일 |
+
+### 2.6 Markdown 정렬 보존
+
+| 변경 | 내용 |
+|------|------|
+| `AlignPreservingConverter` | `MarkdownConverter` 상속 — `text-align: center/right` CSS를 `{=center=}...{=/center=}` 마커로 보존 |
+| `md_with_align()` | 정렬 보존 Markdown 변환 헬퍼 함수 추가 |
+| 크롤러 적용 | `_crawl_notice_detail()`에서 `md()` → `md_with_align()` 변경 |
+
+### 2.7 MyBro 탭 대대적 개편
+
+| 변경 | 내용 |
+|------|------|
+| 무한 환형 스크롤 | YouTube Shorts/TikTok 스타일 세로 무한 스크롤 — `PageView.builder(itemCount: items.length * 10000)` + 모듈러 인덱싱, pull-to-refresh/리롤 전면 제거 |
+| MyBro API 분리 (뷔페→주문식) | 4개 탭이 각각 독립 API 호출 — 탭 진입 시에만 fetch, 5분 TTL 캐시, `_fetchForTab(index)` |
+| 오늘 필수 API | `fetchEssentialNotices()` — 백엔드 점수 기반 정렬 (긴급+10, 중요+5, 마감임박+8, 신규+5, 조회수상위+3) |
+| 마감 임박 API | `fetchDeadlineSoonNotices()` — 백엔드에서 오늘~D+7 마감 공지 조회, 마감일 오름차순 |
+| 추천 30개 한번에 로드 | `_fetchSize: 10` → `30`, 프리페치 제거 — 인디케이터 총 개수 실시간 변동 문제 해결 |
+| 탭 UI 변경 | 필 탭 → 언더라인 탭 스타일 (`_buildHeaderWithTabs`) |
+| AI 추천 폴백 표시 | `isRecommendedFallback` 플래그 — AI 실패 시 "최신순" 구분 가능 |
+
+### 2.8 알림 수신/클릭 버그 수정 (TODO #8, #9)
+
+| 변경 | 내용 |
+|------|------|
+| `flutter_local_notifications` 도입 | Android 채널 `Importance.high` → 헤드업(팝업) 알림 + 소리 + 진동 |
+| 포그라운드 알림 표시 | FCM은 포그라운드에서 알림을 안 보여줌 → `_handleForegroundMessage()`에서 로컬 알림으로 직접 표시 |
+| WAKE_LOCK 퍼미션 | AndroidManifest.xml에 `WAKE_LOCK`, `USE_FULL_SCREEN_INTENT` 추가 |
+| 백엔드 알림 설정 강화 | AndroidNotification에 `default_sound`, `default_vibrate_timings`, `visibility="public"` 추가 |
+| 알림 클릭 → 상세 화면 | `GlobalKey<NavigatorState> navigatorKey` (main.dart) → FCMService에 주입 → `_navigateToNoticeDetail()` |
+| 종료 상태 알림 탭 | `_pendingMessage` 보류 메커니즘 — 앱 종료 상태에서 알림 탭 시 로그인 후 네비게이션 |
+| intent-filter | AndroidManifest.xml에 `FLUTTER_NOTIFICATION_CLICK` intent-filter 추가 |
+| FCM 리소스 정리 | `dispose()` — 스트림 구독 해제, 콜백 초기화 (메모리 누수 방지) |
+
+### 2.9 홈 화면 최적화 (그룹 A-2)
+
+| 변경 | 내용 |
+|------|------|
+| 카드별 독립 로딩 플래그 | `_isPopularLoading`, `_isBookmarkedLoading`, `_isWeeklyDeadlineLoading` 추가 |
+| 이번 주 마감 API | `fetchWeeklyDeadlineNotices()` — 홈 카드4용 경량 API |
+| 북마크 공지 API | `fetchBookmarkedNotices()` — 홈 카드2용 경량 API |
+| 북마크 토글 리팩토링 | `_rebuildBookmarkedNotices()`, `_updateBookmarkInList()` 헬퍼 — 모든 리스트(9개) 동기화 |
+| 웹 드래그 스크롤 | `AppScrollBehavior` — 마우스/트랙패드 스크롤 (웹 대응) |
+| D-day 텍스트 개선 | `deadlineDDayText` getter — D-3, D-Day, D+1 형식 |
+
+### 2.10 변경 파일 요약 (2026-02-12 전체)
+
+**백엔드 (8개):**
+- `backend/services/fcm_service.py` — `notification_priority` 제거 + `default_sound`/`default_vibrate_timings`/`visibility` 추가
+- `backend/services/supabase_service.py` — `deadline_from` 필터 지원
+- `backend/routes/notices.py` — SSRF 방지, `deadline_from` 파라미터, essential/deadline-soon 엔드포인트
+- `backend/routes/search.py` — 구문 오류 수정
+- `backend/ai/analyzer.py` — 이미지 처리 메모리 최적화
+- `backend/scripts/crawl_and_notify.py` — 단계별 gc.collect(), step0 제거, Supabase 싱글턴
+- `backend/crawler/notice_crawler.py` — `AlignPreservingConverter`, soup 메모리 해제
+- `backend/crawler/base_crawler.py` — response/html_text 즉시 해제
+
+**프론트엔드 (14개+):**
+- `frontend/lib/services/fcm_service.dart` — **대폭 리라이트** (flutter_local_notifications, navigatorKey, 포그라운드 알림, 클릭 네비게이션, dispose)
+- `frontend/lib/main.dart` — `navigatorKey`, `AppScrollBehavior`, SettingsProvider ProxyProvider
+- `frontend/lib/screens/auth_wrapper.dart` — `setNavigatorKey()`, `dispose()`
+- `frontend/lib/screens/recommend_screen.dart` — 언더라인 탭, `_fetchForTab()`, `_loadData()` 제거
+- `frontend/lib/providers/notice_provider.dart` — `fetchEssentialNotices()`, `fetchDeadlineSoonNotices()`, `fetchWeeklyDeadlineNotices()`, `fetchBookmarkedNotices()`, 북마크 리팩토링, 프리페치 제거
+- `frontend/lib/services/api_service.dart` — `getEssentialNotices()`, `getDeadlineSoonNotices()`, `getDeadlineNotices()`, `getBookmarkedNotices()`, `deadlineFrom`
+- `frontend/lib/widgets/flip_card/flip_card_section.dart` — 무한 환형 스크롤, pull-to-refresh 제거
+- `frontend/lib/models/notice.dart` — `deadlineDDayText` getter
+- `frontend/lib/screens/notification_screen.dart` — StatefulWidget + 자동 fetch
+- `frontend/lib/screens/search_screen.dart` — Provider ApiService 주입
+- `frontend/lib/providers/settings_provider.dart` — `updateApiService()` 외부 주입
+- `frontend/android/app/src/main/AndroidManifest.xml` — WAKE_LOCK, USE_FULL_SCREEN_INTENT, FLUTTER_NOTIFICATION_CLICK
+- `frontend/pubspec.yaml` — `flutter_local_notifications` 추가 (**팀 공지 필요**)
+
+### 2.11 코드 리뷰 기반 대규모 수정 (76건 이슈 → 13건 수정)
+
+전체 코드 리뷰를 수행하여 76건의 이슈를 발견하고 13건의 코드 수정을 적용했습니다.
+
+| 변경 | 내용 |
+|------|------|
+| FCM 서비스 | 스트림 구독 해제 (`dispose`), 토큰 갱신 리스너, 보류 메시지 처리 |
+| Auth 미들웨어 | `optional_login` 데코레이터 토큰 검증 개선 |
+| 크롤러 안정성 | `notice_crawler.py` 예외 처리 강화 |
+| 백엔드 라우트 | `bookmarks`, `calendar`, `crawl`, `notices`, `notifications`, `search`, `users` 안정성 개선 |
+| 스케줄러/Supabase 서비스 | 안정성 개선 |
+| 디데이 알림 스크립트 | `send_deadline_reminders.py` JOIN 쿼리 최적화 |
+
+### 2.12 이미지 프록시 401 오류 수정
+
+| 변경 | 내용 |
+|------|------|
+| 문제 | `Image.network`는 인증 헤더 전송 불가 → image-proxy의 `@login_required`에서 401 |
+| 해결 | `backend/routes/notices.py` image-proxy `@login_required` → `@optional_login` |
+
+### 2.13 회원가입 401 오류 수정
+
+| 변경 | 내용 |
+|------|------|
+| 문제 | Supabase `signUp()` 후 `createUserProfile()` 호출 시 토큰 미설정 상태 |
+| 해결 | `signup_screen.dart`에서 `authResponse.session`으로 토큰을 `ApiService`에 수동 설정 |
+
+### 2.14 캘린더 콘텐츠 표시 수정
+
+| 변경 | 내용 |
+|------|------|
+| 문제 | 캘린더 리스트에서 `notice.content` 그대로 표시 → `![]` 등 마크다운 아티팩트 노출 |
+| 해결 | `calendar_screen.dart` 2곳에서 `notice.content` → `notice.aiSummary ?? notice.content` |
+
+### 2.15 마감 공지 정렬 개선
+
+| 변경 | 내용 |
+|------|------|
+| 홈 이번 주 일정 | `notice_provider.dart` `fetchWeeklyDeadlineNotices`에서 만료건 맨 뒤로 정렬 |
+| 전체보기 모달 | `full_list_modal.dart` `showWeeklySchedule`에서 동일 정렬 적용 |
+
+### 2.16 다크모드 다이얼로그 버튼 가시성 수정
+
+| 변경 | 내용 |
+|------|------|
+| 문제 | 다크모드에서 캐시초기화, 설정초기화, 로그아웃, 회원탈퇴 다이얼로그의 취소 버튼 안 보임 |
+| 해결 | 모든 다이얼로그 취소 버튼에 다크모드용 `Colors.white70` 명시적 색상 지정 |
+| 버튼 위치 | 캐시/설정 초기화 다이얼로그에서 확인/취소 버튼 위치 교체 (확인 좌측, 취소 우측) |
+| 적용 파일 | `settings_screen.dart` (캐시초기화, 설정초기화, 회원탈퇴), `profile_screen.dart` (로그아웃) |
+
+### 2.17 버전 정보 아이콘 변경
+
+| 변경 | 내용 |
+|------|------|
+| 문제 | 버전 정보 모달에 학사모(`Icons.school`) 아이콘 표시 |
+| 해결 | `version_info_modal.dart`에서 `Image.asset('assets/images/icon_main.png')`으로 HeyBro 앱 아이콘 적용 |
+
+### 2.18 추가 변경 파일 (2.11~2.17)
+
+**백엔드:**
+- `backend/routes/notices.py` — image-proxy `@optional_login` 변경
+- `backend/routes/bookmarks.py`, `calendar.py`, `crawl.py`, `notifications.py`, `search.py`, `users.py` — 안정성 개선
+- `backend/utils/auth_middleware.py` — `optional_login` 개선
+- `backend/scripts/send_deadline_reminders.py` — JOIN 최적화
+- `backend/scripts/migrate_content_to_markdown.py` — 안정성 개선
+- `backend/services/notice_service.py`, `reranking_service.py`, `scheduler_service.py`, `supabase_service.py` — 안정성 개선
+
+**프론트엔드:**
+- `frontend/lib/screens/signup_screen.dart` — 토큰 설정 추가
+- `frontend/lib/screens/settings_screen.dart` — 다크모드 다이얼로그 버튼 수정
+- `frontend/lib/screens/profile_screen.dart` — 로그아웃 다이얼로그 다크모드 수정
+- `frontend/lib/screens/calendar_screen.dart` — AI 요약 표시
+- `frontend/lib/screens/home_screen.dart` — D-day 텍스트 수정 (3곳)
+- `frontend/lib/screens/bookmark_screen.dart` — D-day 텍스트 수정
+- `frontend/lib/screens/notice_detail_screen.dart` — D-day 텍스트 수정
+- `frontend/lib/widgets/modals/full_list_modal.dart` — D-day, 만료건 정렬
+- `frontend/lib/widgets/modals/version_info_modal.dart` — 앱 아이콘 변경
+
+### 2.19 북마크 버그 수정 (4건 + 화면 수정)
+
+| # | 버그 | 수정 내용 |
+|---|------|-----------|
+| 1 | `toggleBookmark` 9개 리스트 중 4개만 업데이트 | `_updateBookmarkInList()` 헬퍼로 9개 리스트 전체 동기화 |
+| 2 | `_findCurrentBookmarkState` 반전 | `notice.isBookmarked` 필드값 대신 `_bookmarkedNotices.any()` 멤버십 체크로 수정 |
+| 3 | 롤백용 `previousBookmarks` 캡처 시점 오류 | 수정 후가 아닌 수정 전에 캡처하도록 순서 변경 |
+| 4 | `fetchBookmarkedNotices`가 `isBookmarked: true` 미설정 | `.copyWith(isBookmarked: true)` 보장 |
+| 5 | 북마크 화면 RefreshIndicator가 `fetchNotices()` 호출 | `fetchBookmarkedNotices(limit: 50)` DB 직접 조회로 변경 (100개 API 이미 제거됨) |
+
+### 2.20 브랜딩 통일 (aix-boost → HeyBro)
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `frontend/lib/services/fcm_service.dart` | 알림 채널 표시명 `'AIX Boost 알림'` → `'HeyBro 알림'` (2곳) |
+| `frontend/web/index.html` | `<title>`, `apple-mobile-web-app-title` → HeyBro |
+| `frontend/web/manifest.json` | `name`, `short_name` → HeyBro |
+
+> 채널 ID `aix_boost_notifications`는 내부 식별자이므로 변경 안 함. Android 앱명은 이미 `HeyBro` (AndroidManifest.xml).
+
+### 2.21 앱 아이콘 교체 + 빌드 설정
+
+| 변경 | 내용 |
+|------|------|
+| 아이콘 원인 | 기존 foreground 이미지에 "HeyBro" 텍스트 포함 → 시각적 중심이 위로 치우침 |
+| 아이콘 수정 | 텍스트 없는 일러스트 전용 이미지로 5개 밀도별 교체 (mdpi 108px ~ xxxhdpi 432px) |
+| Core Library Desugaring | `build.gradle.kts`에 `isCoreLibraryDesugaringEnabled = true` + `desugar_jdk_libs:2.1.4` 추가 (`flutter_local_notifications` 요구사항) |
+
+### 2.22 APK 빌드 (공모전 제출용)
+
+| 변경 | 내용 |
+|------|------|
+| 빌드 방식 | `.env` 파일 파싱 → `--dart-define` 플래그로 12개 환경변수 주입 |
+| 결과물 | `build/app/outputs/flutter-apk/app-release.apk` (55.2MB) |
+
+### 2.23 추가 변경 파일 (2.19~2.22)
+
+**프론트엔드:**
+- `frontend/lib/providers/notice_provider.dart` — 북마크 버그 4건 수정 (멤버십 체크, 롤백 순서, isBookmarked 보장)
+- `frontend/lib/screens/bookmark_screen.dart` — RefreshIndicator `fetchBookmarkedNotices(limit: 50)`로 변경
+- `frontend/lib/services/fcm_service.dart` — 알림 채널명 `'HeyBro 알림'`으로 변경
+- `frontend/web/index.html`, `frontend/web/manifest.json` — 타이틀 HeyBro로 변경
+- `frontend/android/app/build.gradle.kts` — Core Library Desugaring 추가
+
+**에셋:**
+- `frontend/android/app/src/main/res/drawable-*/ic_launcher_foreground.png` — 텍스트 없는 아이콘으로 교체 (5개 밀도)
+
+---
+
+## 3. 세션 4~5 (2026-02-10) 완료 작업
 
 ### 2.1 알림 시스템 고도화 (Full-Stack)
 
@@ -142,7 +400,7 @@
 
 ---
 
-## 3. 세션 2~3 (2026-02-08) 완료 작업
+## 4. 세션 2~3 (2026-02-08) 완료 작업
 
 ### 2.0 백엔드 환경 수정
 
@@ -174,7 +432,7 @@
 
 ---
 
-## 4. 세션 3 (2026-02-08 오후~저녁) 완료 작업
+## 5. 세션 3 (2026-02-08 오후~저녁) 완료 작업
 
 ### 3.1 이미지 표시 기능 구현
 
@@ -228,7 +486,7 @@
 
 ---
 
-## 5. 세션 1 완료 작업 (이전 세션)
+## 6. 세션 1 완료 작업 (이전 세션)
 
 ### 4.1 DB 구조조정
 
@@ -278,7 +536,7 @@ Supabase 대시보드 → SQL Editor에서 순서대로 실행:
 
 ---
 
-## 5. 변경된 파일 목록 (세션 1~2)
+## 7. 변경된 파일 목록 (세션 1~2)
 
 ### 백엔드 (10개)
 
@@ -319,7 +577,7 @@ Supabase 대시보드 → SQL Editor에서 순서대로 실행:
 
 ---
 
-## 6. 현재 DB 스키마 (5개 테이블)
+## 8. 현재 DB 스키마 (5개 테이블)
 
 ```
 users              — 사용자 (Supabase Auth 연동)
@@ -355,7 +613,7 @@ updated_at TIMESTAMPTZ DEFAULT NOW()
 
 ---
 
-## 7-1. 주요 API 엔드포인트
+## 9. 주요 API 엔드포인트
 
 | Method | Endpoint | 설명 |
 |--------|----------|------|
@@ -376,7 +634,7 @@ updated_at TIMESTAMPTZ DEFAULT NOW()
 
 ---
 
-## 7. 크롤링 파이프라인 흐름
+## 10. 크롤링 파이프라인 흐름
 
 ```
 스케줄러 (15분마다) → CrawlAndNotifyPipeline.run()
@@ -401,7 +659,7 @@ updated_at TIMESTAMPTZ DEFAULT NOW()
 
 ---
 
-## 9. 환경 설정
+## 11. 환경 설정
 
 ### 필수 환경 변수 (.env)
 
@@ -423,7 +681,7 @@ cd frontend && flutter run -d chrome
 
 ---
 
-## 10. 수정 금지 파일
+## 12. 수정 금지 파일
 
 - `.env` - API 키/DB 보안 설정
 - `backend/app.py` - 메인 서버 진입점 (구조 변경 시 팀 합의)

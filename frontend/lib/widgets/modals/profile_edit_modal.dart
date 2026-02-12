@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_data.dart';
+import '../../providers/notice_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
@@ -712,6 +713,9 @@ class _ProfileEditModalState extends State<ProfileEditModal> {
       if (mounted) {
         // AppBar 사용자 이름 즉시 반영
         authService.updateUserName(_nameController.text.trim());
+
+        // MyBro 추천 캐시 무효화 (카테고리/학과/학년 변경 반영)
+        context.read<NoticeProvider>().invalidateRecommendationCache();
 
         Navigator.pop(context);
         widget.onSaved?.call();

@@ -534,7 +534,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
+        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
         return AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -553,7 +554,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           actions: [
             TextButton(
               onPressed: () async {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
 
                 try {
                   await context.read<AuthService>().signOut();
@@ -589,15 +590,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
+              onPressed: () => Navigator.of(dialogContext).pop(),
               child: Text(
                 '취소',
                 style: TextStyle(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white54
-                      : AppTheme.textSecondary,
+                  color: isDark ? Colors.white70 : AppTheme.textSecondary,
                 ),
               ),
             ),
