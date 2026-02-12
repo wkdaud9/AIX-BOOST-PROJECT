@@ -7,6 +7,7 @@ Supabase PostgreSQL 데이터베이스와 연결하여 CRUD 작업을 수행합�
 """
 
 import os
+import time
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 from supabase import create_client, Client
@@ -14,20 +15,27 @@ from supabase import create_client, Client
 
 # 모듈 레벨 싱글턴 클라이언트 (모든 곳에서 공유)
 _shared_client: Optional[Client] = None
+_client_created_at: float = 0  # 클라이언트 생성 시각 (time.time())
+_CLIENT_MAX_AGE = 30 * 60  # 30분마다 자동 갱신 (stale WebSocket 예방)
 
 
 def get_supabase_client() -> Client:
-    """싱글턴 Supabase 클라이언트를 반환합니다. 모든 모듈에서 공유합니다."""
-    global _shared_client
-    if _shared_client is None:
+    """싱글턴 Supabase 클라이언트를 반환합니다. 모든 모듈에서 공유합니다.
+    30분 이상 된 클라이언트는 자동으로 재생성하여 stale 연결을 예방합니다."""
+    global _shared_client, _client_created_at
+    if _shared_client is None or (time.time() - _client_created_at > _CLIENT_MAX_AGE):
+        if _shared_client is not None:
+            print("[DB] 클라이언트 수명 만료 (30분), 자동 재생성")
         _shared_client = _create_supabase_client()
+        _client_created_at = time.time()
     return _shared_client
 
 
 def reset_supabase_client() -> Client:
     """Supabase 클라이언트를 재생성합니다. 연결 오류(stale WebSocket 등) 발생 시 사용합니다."""
-    global _shared_client
+    global _shared_client, _client_created_at
     _shared_client = _create_supabase_client()
+    _client_created_at = time.time()
     # 이 클라이언트를 캐시하고 있는 서비스들의 싱글턴도 초기화
     try:
         from routes.search import reset_search_services
