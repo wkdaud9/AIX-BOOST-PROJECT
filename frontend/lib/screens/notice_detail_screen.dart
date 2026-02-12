@@ -370,11 +370,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                       ),
                       child: Text(
-                        _notice!.daysUntilDeadline! > 0
-                            ? 'D-${_notice!.daysUntilDeadline}'
-                            : _notice!.daysUntilDeadline == 0
-                                ? 'D-Day'
-                                : '마감',
+                        _notice!.deadlineDDayText ?? '마감',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
