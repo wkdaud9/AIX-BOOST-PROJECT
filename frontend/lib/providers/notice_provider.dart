@@ -118,6 +118,15 @@ class NoticeProvider with ChangeNotifier {
     return scored.take(30).map((e) => e.key).toList();
   }
 
+  /// 사용자 선호도 변경 시 추천 관련 캐시를 모두 무효화합니다.
+  /// 프로필 편집 모달에서 카테고리/학과/학년 변경 후 호출합니다.
+  void invalidateRecommendationCache() {
+    _recommendedLastFetched = null;
+    _departmentPopularLastFetched = null;
+    _essentialLastFetched = null;
+    _deadlineSoonLastFetched = null;
+  }
+
   /// AI 맞춤 추천 공지사항 로드
   /// [limit] 가져올 개수 (기본 30, 홈에서는 10으로 호출)
   /// 캐시가 유효하면 재호출 스킵
@@ -146,6 +155,7 @@ class NoticeProvider with ChangeNotifier {
         );
 
         _recommendedPool = results.map((json) => Notice.fromJson(_convertSearchResult(json))).toList();
+        _syncBookmarkState(_recommendedPool);
         _recommendedLastFetched = DateTime.now();
         _isRecommendedFallback = false;
         _isRecommendedLoading = false;
@@ -208,6 +218,7 @@ class NoticeProvider with ChangeNotifier {
             }
             return Notice.fromJson(mapped);
           }).toList();
+      _syncBookmarkState(_departmentPopularNotices);
       _departmentPopularDept = group?['department']?.toString();
       _departmentPopularGrade = group?['grade'] as int?;
       _departmentPopularLastFetched = DateTime.now();
@@ -241,6 +252,7 @@ class NoticeProvider with ChangeNotifier {
     try {
       final data = await _apiService.getEssentialNotices(limit: 10);
       _essentialNotices = data.map((json) => Notice.fromJson(json)).toList();
+      _syncBookmarkState(_essentialNotices);
       _essentialLastFetched = DateTime.now();
       _isEssentialLoading = false;
       notifyListeners();
@@ -270,6 +282,7 @@ class NoticeProvider with ChangeNotifier {
     try {
       final data = await _apiService.getDeadlineSoonNotices(limit: 10);
       _deadlineSoonNotices = data.map((json) => Notice.fromJson(json)).toList();
+      _syncBookmarkState(_deadlineSoonNotices);
       _deadlineSoonLastFetched = DateTime.now();
       _isDeadlineSoonLoading = false;
       notifyListeners();
@@ -396,6 +409,7 @@ class NoticeProvider with ChangeNotifier {
         if (aExpired != bExpired) return aExpired - bExpired;
         return aDays - bDays; // 임박한 순서
       });
+      _syncBookmarkState(notices);
       _weeklyDeadlineNotices = notices;
     } catch (e) {
       debugPrint('이번 주 마감 공지 조회 실패: $e');
@@ -482,6 +496,17 @@ class NoticeProvider with ChangeNotifier {
     }
 
     _bookmarkedNotices = result;
+  }
+
+  /// 새로 fetch한 리스트에 기존 북마크 상태를 동기화하는 헬퍼
+  /// API 응답에는 isBookmarked가 없으므로, _bookmarkedNotices 기준으로 설정
+  void _syncBookmarkState(List<Notice> list) {
+    final bookmarkIds = _bookmarkedNotices.map((n) => n.id).toSet();
+    for (var i = 0; i < list.length; i++) {
+      if (bookmarkIds.contains(list[i].id) && !list[i].isBookmarked) {
+        list[i] = list[i].copyWith(isBookmarked: true);
+      }
+    }
   }
 
   /// 리스트에서 noticeId를 찾아 북마크 상태를 업데이트하는 헬퍼

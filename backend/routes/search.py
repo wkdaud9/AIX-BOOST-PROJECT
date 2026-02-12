@@ -41,6 +41,13 @@ def _get_reranking_service() -> RerankingService:
     return _reranking_service
 
 
+def reset_search_services():
+    """검색 서비스 싱글턴 캐시를 초기화합니다. Supabase 클라이언트 재생성 시 호출합니다."""
+    global _search_service, _reranking_service
+    _search_service = None
+    _reranking_service = None
+
+
 @search_bp.route('/notices', methods=['GET'])
 @login_required
 def search_personalized_notices():

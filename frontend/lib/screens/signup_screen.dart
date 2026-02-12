@@ -176,6 +176,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
       try {
         if (!mounted) return;
         final apiService = context.read<ApiService>();
+        // 회원가입 직후 세션 토큰을 API 서비스에 설정 (백엔드 인증용)
+        final session = authResponse.session;
+        if (session != null) {
+          apiService.setToken(session.accessToken);
+        }
         await apiService.createUserProfile(
           userId: userId,
           email: _emailController.text.trim(),

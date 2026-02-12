@@ -441,26 +441,40 @@ class SettingsScreen extends StatelessWidget {
   void _showClearCacheDialog(BuildContext context, SettingsProvider settings) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('캐시 초기화'),
-        content: const Text('임시 저장된 데이터를 삭제하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () {
-              settings.clearCache();
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('캐시가 초기화되었습니다')),
-              );
-            },
-            child: const Text('확인'),
-          ),
-        ],
-      ),
+      builder: (dialogContext) {
+        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
+        return AlertDialog(
+          title: const Text('캐시 초기화'),
+          content: const Text('임시 저장된 데이터를 삭제하시겠습니까?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                settings.clearCache();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('캐시가 초기화되었습니다')),
+                );
+              },
+              child: Text(
+                '확인',
+                style: TextStyle(
+                  color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                '취소',
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -468,26 +482,40 @@ class SettingsScreen extends StatelessWidget {
   void _showResetSettingsDialog(BuildContext context, SettingsProvider settings) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('설정 초기화'),
-        content: const Text('모든 설정을 기본값으로 되돌리시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () {
-              settings.resetToDefaults();
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('설정이 초기화되었습니다')),
-              );
-            },
-            child: Text('확인', style: TextStyle(color: AppTheme.errorColor)),
-          ),
-        ],
-      ),
+      builder: (dialogContext) {
+        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
+        return AlertDialog(
+          title: const Text('설정 초기화'),
+          content: const Text('모든 설정을 기본값으로 되돌리시겠습니까?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                settings.resetToDefaults();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('설정이 초기화되었습니다')),
+                );
+              },
+              child: Text(
+                '확인',
+                style: TextStyle(
+                  color: AppTheme.errorColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                '취소',
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -649,48 +677,56 @@ class SettingsScreen extends StatelessWidget {
   void _showDeleteAccountDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('회원 탈퇴'),
-        content: const Text(
-          '탈퇴 시 계정 정보와 저장된 데이터가 모두 삭제되며, 복구할 수 없습니다.\n\n정말 탈퇴하시겠습니까?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(dialogContext);
-              try {
-                final userId = Supabase.instance.client.auth.currentUser?.id;
-                if (userId != null) {
-                  await context.read<ApiService>().deleteUser(userId);
+      builder: (dialogContext) {
+        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
+        return AlertDialog(
+          title: const Text('회원 탈퇴'),
+          content: const Text(
+            '탈퇴 시 계정 정보와 저장된 데이터가 모두 삭제되며, 복구할 수 없습니다.\n\n정말 탈퇴하시겠습니까?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                try {
+                  final userId = Supabase.instance.client.auth.currentUser?.id;
+                  if (userId != null) {
+                    await context.read<ApiService>().deleteUser(userId);
+                  }
+                  await context.read<AuthService>().signOut();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('회원 탈퇴가 완료되었습니다')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('탈퇴 처리 중 오류가 발생했습니다: $e')),
+                    );
+                  }
                 }
-                await context.read<AuthService>().signOut();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('회원 탈퇴가 완료되었습니다')),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('탈퇴 처리 중 오류가 발생했습니다: $e')),
-                  );
-                }
-              }
-            },
-            child: Text(
-              '탈퇴',
-              style: TextStyle(
-                color: AppTheme.errorColor,
-                fontWeight: FontWeight.bold,
+              },
+              child: const Text(
+                '탈퇴',
+                style: TextStyle(
+                  color: AppTheme.errorColor,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('취소'),
-          ),
-        ],
-      ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                '취소',
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : AppTheme.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
