@@ -13,7 +13,7 @@
 from .base_crawler import BaseCrawler
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from markdownify import markdownify as md
+from markdownify import markdownify as md, MarkdownConverter
 import re
 import sys
 import os
@@ -47,6 +47,66 @@ def clean_markdown(text: str) -> str:
     # 7. 연속 빈 줄 정리 (3줄 이상 → 2줄)
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
+
+
+class AlignPreservingConverter(MarkdownConverter):
+    """
+    text-align CSS 속성을 마커로 보존하는 Markdown 변환기
+
+    markdownify는 기본적으로 inline style을 무시하므로 text-align: center 등이 사라집니다.
+    이 변환기는 정렬 정보를 {=center=}...{=/center=} 마커로 보존하여
+    프론트엔드에서 정렬을 복원할 수 있게 합니다.
+    """
+
+    def _get_align(self, el):
+        """엘리먼트의 text-align 속성 확인 (CSS style + HTML align 속성)"""
+        style = el.get('style', '') if hasattr(el, 'get') else ''
+        align_attr = el.get('align', '') if hasattr(el, 'get') else ''
+
+        if 'text-align' in style:
+            match = re.search(r'text-align\s*:\s*(center|right)', style)
+            if match:
+                return match.group(1)
+        if align_attr in ('center', 'right'):
+            return align_attr
+        return None
+
+    def convert_p(self, el, text, *args, **kwargs):
+        """p 태그 변환 시 text-align 보존"""
+        result = super().convert_p(el, text, *args, **kwargs)
+        align = self._get_align(el)
+        if align and result.strip():
+            stripped = result.strip()
+            result = f'\n\n{{={align}=}}{stripped}{{=/{align}=}}\n\n'
+        return result
+
+    def convert_div(self, el, text, *args, **kwargs):
+        """div 태그 변환 시 text-align 보존 (하위 요소에 마커가 없는 경우만)"""
+        result = super().convert_div(el, text, *args, **kwargs)
+        align = self._get_align(el)
+        # 하위 요소에서 이미 마커가 추가된 경우 중복 방지
+        if align and result.strip() and '{=' not in result:
+            lines = result.strip().split('\n')
+            marked = []
+            for line in lines:
+                if line.strip():
+                    marked.append(f'{{={align}=}}{line}{{=/{align}=}}')
+                else:
+                    marked.append(line)
+            result = '\n\n' + '\n'.join(marked) + '\n\n'
+        return result
+
+    def convert_center(self, el, text, *args, **kwargs):
+        """<center> 태그를 center 마커로 변환"""
+        if text.strip():
+            return f'\n\n{{=center=}}{text.strip()}{{=/center=}}\n\n'
+        return text
+
+
+def md_with_align(html, **kwargs):
+    """text-align 보존 Markdown 변환 헬퍼 함수"""
+    return AlignPreservingConverter(**kwargs).convert(html)
+
 
 # NoticeService import를 위해 경로 추가
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -545,7 +605,7 @@ class NoticeCrawler(BaseCrawler):
                     if src and not src.startswith('http'):
                         img['src'] = self.BASE_URL + src
 
-                content = clean_markdown(md(
+                content = clean_markdown(md_with_align(
                     str(content_elem),
                     heading_style="ATX",
                     strip=['script', 'style'],

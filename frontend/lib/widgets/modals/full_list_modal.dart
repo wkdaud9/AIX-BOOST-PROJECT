@@ -136,7 +136,7 @@ class FullListModal extends StatelessWidget {
       builder: (context) => FullListModal(
         title: '오늘 꼭 봐야 할 공지',
         subtitle: '긴급/마감임박/최신 종합',
-        notices: provider.todayMustSeeNotices,
+        notices: provider.essentialNotices,
         themeColor: AppTheme.errorColor,
         icon: Icons.push_pin_rounded,
         listType: FullListType.todayMustSee,
@@ -178,19 +178,19 @@ class FullListModal extends StatelessWidget {
   /// 이번 주 일정 전체보기 모달
   static void showWeeklySchedule(BuildContext context) {
     final provider = context.read<NoticeProvider>();
-    final now = DateTime.now();
-    final weekStart = now.subtract(Duration(days: now.weekday - 1));
-    final weekEnd = weekStart.add(const Duration(days: 6, hours: 23, minutes: 59));
 
-    final weeklyNotices = provider.notices
-        .where((n) =>
-            n.deadline != null &&
-            n.deadline!.isAfter(weekStart.subtract(const Duration(days: 1))) &&
-            n.deadline!.isBefore(weekEnd))
-        .toList();
+    // 홈에서 별도 API로 가져온 이번 주 마감 공지 사용
+    final weeklyNotices = List<Notice>.from(provider.weeklyDeadlineNotices);
 
-    // 마감일 순 정렬
-    weeklyNotices.sort((a, b) => a.deadline!.compareTo(b.deadline!));
+    // 마감 안 된 건 먼저 (임박순), 마감된 건 맨 뒤로
+    weeklyNotices.sort((a, b) {
+      final aDays = a.daysUntilDeadline ?? 0;
+      final bDays = b.daysUntilDeadline ?? 0;
+      final aExpired = aDays < 0 ? 1 : 0;
+      final bExpired = bDays < 0 ? 1 : 0;
+      if (aExpired != bExpired) return aExpired - bExpired;
+      return aDays - bDays;
+    });
 
     showModalBottomSheet(
       context: context,
@@ -275,8 +275,6 @@ class FullListModal extends StatelessWidget {
                   ],
                 ),
               ),
-
-              const Divider(height: 1),
 
               // 목록 영역 (배경 tint + 카드 화이트)
               Expanded(
@@ -564,7 +562,7 @@ class FullListModal extends StatelessWidget {
           final daysLeft = notice.daysUntilDeadline!;
           final isExpired = daysLeft < 0;
           return Text(
-            isExpired ? '마감됨' : (daysLeft == 0 ? 'D-Day' : 'D-$daysLeft'),
+            isExpired ? '마감됨' : (notice.deadlineDDayText ?? 'D-$daysLeft'),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -654,7 +652,7 @@ class FullListModal extends StatelessWidget {
             ],
             if (notice.isDeadlineSoon) ...[
               Text(
-                'D-${notice.daysUntilDeadline}',
+                notice.deadlineDDayText ?? '',
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
@@ -669,7 +667,7 @@ class FullListModal extends StatelessWidget {
         if (notice.daysUntilDeadline != null) {
           final daysLeft = notice.daysUntilDeadline!;
           return Text(
-            daysLeft == 0 ? 'D-Day' : 'D-$daysLeft',
+            notice.deadlineDDayText ?? 'D-$daysLeft',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -682,26 +680,12 @@ class FullListModal extends StatelessWidget {
   }
 
   /// 우측 위젯 (북마크 버튼 - 애니메이션)
-  /// Provider가 copyWith()로 새 객체를 생성하므로, 정적 리스트의 옛 참조 대신
-  /// Provider의 모든 리스트에서 실시간 상태를 조회
+  /// Provider의 모든 리스트에서 실시간 북마크 상태를 조회
   Widget _buildTrailingWidget(BuildContext context, Notice notice, bool isDark) {
     return Consumer<NoticeProvider>(
       builder: (context, provider, child) {
-        // notices, recommendedNotices, categoryNotices 모두에서 검색
-        bool isBookmarked = false;
-        for (final n in provider.notices) {
-          if (n.id == notice.id) { isBookmarked = n.isBookmarked; break; }
-        }
-        if (!isBookmarked) {
-          for (final n in provider.recommendedNotices) {
-            if (n.id == notice.id) { isBookmarked = n.isBookmarked; break; }
-          }
-        }
-        if (!isBookmarked) {
-          for (final n in provider.categoryNotices) {
-            if (n.id == notice.id) { isBookmarked = n.isBookmarked; break; }
-          }
-        }
+        // bookmarkedNotices를 먼저 확인 (가장 확실한 소스)
+        final isBookmarked = provider.bookmarkedNotices.any((n) => n.id == notice.id);
         return AnimatedBookmarkButton(
           isBookmarked: isBookmarked,
           onTap: () => provider.toggleBookmark(notice.id),

@@ -8,7 +8,7 @@
 
 from flask import Blueprint, request, jsonify, g
 from typing import Dict, Any, List, Optional, Tuple
-from services.supabase_service import SupabaseService
+from services.supabase_service import SupabaseService, reset_supabase_client
 from utils.auth_middleware import login_required
 from ai.embedding_service import EmbeddingService
 from ai.enrichment_service import EnrichmentService
@@ -82,6 +82,7 @@ def get_departments():
 
 
 @users_bp.route('/profile', methods=['POST'])
+@login_required
 def create_user_profile():
     """
     회원가입 후 사용자 프로필 및 선호도를 생성합니다.
@@ -121,6 +122,14 @@ def create_user_profile():
                 }), 400
 
         user_id = data['user_id']
+
+        # 토큰의 사용자 ID와 요청 body의 user_id 일치 확인 (위변조 방지)
+        if g.user_id != user_id:
+            return jsonify({
+                "status": "error",
+                "message": "인증된 사용자와 요청 user_id가 일치하지 않습니다."
+            }), 403
+
         email = data['email']
         name = data['name']
         student_id = data['student_id']
@@ -193,6 +202,44 @@ def create_user_profile():
         error_msg = str(e)
         print(f"[ERROR] 프로필 생성 에러: {error_msg}")
 
+        # Supabase 연결 오류 시 클라이언트 재생성 후 1회 재시도
+        if "StreamInputs" in error_msg or "SEND_DATA" in error_msg or "state 5" in error_msg:
+            try:
+                print("[DB] 연결 오류 감지 — 클라이언트 재생성 후 재시도")
+                new_client = reset_supabase_client()
+
+                # users 테이블 재시도
+                user_data = {
+                    "id": data['user_id'],
+                    "email": data['email'],
+                    "name": data['name'],
+                    "student_id": data['student_id'],
+                    "department": data['department'],
+                    "grade": data['grade']
+                }
+                new_client.table("users").upsert(user_data, on_conflict="id").execute()
+
+                # user_preferences 테이블 재시도
+                preferences_data = {
+                    "user_id": data['user_id'],
+                    "categories": data['categories'],
+                    "keywords": [],
+                    "notification_enabled": True
+                }
+                new_client.table("user_preferences").upsert(preferences_data, on_conflict="user_id").execute()
+
+                print(f"[사용자 프로필] 재시도 성공: {data['email']}")
+                return jsonify({
+                    "status": "success",
+                    "data": {
+                        "user_id": data['user_id'],
+                        "message": "프로필이 생성되었습니다."
+                    }
+                }), 200
+            except Exception as retry_err:
+                print(f"[ERROR] 프로필 생성 재시도도 실패: {str(retry_err)}")
+                error_msg = str(retry_err)
+
         # 학번 중복 에러 체크
         if "duplicate key value violates unique constraint" in error_msg.lower() and "student_id" in error_msg.lower():
             return jsonify({
@@ -209,7 +256,7 @@ def create_user_profile():
 
         return jsonify({
             "status": "error",
-            "message": error_msg
+            "message": "프로필 생성에 실패했습니다."
         }), 500
 
 
@@ -232,7 +279,7 @@ def get_user_profile(user_id):
     """
     try:
         # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 프로필만 조회할 수 있습니다."
@@ -269,10 +316,33 @@ def get_user_profile(user_id):
         }), 200
 
     except Exception as e:
-        print(f"[ERROR] 프로필 조회 에러: {str(e)}")
+        error_msg = str(e)
+        print(f"[ERROR] 프로필 조회 에러: {error_msg}")
+
+        # Supabase 연결 오류 시 클라이언트 재생성 후 1회 재시도
+        if "StreamInputs" in error_msg or "SEND_DATA" in error_msg:
+            try:
+                print("[DB] 연결 오류 감지 — 클라이언트 재생성 후 재시도")
+                new_client = reset_supabase_client()
+
+                user_result = new_client.table("users")\
+                    .select("*").eq("id", user_id).single().execute()
+                preferences_result = new_client.table("user_preferences")\
+                    .select("*").eq("user_id", user_id).single().execute()
+
+                return jsonify({
+                    "status": "success",
+                    "data": {
+                        "user": user_result.data,
+                        "preferences": preferences_result.data if preferences_result.data else None
+                    }
+                }), 200
+            except Exception as retry_err:
+                print(f"[ERROR] 프로필 조회 재시도도 실패: {str(retry_err)}")
+
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "프로필 조회에 실패했습니다."
         }), 500
 
 
@@ -301,7 +371,7 @@ def update_user_profile(user_id):
     """
     try:
         # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 프로필만 변경할 수 있습니다."
@@ -384,7 +454,7 @@ def update_user_profile(user_id):
         print(f"[ERROR] 프로필 업데이트 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "프로필 업데이트에 실패했습니다."
         }), 500
 
 
@@ -411,7 +481,7 @@ def update_user_preferences(user_id):
     """
     try:
         # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 선호도만 변경할 수 있습니다."
@@ -495,7 +565,7 @@ def update_user_preferences(user_id):
         print(f"[ERROR] 선호도 업데이트 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "선호도 업데이트에 실패했습니다."
         }), 500
 
 
@@ -533,7 +603,7 @@ def update_notification_settings(user_id):
     }
     """
     try:
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 설정만 변경할 수 있습니다."
@@ -555,7 +625,13 @@ def update_notification_settings(user_id):
             update_data['notification_mode'] = mode
 
         if 'deadline_reminder_days' in data:
-            days = int(data['deadline_reminder_days'])
+            try:
+                days = int(data['deadline_reminder_days'])
+            except (ValueError, TypeError):
+                return jsonify({
+                    "status": "error",
+                    "message": "deadline_reminder_days는 정수여야 합니다."
+                }), 400
             if days < 1 or days > 7:
                 return jsonify({
                     "status": "error",
@@ -596,7 +672,7 @@ def update_notification_settings(user_id):
         print(f"[ERROR] 알림 설정 업데이트 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "알림 설정 업데이트에 실패했습니다."
         }), 500
 
 
@@ -618,7 +694,7 @@ def get_notification_settings(user_id):
     }
     """
     try:
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 설정만 조회할 수 있습니다."
@@ -650,7 +726,7 @@ def get_notification_settings(user_id):
         print(f"[ERROR] 알림 설정 조회 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "알림 설정 조회에 실패했습니다."
         }), 500
 
 
@@ -672,7 +748,7 @@ def delete_user(user_id):
     """
     try:
         # 현재 로그인한 사용자와 요청하는 user_id가 일치하는지 확인
-        if g.user.id != user_id:
+        if g.user_id != user_id:
             return jsonify({
                 "status": "error",
                 "message": "자신의 계정만 삭제할 수 있습니다."
@@ -696,7 +772,7 @@ def delete_user(user_id):
         print(f"[ERROR] 사용자 삭제 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "사용자 삭제에 실패했습니다."
         }), 500
 
 

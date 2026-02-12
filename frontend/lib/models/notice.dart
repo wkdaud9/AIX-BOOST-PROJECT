@@ -243,6 +243,15 @@ class Notice {
     return target.difference(today).inDays;
   }
 
+  /// D-day 텍스트 (D-3, D-Day, D+1 형식)
+  String? get deadlineDDayText {
+    final days = daysUntilDeadline;
+    if (days == null) return null;
+    if (days > 0) return 'D-$days';
+    if (days == 0) return 'D-Day';
+    return '마감';
+  }
+
   /// 마감 임박 여부 (3일 이내)
   bool get isDeadlineSoon {
     final days = daysUntilDeadline;

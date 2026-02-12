@@ -88,11 +88,100 @@ class SchedulerService:
             import traceback
             traceback.print_exc()
 
+    def view_count_update_job(self):
+        """
+        조회수 업데이트 작업 (하루 2회 실행)
+
+        최근 7일 이내 공지의 조회수를 원본 사이트에서 갱신합니다.
+        크롤링 파이프라인과 분리하여 서버 부하를 줄입니다.
+        """
+        try:
+            print("\n" + "="*60)
+            print(f"[스케줄러] 조회수 업데이트 시작: {datetime.now()}")
+            print("="*60 + "\n")
+
+            import re
+            from datetime import timedelta, timezone
+            from services.supabase_service import get_supabase_client
+            from crawler.notice_crawler import NoticeCrawler
+
+            supabase = get_supabase_client()
+            crawler = NoticeCrawler()
+
+            # 7일 이내 공지 조회 (최대 30개)
+            since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+            result = supabase.table("notices")\
+                .select("id, source_url, view_count")\
+                .gte("published_at", since)\
+                .not_.is_("source_url", "null")\
+                .order("published_at", desc=True)\
+                .limit(30)\
+                .execute()
+
+            notices = result.data or []
+            if not notices:
+                print("  [정보] 업데이트할 최근 공지 없음")
+                return
+
+            print(f"  [정보] {len(notices)}개 공지 조회수 확인 중...")
+            updated = 0
+
+            for notice in notices:
+                source_url = notice.get("source_url")
+                if not source_url:
+                    continue
+
+                try:
+                    soup = crawler.fetch_page(source_url, delay_range=(0.5, 1.0))
+                    if not soup:
+                        continue
+
+                    bv_txt01 = soup.select_one('div.bv_txt01')
+                    if not bv_txt01:
+                        del soup
+                        continue
+
+                    new_views = None
+                    for span in bv_txt01.find_all('span'):
+                        if '조회수' in span.get_text():
+                            match = re.search(r'(\d+)', span.get_text())
+                            if match:
+                                new_views = int(match.group(1))
+                                break
+
+                    del soup
+
+                    if new_views is None:
+                        continue
+
+                    old_views = notice.get("view_count") or 0
+                    if new_views > old_views:
+                        supabase.table("notices")\
+                            .update({"view_count": new_views})\
+                            .eq("id", notice["id"])\
+                            .execute()
+                        updated += 1
+
+                except Exception:
+                    continue
+
+            print(f"  [완료] {updated}건 조회수 업데이트 완료")
+
+            print("\n" + "="*60)
+            print(f"[스케줄러] 조회수 업데이트 완료: {datetime.now()}")
+            print("="*60 + "\n")
+
+        except Exception as e:
+            print(f"\n[스케줄러 ERROR] 조회수 업데이트 중 에러 발생: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
     def start(self):
         """
         스케줄러 시작
 
         - 15분마다 crawl_and_save_job() 실행
+        - 매일 08:00, 20:00(KST) view_count_update_job() 실행
         - 매일 09:00(KST) deadline_reminder_job() 실행
         """
         if self.is_running:
@@ -106,6 +195,17 @@ class SchedulerService:
             minutes=15,
             id='auto_crawling',
             name='15분마다 자동 크롤링',
+            replace_existing=True
+        )
+
+        # 하루 2회(08:00, 20:00 KST) 조회수 업데이트
+        self.scheduler.add_job(
+            self.view_count_update_job,
+            'cron',
+            hour='8,20',
+            minute=0,
+            id='view_count_update',
+            name='하루 2회 조회수 업데이트',
             replace_existing=True
         )
 
@@ -127,7 +227,8 @@ class SchedulerService:
         print("\n" + "="*60)
         print("[스케줄러] 자동화 스케줄러 시작")
         print(f"[스케줄러] 1) 크롤링: 15분마다")
-        print(f"[스케줄러] 2) 디데이 리마인더: 매일 09:00 KST")
+        print(f"[스케줄러] 2) 조회수 업데이트: 매일 08:00, 20:00 KST")
+        print(f"[스케줄러] 3) 디데이 리마인더: 매일 09:00 KST")
         print(f"[스케줄러] 현재 시각: {datetime.now(pytz.timezone('Asia/Seoul'))}")
         print("="*60 + "\n")
 

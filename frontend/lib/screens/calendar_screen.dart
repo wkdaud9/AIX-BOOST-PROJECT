@@ -365,9 +365,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
               const SizedBox(height: AppSpacing.sm),
 
-              // 내용 미리보기
+              // 내용 미리보기 (AI 요약 우선)
               Text(
-                notice.content,
+                notice.aiSummary ?? notice.content,
                 style: Theme.of(context).textTheme.bodySmall,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -688,9 +688,9 @@ class _CalendarScreenState extends State<CalendarScreen> with SingleTickerProvid
 
               const SizedBox(height: AppSpacing.sm),
 
-              // 내용 미리보기
+              // 내용 미리보기 (AI 요약 우선)
               Text(
-                notice.content,
+                notice.aiSummary ?? notice.content,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppTheme.textSecondary,
                     ),

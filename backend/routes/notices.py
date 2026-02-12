@@ -8,7 +8,8 @@
 
 from flask import Blueprint, request, jsonify, Response, g
 from typing import Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
+from urllib.parse import urlparse
 import requests as http_requests
 from services.supabase_service import SupabaseService
 from crawler.crawler_manager import CrawlerManager
@@ -107,7 +108,7 @@ def crawl_and_save():
         print(f"[ERROR] 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "크롤링에 실패했습니다."
         }), 500
 
 
@@ -132,8 +133,8 @@ def get_deadline_notices():
 
         # 이번 주 월~일 범위 계산
         now = datetime.now()
-        week_start = now - __import__('datetime').timedelta(days=now.weekday())
-        week_end = week_start + __import__('datetime').timedelta(days=6)
+        week_start = now - timedelta(days=now.weekday())
+        week_end = week_start + timedelta(days=6)
 
         supabase = SupabaseService()
         notices = supabase.get_deadline_notices(
@@ -151,7 +152,7 @@ def get_deadline_notices():
         print(f"[ERROR] 이번 주 마감 공지 조회 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "마감 공지 조회에 실패했습니다."
         }), 500
 
 
@@ -190,7 +191,7 @@ def get_bookmarked_notices():
         print(f"[ERROR] 북마크 공지 조회 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "북마크 공지 조회에 실패했습니다."
         }), 500
 
 
@@ -225,7 +226,7 @@ def get_popular_notices():
         print(f"[ERROR] 인기 공지 조회 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "인기 공지 조회에 실패했습니다."
         }), 500
 
 
@@ -267,8 +268,11 @@ def get_notices():
     try:
         # 쿼리 파라미터 가져오기
         category = request.args.get('category', None)
-        limit = int(request.args.get('limit', 20))
-        offset = int(request.args.get('offset', 0))
+        try:
+            limit = int(request.args.get('limit', 20))
+            offset = int(request.args.get('offset', 0))
+        except (ValueError, TypeError):
+            return jsonify({"status": "error", "message": "limit과 offset은 정수여야 합니다"}), 400
         deadline_from = request.args.get('deadline_from', None)
         user_id = g.user_id  # optional_login으로 설정됨 (없으면 None)
 
@@ -296,7 +300,7 @@ def get_notices():
         print(f"[ERROR] 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "공지사항 조회에 실패했습니다."
         }), 500
 
 
@@ -403,7 +407,63 @@ def get_popular_in_my_group():
         print(f"[ERROR] 인기 공지 조회 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "인기 공지 조회에 실패했습니다."
+        }), 500
+
+
+@notices_bp.route('/essential', methods=['GET'])
+def get_essential_notices_api():
+    """
+    오늘 필수 공지사항을 조회합니다 (MyBro 탭용)
+
+    GET /api/notices/essential?limit=10
+
+    점수 기반 정렬: 마감임박(+8), 신규(+5), 인기(+3), 북마크(+2)
+    """
+    try:
+        limit = min(30, max(1, int(request.args.get('limit', 10))))
+
+        supabase = SupabaseService()
+        notices = supabase.get_essential_notices(limit=limit)
+
+        return jsonify({
+            "status": "success",
+            "data": notices
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] 오늘 필수 공지 조회 실패: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": "오늘 필수 공지 조회에 실패했습니다."
+        }), 500
+
+
+@notices_bp.route('/deadline-soon', methods=['GET'])
+def get_deadline_soon_notices_api():
+    """
+    마감 임박 공지사항을 조회합니다 (MyBro 탭용)
+
+    GET /api/notices/deadline-soon?limit=10
+
+    오늘~D+7 범위, 마감일 오름차순 정렬
+    """
+    try:
+        limit = min(30, max(1, int(request.args.get('limit', 10))))
+
+        supabase = SupabaseService()
+        notices = supabase.get_deadline_soon_notices(limit=limit)
+
+        return jsonify({
+            "status": "success",
+            "data": notices
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] 마감 임박 공지 조회 실패: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": "마감 임박 공지 조회에 실패했습니다."
         }), 500
 
 
@@ -444,7 +504,7 @@ def get_notice(notice_id):
         print(f"[ERROR] 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "공지사항 조회에 실패했습니다."
         }), 500
 
 
@@ -492,7 +552,7 @@ def record_notice_view(notice_id):
         print(f"[ERROR] 조회 기록 저장 실패: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "조회 기록 저장에 실패했습니다."
         }), 500
 
 
@@ -529,7 +589,7 @@ def delete_notice(notice_id):
         print(f"[ERROR] 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "공지사항 삭제에 실패했습니다."
         }), 500
 
 
@@ -566,11 +626,12 @@ def get_statistics():
         print(f"[ERROR] 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "통계 조회에 실패했습니다."
         }), 500
 
 
 @notices_bp.route('/image-proxy', methods=['GET'])
+@optional_login
 def proxy_image():
     """
     학교 서버 이미지 프록시 (CORS/핫링크 차단 우회)
@@ -579,15 +640,23 @@ def proxy_image():
 
     학교 서버가 외부 직접 접근을 차단하므로,
     백엔드에서 이미지를 가져와 클라이언트에 전달합니다.
+    인증 필수 + 군산대 도메인만 허용합니다.
     """
     image_url = request.args.get('url', '')
 
-    # 보안: 군산대 도메인만 허용
-    if not image_url.startswith('https://www.kunsan.ac.kr/'):
+    # 보안: urlparse로 호스트명을 정확히 검증 (SSRF 방지)
+    try:
+        parsed = urlparse(image_url)
+        if parsed.scheme != 'https' or parsed.hostname != 'www.kunsan.ac.kr':
+            return jsonify({
+                "status": "error",
+                "message": "허용되지 않는 URL입니다"
+            }), 403
+    except Exception:
         return jsonify({
             "status": "error",
-            "message": "허용되지 않는 URL입니다"
-        }), 403
+            "message": "잘못된 URL 형식입니다"
+        }), 400
 
     try:
         # 학교 서버에 Referer 포함하여 요청
@@ -620,5 +689,5 @@ def proxy_image():
         print(f"[ERROR] 이미지 프록시 에러: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": str(e)
+            "message": "이미지 로드에 실패했습니다."
         }), 500

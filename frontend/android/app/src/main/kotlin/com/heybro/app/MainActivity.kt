@@ -1,4 +1,4 @@
-package com.example.aix_boost
+package com.heybro.app
 
 import io.flutter.embedding.android.FlutterActivity
 

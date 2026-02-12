@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_web_frame/flutter_web_frame.dart';
 import 'package:provider/provider.dart';
 import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
@@ -12,6 +15,9 @@ import 'services/api_service.dart';
 import 'services/fcm_service.dart';
 import 'env_config.dart';
 
+/// 글로벌 네비게이터 키 (FCM 알림 탭 시 화면 전환용)
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -22,6 +28,16 @@ Future<void> main() async {
   );
 
   runApp(const AIXBoostApp());
+}
+
+/// 웹에서 마우스 드래그로도 스크롤 가능하도록 하는 커스텀 ScrollBehavior
+class AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+      };
 }
 
 class AIXBoostApp extends StatelessWidget {
@@ -46,9 +62,15 @@ class AIXBoostApp extends StatelessWidget {
           update: (_, apiService, previous) =>
               previous ?? NoticeProvider(apiService: apiService),
         ),
-        // 4. SettingsProvider 생성 (테마, 알림 설정 관리)
-        ChangeNotifierProvider<SettingsProvider>(
+        // 4. SettingsProvider 생성 (테마, 알림 설정 관리, ApiService 의존)
+        ChangeNotifierProxyProvider<ApiService, SettingsProvider>(
           create: (_) => SettingsProvider()..initialize(),
+          update: (_, apiService, previous) {
+            previous?.updateApiService(apiService);
+            return previous ?? (SettingsProvider()
+              ..updateApiService(apiService)
+              ..initialize());
+          },
         ),
         // 5. NotificationProvider 생성 (ApiService 의존, 알림 목록 관리)
         ChangeNotifierProxyProvider<ApiService, NotificationProvider>(
@@ -69,13 +91,23 @@ class AIXBoostApp extends StatelessWidget {
       ],
       child: Consumer<SettingsProvider>(
         builder: (context, settings, child) {
-          return MaterialApp(
+          final app = MaterialApp(
             title: 'Hey bro',
+            navigatorKey: navigatorKey,
             debugShowCheckedModeBanner: false,
+            scrollBehavior: AppScrollBehavior(),
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: settings.themeMode,
             home: const SplashScreen(),
+          );
+
+          /// 웹에서만 폰 사이즈 프레임 적용 (PC 브라우저 중앙 정렬)
+          return FlutterWebFrame(
+            maximumSize: const Size(475, 812),
+            enabled: kIsWeb,
+            backgroundColor: const Color(0xFF0a1628),
+            builder: (context) => app,
           );
         },
       ),

@@ -5,6 +5,7 @@ import '../services/fcm_service.dart';
 import '../providers/notice_provider.dart';
 import '../providers/notification_provider.dart';
 import '../theme/app_theme.dart';
+import '../main.dart' show navigatorKey;
 import 'home_screen.dart';
 import 'login_screen.dart';
 import 'reset_password_screen.dart';
@@ -23,6 +24,16 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _fcmInitialized = false;
   bool _isLoading = false;
+
+  @override
+  void dispose() {
+    // FCM 콜백 강한 참조 해제 (메모리 누수 방지)
+    try {
+      final fcmService = context.read<FCMService>();
+      fcmService.onMessageReceived = null;
+    } catch (_) {}
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,6 +97,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       };
 
       // FCM 초기화 (Firebase init + 토큰 등록 + 리스너 설정)
+      fcmService.setNavigatorKey(navigatorKey);
       fcmService.initialize();
 
       // 백엔드에서 알림 내역 조회

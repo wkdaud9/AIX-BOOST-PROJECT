@@ -26,13 +26,14 @@
 import os
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
-from supabase import create_client, Client
+from supabase import Client
 from dotenv import load_dotenv
 
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ai.embedding_service import EmbeddingService
+from services.supabase_service import get_supabase_client
 
 load_dotenv()
 
@@ -60,12 +61,9 @@ class HybridSearchService:
     }
 
     def __init__(self):
-        """하이브리드 검색 서비스 초기화"""
-        # Supabase 클라이언트
-        self.supabase: Client = create_client(
-            os.getenv("SUPABASE_URL"),
-            os.getenv("SUPABASE_KEY")
-        )
+        """하이브리드 검색 서비스 초기화 (공유 싱글턴 클라이언트 사용)"""
+        # Supabase 클라이언트 (공유 싱글턴 — reset_supabase_client() 시 자동 반영)
+        self.supabase: Client = get_supabase_client()
 
         # 임베딩 서비스
         self.embedding_service = EmbeddingService()
