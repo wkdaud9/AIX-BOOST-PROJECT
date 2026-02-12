@@ -1277,9 +1277,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: dDay <= 3
-                                            ? AppTheme.errorColor.withOpacity(isDark ? 0.2 : 0.12)
-                                            : const Color(0xFF38BDF8).withOpacity(isDark ? 0.2 : 0.12),
+                                        color: dDay < 0
+                                            ? Colors.grey.withOpacity(isDark ? 0.2 : 0.12)
+                                            : dDay <= 3
+                                                ? AppTheme.errorColor.withOpacity(isDark ? 0.2 : 0.12)
+                                                : const Color(0xFF38BDF8).withOpacity(isDark ? 0.2 : 0.12),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
@@ -1287,9 +1289,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
-                                          color: dDay <= 3
-                                              ? AppTheme.errorColor
-                                              : const Color(0xFF38BDF8),
+                                          color: dDay < 0
+                                              ? Colors.grey
+                                              : dDay <= 3
+                                                  ? AppTheme.errorColor
+                                                  : const Color(0xFF38BDF8),
                                         ),
                                       ),
                                     ),

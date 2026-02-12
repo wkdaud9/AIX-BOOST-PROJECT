@@ -249,7 +249,7 @@ class Notice {
     if (days == null) return null;
     if (days > 0) return 'D-$days';
     if (days == 0) return 'D-Day';
-    return 'D+${days.abs()}';
+    return '마감';
   }
 
   /// 마감 임박 여부 (3일 이내)

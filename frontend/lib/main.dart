@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_web_frame/flutter_web_frame.dart';
 import 'package:provider/provider.dart';
 import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
@@ -89,7 +91,7 @@ class AIXBoostApp extends StatelessWidget {
       ],
       child: Consumer<SettingsProvider>(
         builder: (context, settings, child) {
-          return MaterialApp(
+          final app = MaterialApp(
             title: 'Hey bro',
             navigatorKey: navigatorKey,
             debugShowCheckedModeBanner: false,
@@ -98,6 +100,14 @@ class AIXBoostApp extends StatelessWidget {
             darkTheme: AppTheme.darkTheme,
             themeMode: settings.themeMode,
             home: const SplashScreen(),
+          );
+
+          /// 웹에서만 폰 사이즈 프레임 적용 (PC 브라우저 중앙 정렬)
+          return FlutterWebFrame(
+            maximumSize: const Size(475, 812),
+            enabled: kIsWeb,
+            backgroundColor: const Color(0xFF0a1628),
+            builder: (context) => app,
           );
         },
       ),
