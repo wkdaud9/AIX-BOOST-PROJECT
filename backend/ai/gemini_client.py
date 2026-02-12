@@ -234,28 +234,6 @@ class GeminiClient:
         print(f"[완료] 모델 변경됨: {self.model_name}")
 
 
-# =====================================
-# 헬퍼 함수 (다른 모듈에서 쉽게 사용하기 위함)
-# =====================================
-
-def get_gemini_model():
-    """
-    Gemini 모델 인스턴스를 반환합니다.
-
-    다른 모듈에서 간편하게 Gemini 모델을 사용할 수 있도록 합니다.
-
-    예시:
-    from ai.gemini_client import get_gemini_model
-    model = get_gemini_model()
-    response = model.generate_content("안녕하세요!")
-
-    반환값:
-    - GenerativeModel 인스턴스 (Gemini API 직접 호출 가능)
-    """
-    client = GeminiClient()
-    return client.model
-
-
 # 테스트 코드 (이 파일을 직접 실행했을 때만 작동)
 if __name__ == "__main__":
     print("=" * 50)
@@ -312,33 +290,3 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"\n[오류] 테스트 실패: {str(e)}")
-
-
-def get_gemini_model(model_name: str = "models/gemini-2.0-flash"):
-    """
-    Gemini 모델 인스턴스를 반환하는 헬퍼 함수
-
-    목적:
-    GeminiClient 클래스 없이 간단하게 Gemini 모델을 사용할 때 활용합니다.
-
-    매개변수:
-    - model_name: 사용할 모델 이름 (기본값: gemini-2.0-flash)
-
-    예시:
-    model = get_gemini_model()
-    response = model.generate_content("안녕하세요")
-    """
-    # 환경 변수에서 API 키 로드
-    api_key = os.getenv('GEMINI_API_KEY')
-
-    if not api_key:
-        raise ValueError(
-            "[오류] Gemini API 키가 없습니다! "
-            ".env 파일에 GEMINI_API_KEY를 설정하세요."
-        )
-
-    # Gemini AI 설정
-    genai.configure(api_key=api_key)
-
-    # 모델 인스턴스 반환
-    return genai.GenerativeModel(model_name)
